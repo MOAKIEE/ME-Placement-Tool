@@ -2,7 +2,7 @@
 
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1-green.svg)](https://www.minecraft.net/)
 [![Forge](https://img.shields.io/badge/Forge-47.4.10-orange.svg)](https://files.minecraftforge.net/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
+[![License](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)](../LICENSE)
 
 [🇬🇧 English](../README.md)
 
@@ -74,7 +74,11 @@ cd ME-Placement-Tool
 
 ## 许可证
 
-本项目采用 MIT 许可证 - 详见 [LICENSE](../LICENSE) 文件。
+本项目采用 GNU 较宽松公共许可证 第3版（LGPL-3.0-only）。
+
+你可以在遵循 LGPL-3.0-only 条款的前提下在模组包中使用此模组。
+
+完整许可请参阅仓库根目录的 `LICENSE` 文件。
 
 ## 致谢
 
