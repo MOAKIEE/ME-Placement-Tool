@@ -74,7 +74,9 @@ The built jar will be in `build/libs/`.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU Lesser General Public License v3.0 (LGPL-3.0-only).
+
+You are free to use this mod in modpacks under the terms of the LGPL-3.0-only license.
 
 ## Credits
 
