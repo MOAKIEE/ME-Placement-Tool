@@ -78,6 +78,8 @@ This project is licensed under the GNU Lesser General Public License v3.0 (LGPL-
 
 You are free to use this mod in modpacks under the terms of the LGPL-3.0-only license.
 
+See the `LICENSE` file in the repository root for the full license text.
+
 ## Credits
 
 - **Applied Energistics 2 Team** - For the amazing AE2 mod and API
