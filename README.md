@@ -10,22 +10,21 @@ A Minecraft Forge mod that adds a placement tool for Applied Energistics 2, allo
 
 ## Features
 
-- **ME Network Integration** - Links to your AE network via Security Terminal or ME Controller
-- **3x3 Ghost Slot GUI** - Configure up to 9 different items/fluids to place
-- **Smart Placement** - Automatically handles:
-  - Regular blocks
-  - AE2 cable parts (buses, panels, etc.)
-  - Fluids (as fluid blocks in the world)
-- **Slot Selection** - Scroll wheel to switch between configured slots
-- **HUD Overlay** - Shows currently selected item and network status
-- **JEI Integration** - Drag items/fluids from JEI directly into ghost slots
+- **ME Network Integration** - Links to your ME network via ME Wireless Access Point
+- **Smart Placement** - Place items directly from your ME network:
+  - Regular blocks - placed as normal blocks
+  - AE2 cable parts (buses, panels, etc.) - attached to cables automatically
+  - Fluids - placed as fluid source blocks in the world
+- **3x3 Configuration GUI** - Configure up to 9 different items/fluids to place
+- **HUD Overlay** - Shows currently selected item and network connection status
+- **JEI Integration** - Drag items/fluids from JEI directly into configuration slots
 
 ## Requirements
 
 - Minecraft 1.20.1
 - Forge 47.4.10+
 - Applied Energistics 2 (AE2)
-- JEI (optional, for drag-to-ghost slot support)
+- JEI (optional, for drag-and-drop support)
 
 ## Installation
 
@@ -38,18 +37,18 @@ A Minecraft Forge mod that adds a placement tool for Applied Energistics 2, allo
 ### Linking to ME Network
 
 1. Craft the ME Placement Tool
-2. Sneak + Right-click on an **ME Controller** or **Security Terminal** to link
+2. Place the tool into an **ME Wireless Access Point** to link
 3. The tool will now have access to your ME network's inventory
 
-### Configuring Slots
+### Configuring Items
 
-1. Right-click with the tool to open the configuration GUI
-2. Place items or fluids in the 3x3 grid (ghost slots)
+1. Right-click with the tool (in air) to open the configuration GUI
+2. Place items or fluids in the 3x3 grid
 3. Items are not consumed - they define what to place from the network
 
 ### Placing Items
 
-1. Use scroll wheel to select a slot
+1. Use Shift + Left/Right-click (in air) to select a configured slot
 2. Right-click on a block to place the selected item
 3. Items/fluids are extracted from the linked ME network
 
@@ -59,8 +58,9 @@ A Minecraft Forge mod that adds a placement tool for Applied Energistics 2, allo
 |--------|-----|
 | Open GUI | Right-click (in air) |
 | Place Item | Right-click (on block) |
-| Switch Slot | Scroll Wheel |
-| Link to Network | Sneak + Right-click on Controller/Security Terminal |
+| Previous Slot | Shift + Left-click (in air) |
+| Next Slot | Shift + Right-click (in air) |
+| Link to Network | Place into ME Wireless Access Point |
 
 ## Building from Source
 

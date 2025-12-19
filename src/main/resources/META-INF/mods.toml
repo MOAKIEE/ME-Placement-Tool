@@ -3,7 +3,7 @@ modLoader="javafml" #mandatory
 # A version range to match for the mod loader (leave as-is or adjust to your Forge range)
 loaderVersion="${loader_version_range}" #mandatory
 # License
-license="All rights reserved"
+license="MIT"
 # A list of mods
 [[mods]] #mandatory
 modId="meplacementtool" #mandatory
@@ -11,9 +11,9 @@ version="1.0.0" #mandatory
 displayName="ME Placement Tool" #mandatory
 # More optional fields (uncomment/edit as needed)
 #updateJSONURL="https://example.invalid/updates.json"
-#displayURL="https://example.invalid/"
-#logoFile="meplacementtool.png"
-authors="moakiee" #optional
+displayURL="https://github.com/MOAKIEE/ME-Placement-Tool"
+logoFile="meplacementtool_icon.png"
+authors="MOAKIEE" #optional
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
