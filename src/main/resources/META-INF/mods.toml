@@ -3,7 +3,7 @@ modLoader="javafml" #mandatory
 # A version range to match for the mod loader (leave as-is or adjust to your Forge range)
 loaderVersion="${loader_version_range}" #mandatory
 # License
-license="MIT"
+license="LGPL-3.0-or-later"
 # A list of mods
 [[mods]] #mandatory
 modId="meplacementtool" #mandatory
