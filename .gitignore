@@ -1,0 +1,30 @@
+# Eclipse
+bin/
+*.launch
+.settings/
+.metadata/
+.classpath
+.project
+
+# IntelliJ IDEA
+out/
+*.ipr
+*.iws
+*.iml
+.idea/
+
+# Gradle
+build/
+.gradle/
+
+# Runtime
+run/
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local files
+*.local
+*.log

@@ -1,0 +1,46 @@
+# This mods.toml provides metadata for the ME Placement Tool mod.
+modLoader="javafml" #mandatory
+# A version range to match for the mod loader (leave as-is or adjust to your Forge range)
+loaderVersion="${loader_version_range}" #mandatory
+# License
+license="All rights reserved"
+# A list of mods
+[[mods]] #mandatory
+modId="meplacementtool" #mandatory
+version="1.0.0" #mandatory
+displayName="ME Placement Tool" #mandatory
+# More optional fields (uncomment/edit as needed)
+#updateJSONURL="https://example.invalid/updates.json"
+#displayURL="https://example.invalid/"
+#logoFile="meplacementtool.png"
+authors="moakiee" #optional
+
+# The description text for the mod (multi line!) (#mandatory)
+description='''
+ME Placement Tool — a utility for integrating with Applied Energistics 2 wireless networks.
+Features:
+- Search for and extract configured items or fluids from an AE2 network (supports a 3x3 ghost-slot configuration).
+- Configure placement presets via a GUI or by dragging from JEI; fluids are marked as fluids rather than buckets.
+- Cycle through presets and place quickly; includes power consumption and network availability checks.
+
+Intended for AE2 users and mod integrators. This is a beta release — feedback and improvements are welcome.
+'''
+
+# Dependencies (adjust version ranges if needed)
+[[dependencies.meplacementtool]] #optional
+    modId="forge" #mandatory
+    mandatory=true #mandatory
+    versionRange="${forge_version_range}" #mandatory
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.meplacementtool]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Features
+#[features.meplacementtool]
+#openGLVersion="[3.2,)"

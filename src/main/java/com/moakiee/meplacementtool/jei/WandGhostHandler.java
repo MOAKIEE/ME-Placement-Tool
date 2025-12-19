@@ -1,0 +1,95 @@
+package com.moakiee.meplacementtool.jei;
+
+import mezz.jei.api.gui.handlers.IGhostIngredientHandler;
+import mezz.jei.api.ingredients.ITypedIngredient;
+import mezz.jei.api.constants.VanillaTypes;
+import com.moakiee.meplacementtool.WandScreen;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.world.item.ItemStack;
+import java.util.ArrayList;
+import java.util.List;
+
+import appeng.integration.modules.jei.GenericEntryStackHelper;
+import appeng.api.stacks.GenericStack;
+import net.minecraft.nbt.CompoundTag;
+
+public class WandGhostHandler implements IGhostIngredientHandler<WandScreen> {
+
+    @Override
+    public <I> List<Target<I>> getTargetsTyped(WandScreen gui, ITypedIngredient<I> ingredient, boolean doStart) {
+        List<Target<I>> targets = new ArrayList<>();
+
+        var screen = gui;
+        var menu = screen.getMenu();
+
+        // Prefer converting JEI ingredient to AE2 GenericStack, then wrap in AE2's WrappedGenericStack item
+        ItemStack stack = ItemStack.EMPTY;
+        var optStack = ingredient.getItemStack();
+        if (!optStack.isEmpty()) {
+            stack = optStack.get();
+        } else {
+            var gs = GenericEntryStackHelper.ingredientToStack(ingredient.getType(), ingredient.getIngredient());
+            if (gs != null) {
+                stack = GenericStack.wrapInItemStack(gs.what(), Math.max(1, (int) Math.min(gs.amount(), Integer.MAX_VALUE)));
+            }
+        }
+        if (stack == null || stack.isEmpty()) return targets;
+
+        // create targets for the first 9 slots
+        for (int i = 0; i < 9; i++) {
+            var slot = menu.getSlot(i);
+            int x = slot.x + screen.getGuiLeft();
+            int y = slot.y + screen.getGuiTop();
+            Rect2i area = new Rect2i(x, y, 16, 16);
+
+            int idx = i;
+            // capture a single ItemStack to place (ensure count=1)
+            ItemStack toPlace = stack.copy();
+            toPlace.setCount(1);
+
+            Target<I> t = new Target<I>() {
+                @Override
+                public Rect2i getArea() {
+                    return area;
+                }
+
+                @Override
+                public void accept(I ingredient) {
+                    try {
+                        var handler = menu.getHandler();
+                            ItemStack copy = toPlace.copy();
+                            // If this is an AE2 WrappedGenericStack representing a fluid, store it directly in the slot
+                            handler.setStackInSlot(idx, copy);
+                            try { var s = menu.getSlot(idx); s.set(copy); } catch (Exception ignored) {}
+                            CompoundTag combined = new CompoundTag();
+                            combined.put("items", handler.serializeNBT());
+                            CompoundTag ftag = new CompoundTag();
+                            for (int ii = 0; ii < 9; ii++) {
+                                String fid = menu.getFluidSlot(ii);
+                                if (fid != null) ftag.putString(Integer.toString(ii), fid);
+                            }
+                            combined.put("fluids", ftag);
+                            com.moakiee.meplacementtool.network.ModNetwork.CHANNEL.sendToServer(
+                                    new com.moakiee.meplacementtool.network.UpdateWandConfigPacket(combined));
+                    } catch (Throwable t) {
+                        // swallow to avoid JEI breaking
+                    }
+                }
+            };
+
+            targets.add(t);
+        }
+
+        return targets;
+    }
+
+    @Override
+    public void onComplete() {
+        // nothing special to do
+    }
+
+    @Override
+    public boolean shouldHighlightTargets() {
+        return true;
+    }
+}

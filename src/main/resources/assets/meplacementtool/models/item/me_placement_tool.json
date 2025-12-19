@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "meplacementtool:item/me_placement_tool"
+  }
+}
