@@ -7,7 +7,7 @@ license="LGPL-3.0-only"
 # A list of mods
 [[mods]] #mandatory
 modId="meplacementtool" #mandatory
-version="1.0.0" #mandatory
+version="1.0.1" #mandatory
 displayName="ME Placement Tool" #mandatory
 # More optional fields (uncomment/edit as needed)
 #updateJSONURL="https://example.invalid/updates.json"
