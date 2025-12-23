@@ -98,15 +98,6 @@ itemBlacklist = []
 | Undo Last Placement | Ctrl + Left-click |
 | Link to Network | Place into ME Wireless Access Point |
 
-## Building from Source
-
-```bash
-git clone https://github.com/yourusername/ME-Placement-Tool.git
-cd ME-Placement-Tool
-./gradlew build
-```
-
-The built jar will be in `build/libs/`.
 
 ## License
 
