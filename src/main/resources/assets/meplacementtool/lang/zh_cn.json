@@ -1,11 +1,12 @@
 {
   "item.meplacementtool.me_placement_tool": "ME 放置工具",
-  "item.meplacementtool.multiblock_placement_tool": "多方块放置工具",
+  "item.meplacementtool.multiblock_placement_tool": "ME 多方块放置工具",
   "gui.meplacementtool.placement_config": "放置配置",
   "message.meplacementtool.device_not_powered": "设备电力不足",
   "message.meplacementtool.no_configured_item": "所选格无已配置物品",
   "message.meplacementtool.unsupported_target": "不支持的目标物品",
   "message.meplacementtool.network_missing": "网络缺少： %s",
   "message.meplacementtool.failed_extract": "从网络抽取失败",
-  "message.meplacementtool.cannot_place": "无法放置"
+  "message.meplacementtool.cannot_place": "无法放置",
+  "message.meplacementtool.no_linked_grid": "未链接到 ME 网络"
 }

@@ -33,12 +33,43 @@ public class Config
             .comment("A list of items to log on common setup.")
             .defineListAllowEmpty("items", List.of("minecraft:iron_ingot"), Config::validateItemName);
 
+    public static final ForgeConfigSpec.DoubleValue ME_PLACEMENT_TOOL_ENERGY_CAPACITY;
+    public static final ForgeConfigSpec.DoubleValue ME_PLACEMENT_TOOL_ENERGY_COST;
+    public static final ForgeConfigSpec.DoubleValue MULTIBLOCK_PLACEMENT_TOOL_ENERGY_CAPACITY;
+    public static final ForgeConfigSpec.DoubleValue MULTIBLOCK_PLACEMENT_TOOL_BASE_ENERGY_COST;
+
+    static {
+        BUILDER.push("energy");
+
+        BUILDER.comment("Energy capacity for ME Placement Tool (in FE)");
+        ME_PLACEMENT_TOOL_ENERGY_CAPACITY = BUILDER
+                .defineInRange("mePlacementToolEnergyCapacity", 1_600_000.0d, 0, Double.MAX_VALUE);
+
+        BUILDER.comment("Energy cost per placement for ME Placement Tool (in FE)");
+        ME_PLACEMENT_TOOL_ENERGY_COST = BUILDER
+                .defineInRange("mePlacementToolEnergyCost", 50.0d, 0, Double.MAX_VALUE);
+
+        BUILDER.comment("Energy capacity for Multiblock Placement Tool (in FE)");
+        MULTIBLOCK_PLACEMENT_TOOL_ENERGY_CAPACITY = BUILDER
+                .defineInRange("multiblockPlacementToolEnergyCapacity", 3_200_000.0d, 0, Double.MAX_VALUE);
+
+        BUILDER.comment("Base energy cost per placement for Multiblock Placement Tool (in FE)");
+        MULTIBLOCK_PLACEMENT_TOOL_BASE_ENERGY_COST = BUILDER
+                .defineInRange("multiblockPlacementToolBaseEnergyCost", 200.0d, 0, Double.MAX_VALUE);
+
+        BUILDER.pop();
+    }
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static boolean logDirtBlock;
     public static int magicNumber;
     public static String magicNumberIntroduction;
     public static Set<Item> items;
+    public static double mePlacementToolEnergyCapacity;
+    public static double mePlacementToolEnergyCost;
+    public static double multiblockPlacementToolEnergyCapacity;
+    public static double multiblockPlacementToolBaseEnergyCost;
 
     private static boolean validateItemName(final Object obj)
     {
@@ -55,5 +86,10 @@ public class Config
         items = ITEM_STRINGS.get().stream()
                 .map(itemName -> ForgeRegistries.ITEMS.getValue(new ResourceLocation(itemName)))
                 .collect(Collectors.toSet());
+
+        mePlacementToolEnergyCapacity = ME_PLACEMENT_TOOL_ENERGY_CAPACITY.get();
+        mePlacementToolEnergyCost = ME_PLACEMENT_TOOL_ENERGY_COST.get();
+        multiblockPlacementToolEnergyCapacity = MULTIBLOCK_PLACEMENT_TOOL_ENERGY_CAPACITY.get();
+        multiblockPlacementToolBaseEnergyCost = MULTIBLOCK_PLACEMENT_TOOL_BASE_ENERGY_COST.get();
     }
 }

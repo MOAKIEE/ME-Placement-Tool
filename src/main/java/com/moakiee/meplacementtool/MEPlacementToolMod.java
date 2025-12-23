@@ -33,6 +33,8 @@ import net.minecraftforge.registries.RegistryObject;
 import org.slf4j.Logger;
 import appeng.api.features.GridLinkables;
 import appeng.items.tools.powered.WirelessTerminalItem;
+import com.moakiee.meplacementtool.client.MultiblockPreviewRenderer;
+import com.moakiee.meplacementtool.client.UndoKeyHandler;
 
 @Mod(MEPlacementToolMod.MODID)
 public class MEPlacementToolMod
@@ -48,8 +50,14 @@ public class MEPlacementToolMod
     public static final RegistryObject<Item> MULTIBLOCK_PLACEMENT_TOOL = ITEMS.register("multiblock_placement_tool",
             () -> new ItemMultiblockPlacementTool(new Item.Properties().stacksTo(1)));
 
+    public static MEPlacementToolMod instance;
+    public MultiblockPreviewRenderer multiblockPreviewRenderer;
+    public UndoHistory undoHistory;
+
     public MEPlacementToolMod()
     {
+        instance = this;
+        undoHistory = new UndoHistory();
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         
         // register our menus
@@ -115,6 +123,13 @@ public class MEPlacementToolMod
             LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
             // register screen for our wand menu
             event.enqueueWork(() -> MenuScreens.register(ModMenus.WAND_MENU.get(), WandScreen::new));
+        }
+
+        @SubscribeEvent
+        public static void onClientSetupComplete(FMLClientSetupEvent event) {
+            MEPlacementToolMod.instance.multiblockPreviewRenderer = new MultiblockPreviewRenderer();
+            MinecraftForge.EVENT_BUS.register(MEPlacementToolMod.instance.multiblockPreviewRenderer);
+            MinecraftForge.EVENT_BUS.register(new UndoKeyHandler());
         }
     }
 

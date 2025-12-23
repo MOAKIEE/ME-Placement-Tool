@@ -18,5 +18,7 @@ public class ModNetwork {
                 UpdateWandConfigPacket::decode, UpdateWandConfigPacket::handle);
         CHANNEL.registerMessage(id++, UpdatePlacementCountPacket.class, UpdatePlacementCountPacket::encode,
                 UpdatePlacementCountPacket::decode, UpdatePlacementCountPacket::handle);
+        CHANNEL.registerMessage(id++, UndoPacket.class, UndoPacket::encode,
+                UndoPacket::decode, UndoPacket.Handler::handle);
     }
 }

@@ -3,6 +3,7 @@
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1-green.svg)](https://www.minecraft.net/)
 [![Forge](https://img.shields.io/badge/Forge-47.4.10-orange.svg)](https://files.minecraftforge.net/)
 [![License](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)](../LICENSE)
+[![Version](https://img.shields.io/badge/Version-1.2.0-brightgreen.svg)](../../releases)
 
 [🇬🇧 English](../README.md)
 
@@ -10,6 +11,7 @@
 
 ## 功能特性
 
+### ME 放置工具
 - **ME 网络集成** - 通过 ME 无线访问点链接到你的 AE 网络
 - **智能放置** - 直接从 ME 网络放置物品：
   - 普通方块 - 作为正常方块放置
@@ -18,6 +20,13 @@
 - **3x3 配置界面** - 最多可配置 9 种不同的物品/流体进行放置
 - **HUD 显示** - 显示当前选中的物品和网络连接状态
 - **JEI 集成** - 可直接从 JEI 拖拽物品/流体到配置格子
+
+### ME 多方块放置工具
+- **多方块放置** - 一次放置多个方块，智能分布
+- **智能放置算法** - 使用 BFS 算法在相连表面上均匀分布方块
+- **可调放置数量** - 循环切换放置数量：1、8、64、256、1024 个方块
+- **预览系统** - 可视化预览方块将要放置的位置
+- **撤销功能** - 按 Ctrl + 左键撤销最后一次放置操作
 
 ## 前置要求
 
@@ -34,32 +43,58 @@
 
 ## 使用方法
 
-### 链接到 ME 网络
+### ME 放置工具
+通过无线访问点链接到 ME 网络，在 GUI 中配置物品，通过右键点击方块表面直接从网络放置方块。
 
-1. 合成 ME 放置工具
-2. 将工具放入 **ME 无线访问点** 进行链接
-3. 工具现在可以访问你的 ME 网络物品库存
+### ME 多方块放置工具
+通过无线访问点链接到 ME 网络，在 GUI 中配置物品，使用 Shift+右键切换放置数量，智能放置多个方块并支持预览和撤销。
 
-### 配置物品
+## 配置文件
 
-1. 右键（对着空气）打开配置界面
-2. 在 3x3 网格中放入物品或流体
-3. 物品不会被消耗 - 它们只是定义从网络中放置什么
+模组配置文件位于 `config/meplacementtool-common.toml`：
 
-### 放置物品
+### 能量设置
+```toml
+# ME 放置工具的能量容量（默认：100000）
+mePlacementToolEnergyCapacity = 100000
 
-1. 使用 Shift + 左/右键（对着空气）选择已配置的槽位
-2. 右键点击方块进行放置
-3. 物品/流体将从链接的 ME 网络中提取
+# ME 放置工具每次放置的能量消耗（默认：50）
+mePlacementToolEnergyCost = 50
 
-### 操作按键
+# ME 多方块放置工具的能量容量（默认：1000000）
+multiblockPlacementToolEnergyCapacity = 1000000
 
+# ME 多方块放置工具的基础能量消耗（默认：200）
+# 总消耗 = 基础消耗 * 放置数量 / 64
+multiblockPlacementToolBaseEnergyCost = 200
+```
+
+### 物品黑名单
+```toml
+# 不能放置的物品（逗号分隔的物品 ID）
+# 示例：["minecraft:bedrock", "minecraft:command_block"]
+itemBlacklist = []
+```
+
+## 操作按键
+
+### ME 放置工具
 | 操作 | 按键 |
 |------|------|
 | 打开界面 | 右键（对着空气） |
 | 放置物品 | 右键（对着方块） |
 | 切换上一个 | Shift + 左键（对着空气） |
 | 切换下一个 | Shift + 右键（对着空气） |
+| 链接网络 | 放入 ME 无线访问点 |
+
+### ME 多方块放置工具
+| 操作 | 按键 |
+|------|------|
+| 打开界面 | 右键（对着空气） |
+| 放置方块 | 右键（对着方块） |
+| 选择槽位 | Shift + 右键（对着空气） |
+| 切换放置数量 | Shift + 右键（对着空气） |
+| 撤销放置 | Ctrl + 左键 |
 | 链接网络 | 放入 ME 无线访问点 |
 
 ## 从源码构建

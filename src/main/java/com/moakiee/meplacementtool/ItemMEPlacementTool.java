@@ -43,10 +43,9 @@ import net.minecraftforge.items.ItemStackHandler;
  */
 public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuItem {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final double ENERGY_CAPACITY = 1_600_000.0d;
 
     public ItemMEPlacementTool(Item.Properties props) {
-        super((DoubleSupplier) () -> ENERGY_CAPACITY, props);
+        super(() -> Config.mePlacementToolEnergyCapacity, props);
     }
 
     @Override
@@ -114,7 +113,7 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
         ItemStack wand = player.getItemInHand(context.getHand());
 
         // energy cost per placement
-        final double ENERGY_COST = 200d;
+        final double ENERGY_COST = Config.mePlacementToolEnergyCost;
 
         // check power
         if (!this.hasPower(player, ENERGY_COST, wand)) {
