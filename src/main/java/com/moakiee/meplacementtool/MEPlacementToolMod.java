@@ -33,6 +33,8 @@ import net.minecraftforge.registries.RegistryObject;
 import org.slf4j.Logger;
 import appeng.api.features.GridLinkables;
 import appeng.items.tools.powered.WirelessTerminalItem;
+import com.moakiee.meplacementtool.client.MultiblockPreviewRenderer;
+import com.moakiee.meplacementtool.client.UndoKeyHandler;
 
 @Mod(MEPlacementToolMod.MODID)
 public class MEPlacementToolMod
@@ -45,9 +47,17 @@ public class MEPlacementToolMod
 
     public static final RegistryObject<Item> ME_PLACEMENT_TOOL = ITEMS.register("me_placement_tool",
             () -> new ItemMEPlacementTool(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> MULTIBLOCK_PLACEMENT_TOOL = ITEMS.register("multiblock_placement_tool",
+            () -> new ItemMultiblockPlacementTool(new Item.Properties().stacksTo(1)));
+
+    public static MEPlacementToolMod instance;
+    public MultiblockPreviewRenderer multiblockPreviewRenderer;
+    public UndoHistory undoHistory;
 
     public MEPlacementToolMod()
     {
+        instance = this;
+        undoHistory = new UndoHistory();
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         
         // register our menus
@@ -82,7 +92,8 @@ public class MEPlacementToolMod
         // Register AE2 grid linkable handler for our custom wireless terminal item
         try {
             GridLinkables.register(ME_PLACEMENT_TOOL.get(), WirelessTerminalItem.LINKABLE_HANDLER);
-            LOGGER.info("Registered GridLinkable handler for ME Placement Tool");
+            GridLinkables.register(MULTIBLOCK_PLACEMENT_TOOL.get(), WirelessTerminalItem.LINKABLE_HANDLER);
+            LOGGER.info("Registered GridLinkable handler for ME Placement Tool and Multiblock Placement Tool");
         } catch (Exception e) {
             LOGGER.error("Failed to register GridLinkable handler: {}", e.getMessage());
         }
@@ -90,8 +101,10 @@ public class MEPlacementToolMod
 
     private void addCreative(BuildCreativeModeTabContentsEvent event)
     {
-        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS)
+        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
             event.accept(ME_PLACEMENT_TOOL.get());
+            event.accept(MULTIBLOCK_PLACEMENT_TOOL.get());
+        }
     }
 
     @SubscribeEvent
@@ -111,20 +124,53 @@ public class MEPlacementToolMod
             // register screen for our wand menu
             event.enqueueWork(() -> MenuScreens.register(ModMenus.WAND_MENU.get(), WandScreen::new));
         }
+
+        @SubscribeEvent
+        public static void onClientSetupComplete(FMLClientSetupEvent event) {
+            MEPlacementToolMod.instance.multiblockPreviewRenderer = new MultiblockPreviewRenderer();
+            MinecraftForge.EVENT_BUS.register(MEPlacementToolMod.instance.multiblockPreviewRenderer);
+            MinecraftForge.EVENT_BUS.register(new UndoKeyHandler());
+        }
     }
 
     @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
     public static class ClientForgeEvents {
         public static String lastSelectedText = null;
         public static long lastSelectedTime = 0L;
-        
+        public static String lastCountText = null;
+        public static long lastCountTime = 0L;
+
+        @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
+        public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
+            var player = net.minecraft.client.Minecraft.getInstance().player;
+            if (player == null || !player.isCrouching()) return;
+            double scroll = event.getScrollDelta();
+            if (scroll == 0) return;
+
+            var main = player.getMainHandItem();
+            if (main.isEmpty() || main.getItem() != MULTIBLOCK_PLACEMENT_TOOL.get()) return;
+
+            int nextCount = ItemMultiblockPlacementTool.getNextPlacementCount(main, scroll > 0);
+            com.moakiee.meplacementtool.network.ModNetwork.CHANNEL.sendToServer(
+                    new com.moakiee.meplacementtool.network.UpdatePlacementCountPacket(nextCount));
+            main.getOrCreateTag().putInt("placement_count", nextCount);
+            event.setCanceled(true);
+
+            showCountOverlay("Placement Count: " + nextCount);
+        }
+
+        public static void showCountOverlay(String text) {
+            lastCountText = text;
+            lastCountTime = System.currentTimeMillis();
+        }
+
         @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
         public static void onLeftClickEmpty(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty event) {
             var player = event.getEntity();
             if (player == null || player.level().isClientSide == false) return;
             if (!net.minecraft.client.gui.screens.Screen.hasShiftDown()) return;
             var main = player.getMainHandItem();
-            if (main.isEmpty() || main.getItem() != ME_PLACEMENT_TOOL.get()) return;
+            if (main.isEmpty() || (main.getItem() != ME_PLACEMENT_TOOL.get() && main.getItem() != MULTIBLOCK_PLACEMENT_TOOL.get())) return;
 
             // previous slot: find previous non-empty configured slot (items or fluids). If none configured, do nothing.
             var tag = main.getOrCreateTag();
@@ -214,17 +260,25 @@ public class MEPlacementToolMod
             @SubscribeEvent
             public static void onRenderOverlay(RenderGuiOverlayEvent event) {
                 try {
-                    if (lastSelectedText == null) return;
-                    if (System.currentTimeMillis() - lastSelectedTime > 2000) return;
                     var mc = net.minecraft.client.Minecraft.getInstance();
                     int sw = mc.getWindow().getGuiScaledWidth();
                     int sh = mc.getWindow().getGuiScaledHeight();
-                    int x = sw / 2;
-                    int y = sh - 50;
                     var gg = event.getGuiGraphics();
                     var font = mc.font;
-                    int w = font.width(lastSelectedText);
-                    gg.drawString(font, lastSelectedText, x - w / 2, y, 0xFFFFFF, false);
+
+                    if (lastSelectedText != null && System.currentTimeMillis() - lastSelectedTime < 2000) {
+                        int x = sw / 2;
+                        int y = sh - 50;
+                        int w = font.width(lastSelectedText);
+                        gg.drawString(font, lastSelectedText, x - w / 2, y, 0xFFFFFF, false);
+                    }
+
+                    if (lastCountText != null && System.currentTimeMillis() - lastCountTime < 2000) {
+                        int x = sw / 2;
+                        int y = sh - 70;
+                        int w = font.width(lastCountText);
+                        gg.drawString(font, lastCountText, x - w / 2, y, 0xFFFF00, false);
+                    }
                 } catch (Throwable t) {
                     LogUtils.getLogger().warn("Error rendering overlay", t);
                 }

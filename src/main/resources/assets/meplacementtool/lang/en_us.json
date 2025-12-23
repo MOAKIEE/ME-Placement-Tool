@@ -1,3 +1,12 @@
 {
-  "item.meplacementtool.me_placement_tool": "ME Placement Tool"
+  "item.meplacementtool.me_placement_tool": "ME Placement Tool",
+  "item.meplacementtool.multiblock_placement_tool": "ME Multiblock Placement Tool",
+  "gui.meplacementtool.placement_config": "Placement Config",
+  "message.meplacementtool.device_not_powered": "Device not powered",
+  "message.meplacementtool.no_configured_item": "No configured item in selected slot",
+  "message.meplacementtool.unsupported_target": "Unsupported target item",
+  "message.meplacementtool.network_missing": "Network missing: %s",
+  "message.meplacementtool.failed_extract": "Failed to extract from network",
+  "message.meplacementtool.cannot_place": "Cannot place",
+  "message.meplacementtool.no_linked_grid": "Not linked to ME network"
 }
