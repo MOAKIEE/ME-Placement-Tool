@@ -21,11 +21,12 @@ import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
@@ -45,10 +46,10 @@ public class MEPlacementToolMod
     public static final RegistryObject<Item> ME_PLACEMENT_TOOL = ITEMS.register("me_placement_tool",
             () -> new ItemMEPlacementTool(new Item.Properties().stacksTo(1)));
 
-    public MEPlacementToolMod(FMLJavaModLoadingContext context)
+    public MEPlacementToolMod()
     {
-        IEventBus modEventBus = context.getModEventBus();
-
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+        
         // register our menus
         ModMenus.register(modEventBus);
 
@@ -65,7 +66,7 @@ public class MEPlacementToolMod
 
         modEventBus.addListener(this::addCreative);
 
-        context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)
@@ -116,7 +117,8 @@ public class MEPlacementToolMod
     public static class ClientForgeEvents {
         public static String lastSelectedText = null;
         public static long lastSelectedTime = 0L;
-        @SubscribeEvent
+        
+        @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
         public static void onLeftClickEmpty(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty event) {
             var player = event.getEntity();
             if (player == null || player.level().isClientSide == false) return;
@@ -211,17 +213,21 @@ public class MEPlacementToolMod
 
             @SubscribeEvent
             public static void onRenderOverlay(RenderGuiOverlayEvent event) {
-                if (lastSelectedText == null) return;
-                if (System.currentTimeMillis() - lastSelectedTime > 2000) return;
-                var mc = net.minecraft.client.Minecraft.getInstance();
-                int sw = mc.getWindow().getGuiScaledWidth();
-                int sh = mc.getWindow().getGuiScaledHeight();
-                int x = sw / 2;
-                int y = sh - 50;
-                var gg = event.getGuiGraphics();
-                var font = mc.font;
-                int w = font.width(lastSelectedText);
-                gg.drawString(font, lastSelectedText, x - w / 2, y, 0xFFFFFF, false);
+                try {
+                    if (lastSelectedText == null) return;
+                    if (System.currentTimeMillis() - lastSelectedTime > 2000) return;
+                    var mc = net.minecraft.client.Minecraft.getInstance();
+                    int sw = mc.getWindow().getGuiScaledWidth();
+                    int sh = mc.getWindow().getGuiScaledHeight();
+                    int x = sw / 2;
+                    int y = sh - 50;
+                    var gg = event.getGuiGraphics();
+                    var font = mc.font;
+                    int w = font.width(lastSelectedText);
+                    gg.drawString(font, lastSelectedText, x - w / 2, y, 0xFFFFFF, false);
+                } catch (Throwable t) {
+                    LogUtils.getLogger().warn("Error rendering overlay", t);
+                }
             }
     }
 

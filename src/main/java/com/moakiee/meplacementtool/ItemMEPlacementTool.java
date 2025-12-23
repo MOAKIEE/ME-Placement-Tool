@@ -4,8 +4,21 @@ import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
 
 import java.util.function.DoubleSupplier;
+import java.util.function.BiConsumer;
 
 import appeng.items.tools.powered.WirelessTerminalItem;
+import appeng.api.implementations.menuobjects.IMenuItem;
+import appeng.api.implementations.menuobjects.ItemMenuHost;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.security.IActionHost;
+import appeng.api.networking.crafting.ICraftingService;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.ISubMenuHost;
+import appeng.menu.MenuOpener;
+import appeng.menu.locator.MenuLocators;
+import appeng.menu.me.crafting.CraftAmountMenu;
+import appeng.menu.ISubMenu;
+import appeng.helpers.WirelessTerminalMenuHost;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
@@ -28,12 +41,62 @@ import net.minecraftforge.items.ItemStackHandler;
 /**
  * ME Placement Tool - 占位实现，继承自 AE2 的 WirelessTerminalItem
  */
-public class ItemMEPlacementTool extends WirelessTerminalItem {
+public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuItem {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final double ENERGY_CAPACITY = 1_600_000.0d;
 
     public ItemMEPlacementTool(Item.Properties props) {
         super((DoubleSupplier) () -> ENERGY_CAPACITY, props);
+    }
+
+    @Override
+    public ItemMenuHost getMenuHost(Player player, int inventorySlot, ItemStack itemStack, BlockPos pos) {
+        return new PlacementToolMenuHost(player, inventorySlot, itemStack, (p, subMenu) -> {
+            // Return to main menu when closing submenu
+        });
+    }
+
+    /**
+     * Open the crafting menu for an item that can be crafted
+     */
+    private void openCraftingMenu(ServerPlayer player, ItemStack wand, AEKey whatToCraft) {
+        // Find the inventory slot containing the wand
+        int slot = findInventorySlot(player, wand);
+        if (slot < 0) {
+            LOGGER.warn("Could not find wand in player inventory");
+            return;
+        }
+
+        // Open the CraftAmountMenu with the item to craft
+        CraftAmountMenu.open(player, MenuLocators.forInventorySlot(slot), whatToCraft, 1);
+    }
+
+    /**
+     * Find the inventory slot containing the given item stack
+     */
+    private int findInventorySlot(Player player, ItemStack itemStack) {
+        var inv = player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            if (inv.getItem(i) == itemStack) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Menu host for the placement tool that supports autocrafting
+     */
+    private static class PlacementToolMenuHost extends WirelessTerminalMenuHost implements ISubMenuHost {
+        public PlacementToolMenuHost(Player player, Integer slot, ItemStack itemStack,
+                BiConsumer<Player, ISubMenu> returnToMainMenu) {
+            super(player, slot, itemStack, returnToMainMenu);
+        }
+
+        @Override
+        public void returnToMainMenu(Player player, ISubMenu subMenu) {
+            player.closeContainer();
+        }
     }
 
     @Override
@@ -335,6 +398,13 @@ public class ItemMEPlacementTool extends WirelessTerminalItem {
         // simulate extract to ensure availability, but defer actual extraction until after successful placement
         long avail = storage.extract(aeKey, 1L, appeng.api.config.Actionable.SIMULATE, src);
         if (avail <= 0) {
+            // Check if the item can be crafted
+            var craftingService = grid.getCraftingService();
+            if (craftingService != null && craftingService.isCraftable(aeKey)) {
+                // Open crafting menu for the item
+                openCraftingMenu(serverPlayer, wand, aeKey);
+                return InteractionResult.sidedSuccess(false);
+            }
             player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", target.getHoverName()), true);
             return InteractionResult.FAIL;
         }

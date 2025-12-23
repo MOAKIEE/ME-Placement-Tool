@@ -136,9 +136,9 @@ dependencies {
     // then special handling is done to allow a setup of a vanilla dependency without the use of an external repository.
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // Compile against a locally provided AE2 jar file
-    // Replace the path below if you move the jar. This is a compileOnly dependency.
-    compileOnly files('C:/Project/appliedenergistics2-forge-15.4.10.jar')
+    // AE2 dependency from ModMaven
+    compileOnly fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
+    runtimeOnly fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
 
     // JEI dependencies
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-forge-api:15.20.0.127")

@@ -7,23 +7,27 @@ license="LGPL-3.0-only"
 # A list of mods
 [[mods]] #mandatory
 modId="meplacementtool" #mandatory
-version="1.0.1" #mandatory
+version="${mod_version}" #mandatory
 displayName="ME Placement Tool" #mandatory
 # More optional fields (uncomment/edit as needed)
 #updateJSONURL="https://example.invalid/updates.json"
 displayURL="https://github.com/MOAKIEE/ME-Placement-Tool"
 logoFile="meplacementtool_icon.png"
-authors="MOAKIEE" #optional
+authors="MOAKIEE"
+credits="Applied Energistics 2 team for the excellent API"
+issueTrackerURL="https://github.com/MOAKIEE/ME-Placement-Tool/issues"
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
 ME Placement Tool — a utility for integrating with Applied Energistics 2 wireless networks.
-Features:
-- Search for and extract configured items or fluids from an AE2 network (supports a 3x3 ghost-slot configuration).
-- Configure placement presets via a GUI or by dragging from JEI; fluids are marked as fluids rather than buckets.
-- Cycle through presets and place quickly; includes power consumption and network availability checks.
 
-Intended for AE2 users and mod integrators. This is a beta release — feedback and improvements are welcome.
+Features:
+- Search for and extract configured items or fluids from an AE2 network (supports a 3x3 ghost-slot configuration)
+- Configure placement presets via a GUI or by dragging from JEI; fluids are marked as fluids rather than buckets
+- Cycle through presets and place quickly; includes power consumption and network availability checks
+- Automatic crafting integration: when placing an item that isn't available but can be crafted, the autocrafting interface opens automatically
+
+Intended for AE2 users and mod integrators.
 '''
 
 # Dependencies (adjust version ranges if needed)
@@ -38,6 +42,13 @@ Intended for AE2 users and mod integrators. This is a beta release — feedback 
     modId="minecraft"
     mandatory=true
     versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.meplacementtool]]
+    modId="ae2"
+    mandatory=true
+    versionRange="[15.0.0,)"
     ordering="NONE"
     side="BOTH"
 
