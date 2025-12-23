@@ -45,6 +45,8 @@ public class MEPlacementToolMod
 
     public static final RegistryObject<Item> ME_PLACEMENT_TOOL = ITEMS.register("me_placement_tool",
             () -> new ItemMEPlacementTool(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> MULTIBLOCK_PLACEMENT_TOOL = ITEMS.register("multiblock_placement_tool",
+            () -> new ItemMultiblockPlacementTool(new Item.Properties().stacksTo(1)));
 
     public MEPlacementToolMod()
     {
@@ -82,7 +84,8 @@ public class MEPlacementToolMod
         // Register AE2 grid linkable handler for our custom wireless terminal item
         try {
             GridLinkables.register(ME_PLACEMENT_TOOL.get(), WirelessTerminalItem.LINKABLE_HANDLER);
-            LOGGER.info("Registered GridLinkable handler for ME Placement Tool");
+            GridLinkables.register(MULTIBLOCK_PLACEMENT_TOOL.get(), WirelessTerminalItem.LINKABLE_HANDLER);
+            LOGGER.info("Registered GridLinkable handler for ME Placement Tool and Multiblock Placement Tool");
         } catch (Exception e) {
             LOGGER.error("Failed to register GridLinkable handler: {}", e.getMessage());
         }
@@ -90,8 +93,10 @@ public class MEPlacementToolMod
 
     private void addCreative(BuildCreativeModeTabContentsEvent event)
     {
-        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS)
+        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
             event.accept(ME_PLACEMENT_TOOL.get());
+            event.accept(MULTIBLOCK_PLACEMENT_TOOL.get());
+        }
     }
 
     @SubscribeEvent
@@ -124,7 +129,7 @@ public class MEPlacementToolMod
             if (player == null || player.level().isClientSide == false) return;
             if (!net.minecraft.client.gui.screens.Screen.hasShiftDown()) return;
             var main = player.getMainHandItem();
-            if (main.isEmpty() || main.getItem() != ME_PLACEMENT_TOOL.get()) return;
+            if (main.isEmpty() || (main.getItem() != ME_PLACEMENT_TOOL.get() && main.getItem() != MULTIBLOCK_PLACEMENT_TOOL.get())) return;
 
             // previous slot: find previous non-empty configured slot (items or fluids). If none configured, do nothing.
             var tag = main.getOrCreateTag();
