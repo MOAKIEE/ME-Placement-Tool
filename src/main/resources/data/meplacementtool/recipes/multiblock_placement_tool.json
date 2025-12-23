@@ -1,13 +1,13 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "  S",
+    "  D",
     " M ",
     "N  "
   ],
   "key": {
-    "S": {
-      "item": "minecraft:stick"
+    "D": {
+      "item": "ae2:dense_energy_cell"
     },
     "M": {
       "item": "meplacementtool:me_placement_tool"

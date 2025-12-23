@@ -122,7 +122,33 @@ public class MEPlacementToolMod
     public static class ClientForgeEvents {
         public static String lastSelectedText = null;
         public static long lastSelectedTime = 0L;
-        
+        public static String lastCountText = null;
+        public static long lastCountTime = 0L;
+
+        @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
+        public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
+            var player = net.minecraft.client.Minecraft.getInstance().player;
+            if (player == null || !player.isCrouching()) return;
+            double scroll = event.getScrollDelta();
+            if (scroll == 0) return;
+
+            var main = player.getMainHandItem();
+            if (main.isEmpty() || main.getItem() != MULTIBLOCK_PLACEMENT_TOOL.get()) return;
+
+            int nextCount = ItemMultiblockPlacementTool.getNextPlacementCount(main, scroll > 0);
+            com.moakiee.meplacementtool.network.ModNetwork.CHANNEL.sendToServer(
+                    new com.moakiee.meplacementtool.network.UpdatePlacementCountPacket(nextCount));
+            main.getOrCreateTag().putInt("placement_count", nextCount);
+            event.setCanceled(true);
+
+            showCountOverlay("Placement Count: " + nextCount);
+        }
+
+        public static void showCountOverlay(String text) {
+            lastCountText = text;
+            lastCountTime = System.currentTimeMillis();
+        }
+
         @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
         public static void onLeftClickEmpty(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty event) {
             var player = event.getEntity();
@@ -219,17 +245,25 @@ public class MEPlacementToolMod
             @SubscribeEvent
             public static void onRenderOverlay(RenderGuiOverlayEvent event) {
                 try {
-                    if (lastSelectedText == null) return;
-                    if (System.currentTimeMillis() - lastSelectedTime > 2000) return;
                     var mc = net.minecraft.client.Minecraft.getInstance();
                     int sw = mc.getWindow().getGuiScaledWidth();
                     int sh = mc.getWindow().getGuiScaledHeight();
-                    int x = sw / 2;
-                    int y = sh - 50;
                     var gg = event.getGuiGraphics();
                     var font = mc.font;
-                    int w = font.width(lastSelectedText);
-                    gg.drawString(font, lastSelectedText, x - w / 2, y, 0xFFFFFF, false);
+
+                    if (lastSelectedText != null && System.currentTimeMillis() - lastSelectedTime < 2000) {
+                        int x = sw / 2;
+                        int y = sh - 50;
+                        int w = font.width(lastSelectedText);
+                        gg.drawString(font, lastSelectedText, x - w / 2, y, 0xFFFFFF, false);
+                    }
+
+                    if (lastCountText != null && System.currentTimeMillis() - lastCountTime < 2000) {
+                        int x = sw / 2;
+                        int y = sh - 70;
+                        int w = font.width(lastCountText);
+                        gg.drawString(font, lastCountText, x - w / 2, y, 0xFFFF00, false);
+                    }
                 } catch (Throwable t) {
                     LogUtils.getLogger().warn("Error rendering overlay", t);
                 }

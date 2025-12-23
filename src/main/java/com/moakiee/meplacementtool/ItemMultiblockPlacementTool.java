@@ -40,10 +40,37 @@ import net.minecraftforge.items.ItemStackHandler;
 
 public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements IMenuItem {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final double ENERGY_CAPACITY = 1_600_000.0d;
+    private static final double ENERGY_CAPACITY = 3_200_000.0d;
+    private static final int[] PLACEMENT_COUNTS = {1, 8, 64, 256, 1024};
+    private static final double BASE_ENERGY_COST = 500.0d;
+    private static final String TAG_PLACEMENT_COUNT = "placement_count";
 
     public ItemMultiblockPlacementTool(Item.Properties props) {
         super((DoubleSupplier) () -> ENERGY_CAPACITY, props);
+    }
+
+    public static int getPlacementCount(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag != null && tag.contains(TAG_PLACEMENT_COUNT)) {
+            int count = tag.getInt(TAG_PLACEMENT_COUNT);
+            for (int i = 0; i < PLACEMENT_COUNTS.length; i++) {
+                if (PLACEMENT_COUNTS[i] == count) {
+                    return count;
+                }
+            }
+        }
+        return PLACEMENT_COUNTS[0];
+    }
+
+    public static int getNextPlacementCount(ItemStack stack, boolean forward) {
+        int current = getPlacementCount(stack);
+        for (int i = 0; i < PLACEMENT_COUNTS.length; i++) {
+            if (PLACEMENT_COUNTS[i] == current) {
+                int nextIndex = forward ? (i + 1) % PLACEMENT_COUNTS.length : (i - 1 + PLACEMENT_COUNTS.length) % PLACEMENT_COUNTS.length;
+                return PLACEMENT_COUNTS[nextIndex];
+            }
+        }
+        return PLACEMENT_COUNTS[0];
     }
 
     @Override
@@ -98,7 +125,8 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
 
         ItemStack wand = player.getItemInHand(context.getHand());
 
-        final double ENERGY_COST = 200d;
+        int placementCount = getPlacementCount(wand);
+        final double ENERGY_COST = BASE_ENERGY_COST * placementCount;
 
         if (!this.hasPower(player, ENERGY_COST, wand)) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.device_not_powered"), true);
@@ -352,8 +380,11 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
             return InteractionResult.FAIL;
         }
 
-        long simAvail = storage.extract(itemKey, target.getCount(), appeng.api.config.Actionable.SIMULATE, src);
-        if (simAvail < target.getCount()) {
+        int placementCount = getPlacementCount(wand);
+        long totalNeeded = (long) placementCount * target.getCount();
+
+        long simAvail = storage.extract(itemKey, totalNeeded, appeng.api.config.Actionable.SIMULATE, src);
+        if (simAvail < totalNeeded) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", itemKey.getDisplayName()), true);
             return InteractionResult.FAIL;
         }
@@ -365,21 +396,37 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
         }
 
         var block = ((BlockItem) blockItem).getBlock();
-        var placeContext = new BlockPlaceContext(context);
-        var placed = block.place(placeContext);
-        if (placed != net.minecraft.world.level.block.state.BlockState.UPDATE_ALL_IMMEDIATE) {
+        BlockPos clickedPos = context.getClickedPos();
+        var clickedFace = context.getClickedFace();
+        var clickedState = level.getBlockState(clickedPos);
+
+        int placedCount = 0;
+
+        for (int i = 0; i < placementCount; i++) {
+            BlockPos placePos = clickedPos.relative(clickedFace);
+            var placeContext = new BlockPlaceContext(context);
+            var placed = block.place(placeContext);
+
+            if (placed != net.minecraft.world.level.block.state.BlockState.UPDATE_ALL_IMMEDIATE) {
+                break;
+            }
+
+            placedCount++;
+        }
+
+        if (placedCount == 0) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
             return InteractionResult.sidedSuccess(false);
         }
 
-        long extracted = storage.extract(itemKey, target.getCount(), appeng.api.config.Actionable.MODULATE, src);
+        long extracted = storage.extract(itemKey, (long) placedCount * target.getCount(), appeng.api.config.Actionable.MODULATE, src);
         if (extracted <= 0) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
             return InteractionResult.sidedSuccess(false);
         }
 
-        this.usePower(player, ENERGY_COST, wand);
-        level.playSound(null, context.getClickedPos().relative(context.getClickedFace()), SoundEvents.STONE_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
+        this.usePower(player, ENERGY_COST * placedCount / placementCount, wand);
+        level.playSound(null, clickedPos.relative(clickedFace), SoundEvents.STONE_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
         return InteractionResult.sidedSuccess(false);
     }
 
