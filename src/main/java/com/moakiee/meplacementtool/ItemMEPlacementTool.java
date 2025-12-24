@@ -423,8 +423,8 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                 // Some mods (including AE) check the player's held stack during placement.
                 // Temporarily replace the player's MAIN hand with the extracted stack so placement logic sees it.
                 // Also capture original main/off hand to restore afterwards.
-                ItemStack origMain = player.getMainHandItem();
-                ItemStack origOff = player.getOffhandItem();
+                ItemStack origMain = player.getMainHandItem().copy();
+                ItemStack origOff = player.getOffhandItem().copy();
                 try {
                     player.setItemInHand(InteractionHand.MAIN_HAND, placeStack);
                     BlockPlaceContext placeContext = new BlockPlaceContext(context);
@@ -444,8 +444,8 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                 }
             } else if (placeStack.getItem() instanceof appeng.api.parts.IPartItem<?>) {
                 // AE part placement (eg. ME Smart Cable) - use AE2's own placement calculation
-                ItemStack origMain = player.getMainHandItem();
-                ItemStack origOff = player.getOffhandItem();
+                ItemStack origMain = player.getMainHandItem().copy();
+                ItemStack origOff = player.getOffhandItem().copy();
                 try {
                     player.setItemInHand(InteractionHand.MAIN_HAND, placeStack);
                     try {
