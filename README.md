@@ -94,7 +94,7 @@ itemBlacklist = []
 | Open GUI | Right-click (in air) |
 | Place Blocks | Right-click (on block) |
 | Select Slot | Shift + Right-click (in air) |
-| Cycle Placement Count | Shift + Right-click (in air) |
+| Cycle Placement Count | Shift + mouse wheel |
 | Undo Last Placement | Ctrl + Left-click |
 | Link to Network | Place into ME Wireless Access Point |
 
