@@ -97,16 +97,6 @@ itemBlacklist = []
 | 撤销放置 | Ctrl + 左键 |
 | 链接网络 | 放入 ME 无线访问点 |
 
-## 从源码构建
-
-```bash
-git clone https://github.com/yourusername/ME-Placement-Tool.git
-cd ME-Placement-Tool
-./gradlew build
-```
-
-构建的 jar 文件将在 `build/libs/` 目录下。
-
 ## 许可证
 
 本项目采用 GNU 较宽松公共许可证 第3版（LGPL-3.0-only）。
