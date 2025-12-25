@@ -33,6 +33,7 @@ import net.minecraftforge.registries.RegistryObject;
 import org.slf4j.Logger;
 import appeng.api.features.GridLinkables;
 import appeng.items.tools.powered.WirelessTerminalItem;
+import com.moakiee.meplacementtool.client.MEPartPreviewRenderer;
 import com.moakiee.meplacementtool.client.MultiblockPreviewRenderer;
 import com.moakiee.meplacementtool.client.UndoKeyHandler;
 
@@ -130,6 +131,8 @@ public class MEPlacementToolMod
             MEPlacementToolMod.instance.multiblockPreviewRenderer = new MultiblockPreviewRenderer();
             MinecraftForge.EVENT_BUS.register(MEPlacementToolMod.instance.multiblockPreviewRenderer);
             MinecraftForge.EVENT_BUS.register(new UndoKeyHandler());
+            // Install ME Part preview renderer (for cables, panels, quartz fiber, etc.)
+            MEPartPreviewRenderer.install();
         }
     }
 
