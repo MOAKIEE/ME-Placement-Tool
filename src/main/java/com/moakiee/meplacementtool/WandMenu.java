@@ -43,12 +43,19 @@ public class WandMenu extends AEBaseMenu {
     private static ItemStackHandler handlerFromBuf(FriendlyByteBuf buf) {
         CompoundTag cfg = buf.readNbt();
         TEMP_TAG.set(cfg);
-        ItemStackHandler h = new ItemStackHandler(9);
+        ItemStackHandler h = new ItemStackHandler(18);
         if (cfg != null) {
-            if (cfg.contains("items")) {
-                h.deserializeNBT(cfg.getCompound("items"));
-            } else {
-                h.deserializeNBT(cfg);
+            CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompound("items") : cfg;
+            // Manually copy items to preserve 18-slot size (old data may have only 9 slots)
+            if (itemsTag.contains("Items")) {
+                net.minecraft.nbt.ListTag list = itemsTag.getList("Items", 10);
+                for (int i = 0; i < list.size(); i++) {
+                    CompoundTag itemTag = list.getCompound(i);
+                    int slot = itemTag.getInt("Slot");
+                    if (slot >= 0 && slot < 18) {
+                        h.setStackInSlot(slot, ItemStack.of(itemTag));
+                    }
+                }
             }
         }
         return h;
@@ -58,7 +65,19 @@ public class WandMenu extends AEBaseMenu {
         super(ModMenus.WAND_MENU.get(), id, playerInventory,
                 new ItemMenuHost(playerInventory.player, null, playerInventory.player.getMainHandItem()));
 
-        this.handler = handler == null ? new ItemStackHandler(9) : handler;
+        // Ensure handler is always 18 slots (expand old 9-slot data if needed)
+        if (handler == null) {
+            this.handler = new ItemStackHandler(18);
+        } else if (handler.getSlots() < 18) {
+            // Expand old handler to 18 slots
+            ItemStackHandler newHandler = new ItemStackHandler(18);
+            for (int i = 0; i < handler.getSlots(); i++) {
+                newHandler.setStackInSlot(i, handler.getStackInSlot(i));
+            }
+            this.handler = newHandler;
+        } else {
+            this.handler = handler;
+        }
         this.adapter = new InternalInventoryAdapter(this.handler);
 
         // register a custom semantic for our ghost grid, then add 3x3 FakeSlot slots under it
@@ -67,7 +86,7 @@ public class WandMenu extends AEBaseMenu {
             ghostSemantic = appeng.menu.SlotSemantics.register("ME_WAND_GHOST", false);
         }
 
-        // add 3x3 ghost slots at fixed positions
+        // add 9 paged ghost slots that change their backing index based on current page
         int startX = 62;
         int startY = 17;
         for (int i = 0; i < 9; i++) {
@@ -75,8 +94,8 @@ public class WandMenu extends AEBaseMenu {
             int col = i % 3;
             int x = startX + col * 18;
             int y = startY + row * 18;
-            // Use SlotItemHandler so we can specify on-screen position (x,y)
-            Slot s = this.addSlot(new net.minecraftforge.items.SlotItemHandler(this.handler, i, x, y), ghostSemantic);
+            PagedSlot s = new PagedSlot(this.handler, i, x, y, () -> this.currentPage);
+            this.addSlot(s, ghostSemantic);
             this.ghostSlots.add(s);
         }
 
@@ -103,11 +122,35 @@ public class WandMenu extends AEBaseMenu {
         return this.handler;
     }
 
+    public List<Slot> getGhostSlots() {
+        return this.ghostSlots;
+    }
+
+    public int getCurrentPage() {
+        return this.currentPage;
+    }
+
+    public void setCurrentPage(int page) {
+        this.currentPage = page;
+    }
+
+    private int currentPage = 0;
+
     private static ItemStackHandler readHandlerFromBuf(FriendlyByteBuf buf) {
         CompoundTag tag = buf.readNbt();
-        ItemStackHandler h = new ItemStackHandler(9);
+        ItemStackHandler h = new ItemStackHandler(18);
         if (tag != null) {
-            h.deserializeNBT(tag);
+            CompoundTag itemsTag = tag.contains("Items") ? tag : tag;
+            if (itemsTag.contains("Items")) {
+                net.minecraft.nbt.ListTag list = itemsTag.getList("Items", 10);
+                for (int i = 0; i < list.size(); i++) {
+                    CompoundTag itemTag = list.getCompound(i);
+                    int slot = itemTag.getInt("Slot");
+                    if (slot >= 0 && slot < 18) {
+                        h.setStackInSlot(slot, ItemStack.of(itemTag));
+                    }
+                }
+            }
         }
         return h;
     }
@@ -127,14 +170,20 @@ public class WandMenu extends AEBaseMenu {
         if (slotId >= 0 && slotId < this.slots.size()) {
             Slot slot = this.slots.get(slotId);
             if (this.ghostSlots.contains(slot)) {
-                int index = this.ghostSlots.indexOf(slot);
+                // Use PagedSlot's actual slot index (accounts for current page)
+                int actualIndex;
+                if (slot instanceof PagedSlot pagedSlot) {
+                    actualIndex = pagedSlot.getActualSlotIndex();
+                } else {
+                    actualIndex = this.ghostSlots.indexOf(slot);
+                }
                 ItemStack carried = this.getCarried();
                 if (!carried.isEmpty()) {
                     ItemStack copy = carried.copy();
                     copy.setCount(1);
-                    this.handler.setStackInSlot(index, copy);
+                    this.handler.setStackInSlot(actualIndex, copy);
                 } else {
-                    this.handler.setStackInSlot(index, ItemStack.EMPTY);
+                    this.handler.setStackInSlot(actualIndex, ItemStack.EMPTY);
                 }
                 // do not propagate default behavior
                 return;
@@ -195,5 +244,35 @@ public class WandMenu extends AEBaseMenu {
     @Override
     public boolean stillValid(Player pPlayer) {
         return true;
+    }
+
+    /**
+     * Override broadcastChanges to skip syncing ghost slots.
+     * PagedSlot's dynamic index causes sync issues with vanilla Container logic.
+     * Ghost slots don't need server-client sync since they're just configuration.
+     */
+    @Override
+    public void broadcastChanges() {
+        // Update the lastSlots tracking for ghost slots to prevent false "change" detection
+        // We use reflection because lastSlots is private in AbstractContainerMenu
+        try {
+            java.lang.reflect.Field lastSlotsField = net.minecraft.world.inventory.AbstractContainerMenu.class.getDeclaredField("lastSlots");
+            lastSlotsField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            net.minecraft.core.NonNullList<ItemStack> lastSlots = (net.minecraft.core.NonNullList<ItemStack>) lastSlotsField.get(this);
+            
+            for (int i = 0; i < this.slots.size(); i++) {
+                Slot slot = this.slots.get(i);
+                if (this.ghostSlots.contains(slot)) {
+                    // Set lastSlots to match current to prevent "change" detection
+                    if (i < lastSlots.size()) {
+                        lastSlots.set(i, slot.getItem().copy());
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // If reflection fails, fall through to normal behavior
+        }
+        super.broadcastChanges();
     }
 }

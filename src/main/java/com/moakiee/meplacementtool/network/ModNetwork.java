@@ -20,5 +20,7 @@ public class ModNetwork {
                 UpdatePlacementCountPacket::decode, UpdatePlacementCountPacket::handle);
         CHANNEL.registerMessage(id++, UndoPacket.class, UndoPacket::encode,
                 UndoPacket::decode, UndoPacket.Handler::handle);
+        CHANNEL.registerMessage(id++, SyncPagePacket.class, SyncPagePacket::encode,
+                SyncPagePacket::decode, SyncPagePacket::handle);
     }
 }

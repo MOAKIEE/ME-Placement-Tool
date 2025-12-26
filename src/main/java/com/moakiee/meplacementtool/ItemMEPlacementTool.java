@@ -139,11 +139,11 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
         int selected = 0;
         if (cfg != null && cfg.contains("SelectedSlot")) {
             selected = cfg.getInt("SelectedSlot");
-            if (selected < 0 || selected >= 9) selected = 0;
+            if (selected < 0 || selected >= 18) selected = 0;
         }
 
         // build handler from NBT
-        var handler = new ItemStackHandler(9);
+        var handler = new ItemStackHandler(18);
         if (cfg != null) {
             if (cfg.contains("items")) {
                 handler.deserializeNBT(cfg.getCompound("items"));
@@ -542,110 +542,29 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (!player.isShiftKeyDown()) {
-            // Normal right-click: open configuration GUI only when not targeting a block (avoid conflict with placement)
-            net.minecraft.world.phys.HitResult hr = player.pick(5.0D, 0.0F, false);
-            if (hr != null && hr.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
-                return new InteractionResultHolder<>(InteractionResult.PASS, stack);
-            }
-
-            if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
-                CompoundTag data = stack.getOrCreateTag();
-                CompoundTag cfg = data.contains(WandMenu.TAG_KEY) ? data.getCompound(WandMenu.TAG_KEY) : null;
-
-                // create handler from existing NBT (server side)
-                var handler = new ItemStackHandler(9);
-                if (cfg != null) {
-                    if (cfg.contains("items")) {
-                        handler.deserializeNBT(cfg.getCompound("items"));
-                    } else {
-                        handler.deserializeNBT(cfg);
-                    }
-                }
-
-                NetworkHooks.openScreen(serverPlayer,
-                    new SimpleMenuProvider((wnd, inv, pl) -> new WandMenu(wnd, inv, handler), Component.translatable("gui.meplacementtool.placement_config")),
-                        buf -> buf.writeNbt(cfg));
-            }
-
-            return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), stack);
+        // Right-click: open configuration GUI only when not targeting a block (avoid conflict with placement)
+        net.minecraft.world.phys.HitResult hr = player.pick(5.0D, 0.0F, false);
+        if (hr != null && hr.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
+            return new InteractionResultHolder<>(InteractionResult.PASS, stack);
         }
 
-        // Shift + right-click in air: cycle next selected slot (client sends update to server)
-        if (level.isClientSide()) {
+        if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
             CompoundTag data = stack.getOrCreateTag();
-            CompoundTag cfg = data.contains(WandMenu.TAG_KEY) ? data.getCompound(WandMenu.TAG_KEY).copy() : new CompoundTag();
-            int selected = cfg.contains("SelectedSlot") ? cfg.getInt("SelectedSlot") : 0;
-            // collect configured indices
-            java.util.List<Integer> configured = new java.util.ArrayList<>();
-            if (cfg.contains("items")) {
-                net.minecraftforge.items.ItemStackHandler h = new net.minecraftforge.items.ItemStackHandler(9);
-                h.deserializeNBT(cfg.getCompound("items"));
-                for (int i = 0; i < 9; i++) {
-                    var s = h.getStackInSlot(i);
-                    if (!s.isEmpty()) configured.add(i);
-                }
-            }
-            if (cfg.contains("fluids")) {
-                var ftag = cfg.getCompound("fluids");
-                for (String k : ftag.getAllKeys()) {
-                    try {
-                        int idx = Integer.parseInt(k);
-                        if (!configured.contains(idx)) configured.add(idx);
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-            if (!configured.isEmpty()) {
-                int pos = configured.indexOf(selected);
-                if (pos == -1) pos = 0;
-                pos = (pos + 1) % configured.size();
-                selected = configured.get(pos);
-                cfg.putInt("SelectedSlot", selected);
-                data.put(WandMenu.TAG_KEY, cfg);
-            } else {
-                // no configured entries, leave selection unchanged
-            }
-            com.moakiee.meplacementtool.network.ModNetwork.CHANNEL.sendToServer(
-                    new com.moakiee.meplacementtool.network.UpdateWandConfigPacket(cfg));
+            CompoundTag cfg = data.contains(WandMenu.TAG_KEY) ? data.getCompound(WandMenu.TAG_KEY) : null;
 
-            // prepare overlay text (unwrap AE wrapped stacks or resolve fluid ids)
-            String name = "Empty";
-            try {
+            // create handler from existing NBT (server side)
+            var handler = new ItemStackHandler(18);
+            if (cfg != null) {
                 if (cfg.contains("items")) {
-                    net.minecraftforge.items.ItemStackHandler h = new net.minecraftforge.items.ItemStackHandler(9);
-                    h.deserializeNBT(cfg.getCompound("items"));
-                    var s = h.getStackInSlot(selected);
-                    if (!s.isEmpty()) {
-                        try {
-                            var gs = appeng.api.stacks.GenericStack.unwrapItemStack(s);
-                            if (gs != null) {
-                                name = gs.what().getDisplayName().getString();
-                            } else {
-                                name = s.getHoverName().getString();
-                            }
-                        } catch (Throwable ignored) {
-                            name = s.getHoverName().getString();
-                        }
-                    } else if (cfg.contains("fluids")) {
-                        var f = cfg.getCompound("fluids").getString(Integer.toString(selected));
-                        if (f != null && !f.isEmpty()) {
-                            try {
-                                var rl = new net.minecraft.resources.ResourceLocation(f);
-                                var fl = net.minecraftforge.registries.ForgeRegistries.FLUIDS.getValue(rl);
-                                if (fl != null) {
-                                    name = appeng.api.stacks.AEFluidKey.of(fl).getDisplayName().getString();
-                                } else {
-                                    name = f;
-                                }
-                            } catch (Throwable ignored) {
-                                name = f;
-                            }
-                        }
-                    }
+                    handler.deserializeNBT(cfg.getCompound("items"));
+                } else {
+                    handler.deserializeNBT(cfg);
                 }
-            } catch (Throwable ignored) {}
-            MEPlacementToolMod.ClientForgeEvents.showSelectedOverlay(name);
+            }
 
+            NetworkHooks.openScreen(serverPlayer,
+                new SimpleMenuProvider((wnd, inv, pl) -> new WandMenu(wnd, inv, handler), Component.translatable("gui.meplacementtool.placement_config")),
+                    buf -> buf.writeNbt(cfg));
         }
 
         return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), stack);

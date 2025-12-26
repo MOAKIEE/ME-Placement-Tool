@@ -42,19 +42,19 @@ public class Config
     static {
         BUILDER.push("energy");
 
-        BUILDER.comment("Energy capacity for ME Placement Tool (in FE)");
+        BUILDER.comment("Energy capacity for ME Placement Tool (in AE)");
         ME_PLACEMENT_TOOL_ENERGY_CAPACITY = BUILDER
                 .defineInRange("mePlacementToolEnergyCapacity", 1_600_000.0d, 0, Double.MAX_VALUE);
 
-        BUILDER.comment("Energy cost per placement for ME Placement Tool (in FE)");
+        BUILDER.comment("Energy cost per placement for ME Placement Tool (in AE)");
         ME_PLACEMENT_TOOL_ENERGY_COST = BUILDER
                 .defineInRange("mePlacementToolEnergyCost", 50.0d, 0, Double.MAX_VALUE);
 
-        BUILDER.comment("Energy capacity for Multiblock Placement Tool (in FE)");
+        BUILDER.comment("Energy capacity for Multiblock Placement Tool (in AE)");
         MULTIBLOCK_PLACEMENT_TOOL_ENERGY_CAPACITY = BUILDER
                 .defineInRange("multiblockPlacementToolEnergyCapacity", 3_200_000.0d, 0, Double.MAX_VALUE);
 
-        BUILDER.comment("Base energy cost per placement for Multiblock Placement Tool (in FE)");
+        BUILDER.comment("Base energy cost per placement for Multiblock Placement Tool (in AE)");
         MULTIBLOCK_PLACEMENT_TOOL_BASE_ENERGY_COST = BUILDER
                 .defineInRange("multiblockPlacementToolBaseEnergyCost", 200.0d, 0, Double.MAX_VALUE);
 

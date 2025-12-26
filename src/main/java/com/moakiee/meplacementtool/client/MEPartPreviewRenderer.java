@@ -160,11 +160,11 @@ public class MEPartPreviewRenderer {
         int selected = 0;
         if (cfg != null && cfg.contains("SelectedSlot")) {
             selected = cfg.getInt("SelectedSlot");
-            if (selected < 0 || selected >= 9) selected = 0;
+            if (selected < 0 || selected >= 18) selected = 0;
         }
 
         // Build handler from NBT
-        var handler = new ItemStackHandler(9);
+        var handler = new ItemStackHandler(18);
         if (cfg != null) {
             if (cfg.contains("items")) {
                 handler.deserializeNBT(cfg.getCompound("items"));

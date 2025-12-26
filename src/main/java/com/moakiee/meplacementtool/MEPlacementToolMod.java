@@ -16,6 +16,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -30,11 +31,14 @@ import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import org.slf4j.Logger;
 import appeng.api.features.GridLinkables;
 import appeng.items.tools.powered.WirelessTerminalItem;
 import com.moakiee.meplacementtool.client.MEPartPreviewRenderer;
+import com.moakiee.meplacementtool.client.ModKeyBindings;
 import com.moakiee.meplacementtool.client.MultiblockPreviewRenderer;
+import com.moakiee.meplacementtool.client.RadialMenuKeyHandler;
 import com.moakiee.meplacementtool.client.UndoKeyHandler;
 
 @Mod(MEPlacementToolMod.MODID)
@@ -127,10 +131,16 @@ public class MEPlacementToolMod
         }
 
         @SubscribeEvent
+        public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
+            event.register(ModKeyBindings.OPEN_RADIAL_MENU);
+        }
+
+        @SubscribeEvent
         public static void onClientSetupComplete(FMLClientSetupEvent event) {
             MEPlacementToolMod.instance.multiblockPreviewRenderer = new MultiblockPreviewRenderer();
             MinecraftForge.EVENT_BUS.register(MEPlacementToolMod.instance.multiblockPreviewRenderer);
             MinecraftForge.EVENT_BUS.register(new UndoKeyHandler());
+            MinecraftForge.EVENT_BUS.register(new RadialMenuKeyHandler());
             // Install ME Part preview renderer (for cables, panels, quartz fiber, etc.)
             MEPartPreviewRenderer.install();
         }
@@ -143,116 +153,21 @@ public class MEPlacementToolMod
         public static String lastCountText = null;
         public static long lastCountTime = 0L;
 
-        @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
-        public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
-            var player = net.minecraft.client.Minecraft.getInstance().player;
-            if (player == null || !player.isCrouching()) return;
-            double scroll = event.getScrollDelta();
-            if (scroll == 0) return;
-
-            var main = player.getMainHandItem();
-            if (main.isEmpty() || main.getItem() != MULTIBLOCK_PLACEMENT_TOOL.get()) return;
-
-            int nextCount = ItemMultiblockPlacementTool.getNextPlacementCount(main, scroll > 0);
-            com.moakiee.meplacementtool.network.ModNetwork.CHANNEL.sendToServer(
-                    new com.moakiee.meplacementtool.network.UpdatePlacementCountPacket(nextCount));
-            main.getOrCreateTag().putInt("placement_count", nextCount);
-            event.setCanceled(true);
-
-            showCountOverlay("Placement Count: " + nextCount);
+        @SubscribeEvent
+        public static void onRenderCrosshair(RenderGuiOverlayEvent.Pre event) {
+            // Hide crosshair when radial menu is open
+            if (event.getOverlay() == VanillaGuiOverlay.CROSSHAIR.type()) {
+                var screen = Minecraft.getInstance().screen;
+                if (screen instanceof com.moakiee.meplacementtool.client.RadialMenuScreen || 
+                    screen instanceof com.moakiee.meplacementtool.client.DualLayerRadialMenuScreen) {
+                    event.setCanceled(true);
+                }
+            }
         }
 
         public static void showCountOverlay(String text) {
             lastCountText = text;
             lastCountTime = System.currentTimeMillis();
-        }
-
-        @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
-        public static void onLeftClickEmpty(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty event) {
-            var player = event.getEntity();
-            if (player == null || player.level().isClientSide == false) return;
-            if (!net.minecraft.client.gui.screens.Screen.hasShiftDown()) return;
-            var main = player.getMainHandItem();
-            if (main.isEmpty() || (main.getItem() != ME_PLACEMENT_TOOL.get() && main.getItem() != MULTIBLOCK_PLACEMENT_TOOL.get())) return;
-
-            // previous slot: find previous non-empty configured slot (items or fluids). If none configured, do nothing.
-            var tag = main.getOrCreateTag();
-            var cfg = tag.contains(WandMenu.TAG_KEY) ? tag.getCompound(WandMenu.TAG_KEY).copy() : new net.minecraft.nbt.CompoundTag();
-            int selected = cfg.contains("SelectedSlot") ? cfg.getInt("SelectedSlot") : 0;
-            // collect configured indices
-            java.util.List<Integer> configured = new java.util.ArrayList<>();
-            if (cfg.contains("items")) {
-                net.minecraftforge.items.ItemStackHandler h = new net.minecraftforge.items.ItemStackHandler(9);
-                h.deserializeNBT(cfg.getCompound("items"));
-                for (int i = 0; i < 9; i++) {
-                    var s = h.getStackInSlot(i);
-                    if (!s.isEmpty()) configured.add(i);
-                }
-            }
-            if (cfg.contains("fluids")) {
-                var ftag = cfg.getCompound("fluids");
-                for (String k : ftag.getAllKeys()) {
-                    try {
-                        int idx = Integer.parseInt(k);
-                        if (!configured.contains(idx)) configured.add(idx);
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-            if (!configured.isEmpty()) {
-                // find current index in configured list
-                int pos = configured.indexOf(selected);
-                if (pos == -1) pos = 0;
-                pos = (pos - 1 + configured.size()) % configured.size();
-                selected = configured.get(pos);
-                cfg.putInt("SelectedSlot", selected);
-                tag.put(WandMenu.TAG_KEY, cfg);
-            } else {
-                // nothing configured, do nothing
-            }
-
-                // send to server
-                com.moakiee.meplacementtool.network.ModNetwork.CHANNEL.sendToServer(
-                        new com.moakiee.meplacementtool.network.UpdateWandConfigPacket(cfg));
-
-                // show overlay text
-                String name = "Empty";
-                try {
-                    // Prefer items (including WrappedGenericStack)
-                    if (cfg.contains("items")) {
-                        net.minecraftforge.items.ItemStackHandler h = new net.minecraftforge.items.ItemStackHandler(9);
-                        h.deserializeNBT(cfg.getCompound("items"));
-                        var s = h.getStackInSlot(cfg.contains("SelectedSlot") ? cfg.getInt("SelectedSlot") : 0);
-                        if (!s.isEmpty()) {
-                            // If this is an AE wrapped generic stack, unwrap and get AE display name
-                            try {
-                                var gs = appeng.api.stacks.GenericStack.unwrapItemStack(s);
-                                if (gs != null) {
-                                    name = gs.what().getDisplayName().getString();
-                                } else {
-                                    name = s.getHoverName().getString();
-                                }
-                            } catch (Throwable ignored) {
-                                name = s.getHoverName().getString();
-                            }
-                        } else if (cfg.contains("fluids")) {
-                            var f = cfg.getCompound("fluids").getString(Integer.toString(cfg.contains("SelectedSlot") ? cfg.getInt("SelectedSlot") : 0));
-                            if (f != null && !f.isEmpty()) {
-                                try {
-                                    var rl = new net.minecraft.resources.ResourceLocation(f);
-                                    var fl = net.minecraftforge.registries.ForgeRegistries.FLUIDS.getValue(rl);
-                                    if (fl != null) {
-                                        name = appeng.api.stacks.AEFluidKey.of(fl).getDisplayName().getString();
-                                    } else {
-                                        name = f;
-                                    }
-                                } catch (Throwable ignored) {
-                                    name = f;
-                                }
-                            }
-                        }
-                    }
-                } catch (Throwable ignored) {}
-                showSelectedOverlay(name);
         }
 
             public static void showSelectedOverlay(String text) {

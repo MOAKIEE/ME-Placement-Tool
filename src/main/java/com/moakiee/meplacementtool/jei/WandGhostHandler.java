@@ -35,9 +35,13 @@ public class WandGhostHandler implements IGhostIngredientHandler<WandScreen> {
         }
         if (stack == null || stack.isEmpty()) return targets;
 
-        // create targets for the first 9 slots
-        for (int i = 0; i < 9; i++) {
-            var slot = menu.getSlot(i);
+        // create targets for the visible ghost slots (only visible slots on current page)
+        var ghostSlots = menu.getGhostSlots();
+        for (int i = 0; i < ghostSlots.size(); i++) {
+            var slot = ghostSlots.get(i);
+            // Skip slots that are off-screen (not on current page)
+            if (slot.x < 0 || slot.y < 0) continue;
+            
             int x = slot.x + screen.getGuiLeft();
             int y = slot.y + screen.getGuiTop();
             Rect2i area = new Rect2i(x, y, 16, 16);
@@ -64,7 +68,7 @@ public class WandGhostHandler implements IGhostIngredientHandler<WandScreen> {
                             CompoundTag combined = new CompoundTag();
                             combined.put("items", handler.serializeNBT());
                             CompoundTag ftag = new CompoundTag();
-                            for (int ii = 0; ii < 9; ii++) {
+                            for (int ii = 0; ii < 18; ii++) {
                                 String fid = menu.getFluidSlot(ii);
                                 if (fid != null) ftag.putString(Integer.toString(ii), fid);
                             }
