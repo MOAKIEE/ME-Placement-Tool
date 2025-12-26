@@ -388,15 +388,31 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
             }
         }
 
-        var aeKey = appeng.api.stacks.AEItemKey.of(target);
+        // Find a matching item in the AE network (respects NBT whitelist config)
+        var aeKey = Config.findMatchingKey(storage, target);
         if (aeKey == null) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+            // Log detailed info for debugging
+            var itemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(target.getItem());
+            LOGGER.debug("No matching item found in AE network for {} (ignoreNbt={})", 
+                    itemId, Config.shouldIgnoreNbt(target));
+            
+            // Check if the item can be crafted using a key without NBT consideration
+            var craftKey = appeng.api.stacks.AEItemKey.of(target);
+            var craftingService = grid.getCraftingService();
+            if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
+                openCraftingMenu(serverPlayer, wand, craftKey);
+                return InteractionResult.sidedSuccess(false);
+            }
+            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", target.getHoverName()), true);
             return InteractionResult.FAIL;
         }
+        
+        LOGGER.debug("Found matching AEItemKey: {} for target: {}", aeKey, target);
 
         // simulate extract to ensure availability, but defer actual extraction until after successful placement
         long avail = storage.extract(aeKey, 1L, appeng.api.config.Actionable.SIMULATE, src);
         if (avail <= 0) {
+            LOGGER.debug("Simulated extraction returned 0 for key: {}", aeKey);
             // Check if the item can be crafted
             var craftingService = grid.getCraftingService();
             if (craftingService != null && craftingService.isCraftable(aeKey)) {
@@ -427,7 +443,14 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                 ItemStack origOff = player.getOffhandItem().copy();
                 try {
                     player.setItemInHand(InteractionHand.MAIN_HAND, placeStack);
-                    BlockPlaceContext placeContext = new BlockPlaceContext(context);
+                    // Create BlockPlaceContext with the correct placeStack (including NBT like energy)
+                    BlockPlaceContext placeContext = new BlockPlaceContext(
+                        level, player, InteractionHand.MAIN_HAND, placeStack,
+                        new net.minecraft.world.phys.BlockHitResult(
+                            context.getClickLocation(), context.getClickedFace(),
+                            context.getClickedPos(), context.isInside()
+                        )
+                    );
                     var result = blockItem.place(placeContext);
                     boolean consumes = result.consumesAction();
                     if (consumes) {

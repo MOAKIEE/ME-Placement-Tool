@@ -178,21 +178,37 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
                 var aeFluidKey = (appeng.api.stacks.AEFluidKey) unwrapped.what();
                 var fluid = aeFluidKey.getFluid();
 
-                BlockPos fluidPlacePos = context.getClickedPos().relative(context.getClickedFace());
-                var prevState = level.getBlockState(fluidPlacePos);
-
-                long simAvail = storage.extract(aeFluidKey, appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK, appeng.api.config.Actionable.SIMULATE, src);
-                if (simAvail < appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK) {
-                    player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", aeFluidKey.getDisplayName()), true);
+                // Check if fluid is a flowing fluid
+                if (!(fluid instanceof net.minecraft.world.level.material.FlowingFluid)) {
+                    player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
                     return InteractionResult.FAIL;
                 }
 
-                boolean placedFluid = false;
-                try {
-                    if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                        var stateAtPos = level.getBlockState(fluidPlacePos);
-                        boolean isFlowingFluid = fluid instanceof net.minecraft.world.level.material.FlowingFluid;
-                        var legacyBlock = fluid.defaultFluidState().createLegacyBlock();
+                var legacyBlock = fluid.defaultFluidState().createLegacyBlock();
+                BlockPos clickedPos = context.getClickedPos();
+                var clickedFace = context.getClickedFace();
+                var clickedState = level.getBlockState(clickedPos);
+
+                // Use BFS to find all positions where fluid can be placed (same logic as block placement)
+                java.util.LinkedList<BlockPos> candidates = new java.util.LinkedList<>();
+                java.util.HashSet<BlockPos> allCandidates = new java.util.HashSet<>();
+                java.util.ArrayList<BlockPos> placePositions = new java.util.ArrayList<>();
+
+                BlockPos startingPoint = clickedPos.relative(clickedFace);
+                candidates.add(startingPoint);
+
+                while (!candidates.isEmpty() && placePositions.size() < placementCount) {
+                    BlockPos currentCandidate = candidates.removeFirst();
+                    if (!allCandidates.add(currentCandidate)) {
+                        continue;
+                    }
+
+                    BlockPos supportingPoint = currentCandidate.relative(clickedFace.getOpposite());
+                    var supportingState = level.getBlockState(supportingPoint);
+
+                    // Check if the supporting block matches the clicked block (same as block placement logic)
+                    if (supportingState.getBlock() == clickedState.getBlock()) {
+                        var stateAtPos = level.getBlockState(currentCandidate);
                         boolean stateIsLegacy = stateAtPos == legacyBlock;
                         boolean stateIsAir = stateAtPos.isAir();
                         boolean canBeReplaced = false;
@@ -202,50 +218,104 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
                         if (isLiquidContainer) {
                             try {
                                 containerCanPlace = ((net.minecraft.world.level.block.LiquidBlockContainer) stateAtPos.getBlock())
-                                        .canPlaceLiquid(level, fluidPlacePos, stateAtPos, fluid);
+                                        .canPlaceLiquid(level, currentCandidate, stateAtPos, fluid);
                             } catch (Throwable ignored2) {}
                         }
-                        boolean hasTag = aeFluidKey.hasTag();
 
-                        boolean aeCanPlace = isFlowingFluid && !stateIsLegacy && !hasTag && (stateIsAir || canBeReplaced || (isLiquidContainer && containerCanPlace));
+                        boolean canPlace = !stateIsLegacy && !aeFluidKey.hasTag() && (stateIsAir || canBeReplaced || (isLiquidContainer && containerCanPlace));
 
-                        if (aeCanPlace) {
-                            boolean success = false;
-                            if (level.dimensionType().ultraWarm() && fluid.is(net.minecraft.tags.FluidTags.WATER)) {
-                                level.playSound(null, fluidPlacePos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5F, 2.6F);
-                                success = true;
-                            } else if (isLiquidContainer && fluid == net.minecraft.world.level.material.Fluids.WATER) {
-                                ((net.minecraft.world.level.block.LiquidBlockContainer) stateAtPos.getBlock())
-                                        .placeLiquid(level, fluidPlacePos, stateAtPos, ((net.minecraft.world.level.material.FlowingFluid) fluid).getSource(false));
-                                success = true;
-                            } else {
-                                if (canBeReplaced && !stateAtPos.liquid()) {
-                                    level.destroyBlock(fluidPlacePos, true);
-                                }
-                                success = level.setBlock(fluidPlacePos, legacyBlock, net.minecraft.world.level.block.Block.UPDATE_ALL_IMMEDIATE);
-                            }
-                            if (success) {
-                                placedFluid = true;
-                                lastPlacementPos = fluidPlacePos;
-                                lastPlacementWasBlock = true;
-                            }
+                        if (canPlace) {
+                            placePositions.add(currentCandidate);
+                        }
+
+                        // Add adjacent positions based on clicked face
+                        switch (clickedFace) {
+                            case DOWN:
+                            case UP:
+                                candidates.add(currentCandidate.north());
+                                candidates.add(currentCandidate.south());
+                                candidates.add(currentCandidate.east());
+                                candidates.add(currentCandidate.west());
+                                candidates.add(currentCandidate.north().east());
+                                candidates.add(currentCandidate.north().west());
+                                candidates.add(currentCandidate.south().east());
+                                candidates.add(currentCandidate.south().west());
+                                break;
+                            case NORTH:
+                            case SOUTH:
+                                candidates.add(currentCandidate.east());
+                                candidates.add(currentCandidate.west());
+                                candidates.add(currentCandidate.above());
+                                candidates.add(currentCandidate.below());
+                                candidates.add(currentCandidate.above().east());
+                                candidates.add(currentCandidate.above().west());
+                                candidates.add(currentCandidate.below().east());
+                                candidates.add(currentCandidate.below().west());
+                                break;
+                            case EAST:
+                            case WEST:
+                                candidates.add(currentCandidate.north());
+                                candidates.add(currentCandidate.south());
+                                candidates.add(currentCandidate.above());
+                                candidates.add(currentCandidate.below());
+                                candidates.add(currentCandidate.above().north());
+                                candidates.add(currentCandidate.above().south());
+                                candidates.add(currentCandidate.below().north());
+                                candidates.add(currentCandidate.below().south());
+                                break;
                         }
                     }
-                } catch (Throwable t) {
-                    LOGGER.warn("Exception during wrapped fluid placement for player {} at {}", player.getName().getString(), fluidPlacePos, t);
                 }
 
-                if (placedFluid) {
-                    long extracted = storage.extract(aeFluidKey, appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK, appeng.api.config.Actionable.MODULATE, src);
-                    if (extracted <= 0) {
-                        try { level.setBlockAndUpdate(fluidPlacePos, prevState); } catch (Throwable t) { LOGGER.warn("Failed to revert fluid block at {}", fluidPlacePos, t); }
-                        player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-                        return InteractionResult.sidedSuccess(false);
-                    } else {
-                        this.usePower(player, ENERGY_COST, wand);
-                        level.playSound(null, fluidPlacePos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
-                        return InteractionResult.sidedSuccess(false);
+                if (placePositions.isEmpty()) {
+                    player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
+                    return InteractionResult.sidedSuccess(false);
+                }
+
+                // Check if network has enough fluid
+                long totalFluidNeeded = (long) placePositions.size() * appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK;
+                long simAvail = storage.extract(aeFluidKey, totalFluidNeeded, appeng.api.config.Actionable.SIMULATE, src);
+                if (simAvail < totalFluidNeeded) {
+                    player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", aeFluidKey.getDisplayName()), true);
+                    return InteractionResult.FAIL;
+                }
+
+                // Place fluids at all positions
+                int placedCount = 0;
+                for (BlockPos placePos : placePositions) {
+                    try {
+                        var stateAtPos = level.getBlockState(placePos);
+                        boolean stateIsAir = stateAtPos.isAir();
+                        boolean canBeReplaced = false;
+                        try { canBeReplaced = stateAtPos.canBeReplaced(fluid); } catch (Throwable ignored2) {}
+                        boolean isLiquidContainer = stateAtPos.getBlock() instanceof net.minecraft.world.level.block.LiquidBlockContainer;
+
+                        boolean success = false;
+                        if (level.dimensionType().ultraWarm() && fluid.is(net.minecraft.tags.FluidTags.WATER)) {
+                            success = true; // Water evaporates but still counts
+                        } else if (isLiquidContainer && fluid == net.minecraft.world.level.material.Fluids.WATER) {
+                            ((net.minecraft.world.level.block.LiquidBlockContainer) stateAtPos.getBlock())
+                                    .placeLiquid(level, placePos, stateAtPos, ((net.minecraft.world.level.material.FlowingFluid) fluid).getSource(false));
+                            success = true;
+                        } else {
+                            if (canBeReplaced && !stateAtPos.liquid()) {
+                                level.destroyBlock(placePos, true);
+                            }
+                            success = level.setBlock(placePos, legacyBlock, net.minecraft.world.level.block.Block.UPDATE_ALL_IMMEDIATE);
+                        }
+                        if (success) {
+                            placedCount++;
+                        }
+                    } catch (Throwable t) {
+                        LOGGER.warn("Exception during fluid placement at {}", placePos, t);
                     }
+                }
+
+                if (placedCount > 0) {
+                    long extracted = storage.extract(aeFluidKey, (long) placedCount * appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK, appeng.api.config.Actionable.MODULATE, src);
+                    this.usePower(player, ENERGY_COST * placedCount / placementCount, wand);
+                    level.playSound(null, clickedPos.relative(clickedFace), SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
+                    return InteractionResult.sidedSuccess(false);
                 } else {
                     player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
                     return InteractionResult.sidedSuccess(false);
@@ -271,101 +341,145 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
                     return InteractionResult.FAIL;
                 }
 
-                var bucketItem = fluid.getBucket();
-                if (bucketItem == net.minecraft.world.item.Items.AIR) {
+                // Check if fluid is a flowing fluid
+                if (!(fluid instanceof net.minecraft.world.level.material.FlowingFluid)) {
                     player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
                     return InteractionResult.FAIL;
                 }
 
-                BlockPos fluidPlacePos = context.getClickedPos().relative(context.getClickedFace());
-                var prevState = level.getBlockState(fluidPlacePos);
-
-                try {
-                    boolean isFlowing = fluid instanceof net.minecraft.world.level.material.FlowingFluid;
-                    var legacy = fluid.defaultFluidState().createLegacyBlock();
-                    if (prevState == legacy) {
-                        player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-                        return InteractionResult.sidedSuccess(false);
-                    }
-                    boolean canPlaceLikeAE = isFlowing && (prevState.isAir() || prevState.canBeReplaced(fluid)
-                            || (prevState.getBlock() instanceof net.minecraft.world.level.block.LiquidBlockContainer
-                                && ((net.minecraft.world.level.block.LiquidBlockContainer) prevState.getBlock()).canPlaceLiquid(level, fluidPlacePos, prevState, fluid)));
-                    if (!canPlaceLikeAE) {
-                        player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-                        return InteractionResult.sidedSuccess(false);
-                    }
-                } catch (Throwable t) {
-                    LOGGER.warn("Error during pre-check for fluid placement at {}", fluidPlacePos, t);
-                }
-
                 var aeFluidKey = appeng.api.stacks.AEFluidKey.of(fluid);
-                long simAvail = storage.extract(aeFluidKey, appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK, appeng.api.config.Actionable.SIMULATE, src);
-                if (simAvail < appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK) {
-                    player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", aeFluidKey.getDisplayName()), true);
-                    return InteractionResult.FAIL;
-                }
+                var legacyBlock = fluid.defaultFluidState().createLegacyBlock();
+                BlockPos clickedPos = context.getClickedPos();
+                var clickedFace = context.getClickedFace();
+                var clickedState = level.getBlockState(clickedPos);
 
-                boolean placedFluid = false;
-                try {
-                    if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                        var stateAtPos = level.getBlockState(fluidPlacePos);
-                        boolean isFlowingFluid = fluid instanceof net.minecraft.world.level.material.FlowingFluid;
-                        var legacyBlock = fluid.defaultFluidState().createLegacyBlock();
+                // Use BFS to find all positions where fluid can be placed (same logic as block placement)
+                java.util.LinkedList<BlockPos> candidates = new java.util.LinkedList<>();
+                java.util.HashSet<BlockPos> allCandidates = new java.util.HashSet<>();
+                java.util.ArrayList<BlockPos> placePositions = new java.util.ArrayList<>();
+
+                BlockPos startingPoint = clickedPos.relative(clickedFace);
+                candidates.add(startingPoint);
+
+                while (!candidates.isEmpty() && placePositions.size() < placementCount) {
+                    BlockPos currentCandidate = candidates.removeFirst();
+                    if (!allCandidates.add(currentCandidate)) {
+                        continue;
+                    }
+
+                    BlockPos supportingPoint = currentCandidate.relative(clickedFace.getOpposite());
+                    var supportingState = level.getBlockState(supportingPoint);
+
+                    // Check if the supporting block matches the clicked block (same as block placement logic)
+                    if (supportingState.getBlock() == clickedState.getBlock()) {
+                        var stateAtPos = level.getBlockState(currentCandidate);
                         boolean stateIsLegacy = stateAtPos == legacyBlock;
                         boolean stateIsAir = stateAtPos.isAir();
                         boolean canBeReplaced = false;
-                        try { canBeReplaced = stateAtPos.canBeReplaced(fluid); } catch (Throwable ignored) {}
+                        try { canBeReplaced = stateAtPos.canBeReplaced(fluid); } catch (Throwable ignored2) {}
                         boolean isLiquidContainer = stateAtPos.getBlock() instanceof net.minecraft.world.level.block.LiquidBlockContainer;
                         boolean containerCanPlace = false;
                         if (isLiquidContainer) {
                             try {
                                 containerCanPlace = ((net.minecraft.world.level.block.LiquidBlockContainer) stateAtPos.getBlock())
-                                        .canPlaceLiquid(level, fluidPlacePos, stateAtPos, fluid);
-                            } catch (Throwable ignored) {}
+                                        .canPlaceLiquid(level, currentCandidate, stateAtPos, fluid);
+                            } catch (Throwable ignored2) {}
                         }
-                        boolean hasTag = aeFluidKey.hasTag();
-                        
-                        boolean aeCanPlace = isFlowingFluid && !stateIsLegacy && !hasTag && (stateIsAir || canBeReplaced || (isLiquidContainer && containerCanPlace));
-                        
-                        if (!aeCanPlace) {
-                            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-                        } else {
-                            boolean success = false;
-                            if (level.dimensionType().ultraWarm() && fluid.is(net.minecraft.tags.FluidTags.WATER)) {
-                                level.playSound(null, fluidPlacePos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5F, 2.6F);
-                                success = true;
-                            } else if (isLiquidContainer && fluid == net.minecraft.world.level.material.Fluids.WATER) {
-                                ((net.minecraft.world.level.block.LiquidBlockContainer) stateAtPos.getBlock())
-                                        .placeLiquid(level, fluidPlacePos, stateAtPos, ((net.minecraft.world.level.material.FlowingFluid) fluid).getSource(false));
-                                success = true;
-                            } else {
-                                if (canBeReplaced && !stateAtPos.liquid()) {
-                                    level.destroyBlock(fluidPlacePos, true);
-                                }
-                                success = level.setBlock(fluidPlacePos, legacyBlock, net.minecraft.world.level.block.Block.UPDATE_ALL_IMMEDIATE);
-                            }
-                            if (success) {
-                                placedFluid = true;
-                                lastPlacementPos = fluidPlacePos;
-                                lastPlacementWasBlock = true;
-                            }
+
+                        boolean canPlace = !stateIsLegacy && !aeFluidKey.hasTag() && (stateIsAir || canBeReplaced || (isLiquidContainer && containerCanPlace));
+
+                        if (canPlace) {
+                            placePositions.add(currentCandidate);
+                        }
+
+                        // Add adjacent positions based on clicked face
+                        switch (clickedFace) {
+                            case DOWN:
+                            case UP:
+                                candidates.add(currentCandidate.north());
+                                candidates.add(currentCandidate.south());
+                                candidates.add(currentCandidate.east());
+                                candidates.add(currentCandidate.west());
+                                candidates.add(currentCandidate.north().east());
+                                candidates.add(currentCandidate.north().west());
+                                candidates.add(currentCandidate.south().east());
+                                candidates.add(currentCandidate.south().west());
+                                break;
+                            case NORTH:
+                            case SOUTH:
+                                candidates.add(currentCandidate.east());
+                                candidates.add(currentCandidate.west());
+                                candidates.add(currentCandidate.above());
+                                candidates.add(currentCandidate.below());
+                                candidates.add(currentCandidate.above().east());
+                                candidates.add(currentCandidate.above().west());
+                                candidates.add(currentCandidate.below().east());
+                                candidates.add(currentCandidate.below().west());
+                                break;
+                            case EAST:
+                            case WEST:
+                                candidates.add(currentCandidate.north());
+                                candidates.add(currentCandidate.south());
+                                candidates.add(currentCandidate.above());
+                                candidates.add(currentCandidate.below());
+                                candidates.add(currentCandidate.above().north());
+                                candidates.add(currentCandidate.above().south());
+                                candidates.add(currentCandidate.below().north());
+                                candidates.add(currentCandidate.below().south());
+                                break;
                         }
                     }
-                } catch (Throwable t) {
-                    LOGGER.warn("Exception during fluid placement for player {} at {}", player.getName().getString(), fluidPlacePos, t);
                 }
 
-                if (placedFluid) {
-                    long extracted = storage.extract(aeFluidKey, appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK, appeng.api.config.Actionable.MODULATE, src);
-                    if (extracted <= 0) {
-                        try { level.setBlockAndUpdate(fluidPlacePos, prevState); } catch (Throwable t) { LOGGER.warn("Failed to revert fluid block at {}", fluidPlacePos, t); }
-                        player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-                        return InteractionResult.sidedSuccess(false);
-                    } else {
-                        this.usePower(player, ENERGY_COST, wand);
-                        level.playSound(null, fluidPlacePos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
-                        return InteractionResult.sidedSuccess(false);
+                if (placePositions.isEmpty()) {
+                    player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
+                    return InteractionResult.sidedSuccess(false);
+                }
+
+                // Check if network has enough fluid
+                long totalFluidNeeded = (long) placePositions.size() * appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK;
+                long simAvail = storage.extract(aeFluidKey, totalFluidNeeded, appeng.api.config.Actionable.SIMULATE, src);
+                if (simAvail < totalFluidNeeded) {
+                    player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", aeFluidKey.getDisplayName()), true);
+                    return InteractionResult.FAIL;
+                }
+
+                // Place fluids at all positions
+                int placedCount = 0;
+                for (BlockPos placePos : placePositions) {
+                    try {
+                        var stateAtPos = level.getBlockState(placePos);
+                        boolean stateIsAir = stateAtPos.isAir();
+                        boolean canBeReplaced = false;
+                        try { canBeReplaced = stateAtPos.canBeReplaced(fluid); } catch (Throwable ignored2) {}
+                        boolean isLiquidContainer = stateAtPos.getBlock() instanceof net.minecraft.world.level.block.LiquidBlockContainer;
+
+                        boolean success = false;
+                        if (level.dimensionType().ultraWarm() && fluid.is(net.minecraft.tags.FluidTags.WATER)) {
+                            success = true; // Water evaporates but still counts
+                        } else if (isLiquidContainer && fluid == net.minecraft.world.level.material.Fluids.WATER) {
+                            ((net.minecraft.world.level.block.LiquidBlockContainer) stateAtPos.getBlock())
+                                    .placeLiquid(level, placePos, stateAtPos, ((net.minecraft.world.level.material.FlowingFluid) fluid).getSource(false));
+                            success = true;
+                        } else {
+                            if (canBeReplaced && !stateAtPos.liquid()) {
+                                level.destroyBlock(placePos, true);
+                            }
+                            success = level.setBlock(placePos, legacyBlock, net.minecraft.world.level.block.Block.UPDATE_ALL_IMMEDIATE);
+                        }
+                        if (success) {
+                            placedCount++;
+                        }
+                    } catch (Throwable t) {
+                        LOGGER.warn("Exception during fluid placement at {}", placePos, t);
                     }
+                }
+
+                if (placedCount > 0) {
+                    long extracted = storage.extract(aeFluidKey, (long) placedCount * appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK, appeng.api.config.Actionable.MODULATE, src);
+                    this.usePower(player, ENERGY_COST * placedCount / placementCount, wand);
+                    level.playSound(null, clickedPos.relative(clickedFace), SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
+                    return InteractionResult.sidedSuccess(false);
                 } else {
                     player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
                     return InteractionResult.sidedSuccess(false);
@@ -375,17 +489,27 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
             }
         }
 
-        var itemKey = appeng.api.stacks.AEItemKey.of(target);
-        if (itemKey == null) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+        // Find all matching items in the AE network (respects NBT whitelist config)
+        var matchingKeys = Config.findAllMatchingKeys(storage, target);
+        if (matchingKeys.isEmpty()) {
+            // Log detailed info for debugging
+            var itemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(target.getItem());
+            LOGGER.debug("No matching item found in AE network for {} (ignoreNbt={})", 
+                    itemId, Config.shouldIgnoreNbt(target));
+            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", target.getHoverName()), true);
             return InteractionResult.FAIL;
         }
-
+        
+        // Calculate total available across all matching keys
+        long totalAvailable = matchingKeys.stream().mapToLong(java.util.Map.Entry::getValue).sum();
         long totalNeeded = (long) placementCount * target.getCount();
+        
+        LOGGER.debug("Found {} matching AEItemKeys for target: {}, totalAvailable={}, totalNeeded={}", 
+                matchingKeys.size(), target, totalAvailable, totalNeeded);
 
-        long simAvail = storage.extract(itemKey, totalNeeded, appeng.api.config.Actionable.SIMULATE, src);
-        if (simAvail < totalNeeded) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", itemKey.getDisplayName()), true);
+        if (totalAvailable < totalNeeded) {
+            LOGGER.debug("Not enough items: available {} but need {}", totalAvailable, totalNeeded);
+            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", target.getHoverName()), true);
             return InteractionResult.FAIL;
         }
 
@@ -478,23 +602,52 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
 
         int placedCount = 0;
         List<UndoHistory.PlacementSnapshot> placedSnapshots = new ArrayList<>();
+        
+        // Track which keys we've used and how many from each (for extraction later)
+        java.util.Map<appeng.api.stacks.AEItemKey, Long> extractionMap = new java.util.LinkedHashMap<>();
+        
+        // Create a mutable copy of matching keys with remaining counts
+        java.util.List<java.util.Map.Entry<appeng.api.stacks.AEItemKey, Long>> availableKeys = new java.util.ArrayList<>();
+        for (var entry : matchingKeys) {
+            availableKeys.add(new java.util.AbstractMap.SimpleEntry<>(entry.getKey(), entry.getValue()));
+        }
 
         for (BlockPos placePos : placePositions) {
-            var placeStack = itemKey.toStack(1);
+            // Find a key with available count
+            appeng.api.stacks.AEItemKey currentKey = null;
+            for (var entry : availableKeys) {
+                if (entry.getValue() > 0) {
+                    currentKey = entry.getKey();
+                    entry.setValue(entry.getValue() - 1);
+                    break;
+                }
+            }
+            
+            if (currentKey == null) {
+                LOGGER.debug("No more available items to place at {}", placePos);
+                break;
+            }
+            
+            var placeStack = currentKey.toStack(1);
             ItemStack origMain = player.getMainHandItem();
             ItemStack origOff = player.getOffhandItem();
             try {
                 player.setItemInHand(InteractionHand.MAIN_HAND, placeStack);
-                BlockPlaceContext placeContext = new BlockPlaceContext(new net.minecraft.world.item.context.UseOnContext(
-                    player, context.getHand(), new net.minecraft.world.phys.BlockHitResult(
-                        context.getClickLocation(), context.getClickedFace(), placePos, context.isInside()
+                // Create BlockPlaceContext with the correct placeStack (including NBT like energy)
+                BlockPlaceContext placeContext = new BlockPlaceContext(
+                    level, player, InteractionHand.MAIN_HAND, placeStack,
+                    new net.minecraft.world.phys.BlockHitResult(
+                        context.getClickLocation(), context.getClickedFace(),
+                        placePos, context.isInside()
                     )
-                ));
+                );
                 var result = ((BlockItem) blockItem).place(placeContext);
                 boolean consumes = result.consumesAction();
                 if (consumes) {
                     placedCount++;
-                    placedSnapshots.add(new UndoHistory.PlacementSnapshot(level.getBlockState(placePos), placePos, placeStack, itemKey, 1));
+                    placedSnapshots.add(new UndoHistory.PlacementSnapshot(level.getBlockState(placePos), placePos, placeStack, currentKey, 1));
+                    // Track extraction
+                    extractionMap.merge(currentKey, 1L, Long::sum);
                 }
             } catch (Throwable t) {
                 LOGGER.warn("Exception during placement attempt for player {} at {}", player.getName().getString(), placePos, t);
@@ -509,8 +662,15 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
             return InteractionResult.sidedSuccess(false);
         }
 
-        long extracted = storage.extract(itemKey, (long) placedCount * target.getCount(), appeng.api.config.Actionable.MODULATE, src);
-        if (extracted <= 0) {
+        // Extract from each key we used
+        long totalExtracted = 0;
+        for (var entry : extractionMap.entrySet()) {
+            long extracted = storage.extract(entry.getKey(), entry.getValue(), appeng.api.config.Actionable.MODULATE, src);
+            totalExtracted += extracted;
+            LOGGER.debug("Extracted {} of {} from AE network", extracted, entry.getKey());
+        }
+        
+        if (totalExtracted <= 0) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
             return InteractionResult.sidedSuccess(false);
         }
@@ -618,7 +778,7 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
                 }
             } catch (Throwable ignored) {}
 
-            player.displayClientMessage(Component.literal("Selected: " + name), true);
+            MEPlacementToolMod.ClientForgeEvents.showSelectedOverlay(name);
         }
 
         return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), wand);
