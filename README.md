@@ -63,7 +63,7 @@ This project uses code from the following open source projects:
 
 - **[Ars Nouveau](https://github.com/baileyholl/Ars-Nouveau)** - Radial menu rendering implementation. The radial menu in this mod is inspired by and adapted from Ars Nouveau's GUI code.
 
-- **[Building Gadgets](https://github.com/Direwolf20-MC/BuildingGadgets2)** - Multi-block placement concepts and undo system design inspiration.
+- **[Construction Wand](https://github.com/Theta-Dev/ConstructionWand)** - Multi-block placement concepts and undo system design inspiration.
 
 Special thanks to these projects for making their code available under open source licenses.
 

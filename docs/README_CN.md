@@ -63,7 +63,7 @@ itemBlacklist = []
 
 - **[Ars Nouveau（新生魔艺）](https://github.com/baileyholl/Ars-Nouveau)** - 轮盘菜单渲染实现。本模组的轮盘菜单参考并改编自 Ars Nouveau 的 GUI 代码。
 
-- **[Building Gadgets（建筑手杖）](https://github.com/Direwolf20-MC/BuildingGadgets2)** - 多方块放置概念和撤销系统设计的灵感来源。
+- **[Construction Wand（建筑手杖）](https://github.com/Theta-Dev/ConstructionWand)** - 多方块放置概念和撤销系统设计的灵感来源。
 
 感谢这些项目以开源许可证提供代码。
 
