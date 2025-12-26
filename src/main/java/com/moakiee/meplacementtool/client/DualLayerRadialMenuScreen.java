@@ -178,7 +178,13 @@ public class DualLayerRadialMenuScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        super.render(graphics, mouseX, mouseY, partialTicks);
+        // Don't call super.render() - it draws a background that covers our radial menu
+        // Instead just render our content directly
+
+        if (slots.isEmpty()) {
+            graphics.drawCenteredString(font, Component.translatable("message.meplacementtool.no_configured_item"), width / 2, height / 2, 0xFFFFFF);
+            return;
+        }
 
         PoseStack ms = graphics.pose();
         float openAnimation = closing ? 1.0f - totalTime / OPEN_ANIMATION_LENGTH : totalTime / OPEN_ANIMATION_LENGTH;
@@ -222,6 +228,8 @@ public class DualLayerRadialMenuScreen extends Screen {
         ms.pushPose();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
@@ -262,9 +270,9 @@ public class DualLayerRadialMenuScreen extends Screen {
         }
 
         // Draw gray background rings as full backgrounds
-        drawSlice(buffer, centerX, centerY, 9, innerRadiusMin, innerRadiusMax, 0, 360, 80, 80, 80, 200);
+        drawSlice(buffer, centerX, centerY, 9, innerRadiusMin, innerRadiusMax, 0, 360, 80, 80, 80, 120);
         if (!slots.isEmpty()) {
-            drawSlice(buffer, centerX, centerY, 9, outerRadiusMin, outerRadiusMax, 0, 360, 80, 80, 80, 200);
+            drawSlice(buffer, centerX, centerY, 9, outerRadiusMin, outerRadiusMax, 0, 360, 80, 80, 80, 120);
         }
 
         // Draw inner ring (count options) - only highlights, background already drawn
@@ -312,7 +320,7 @@ public class DualLayerRadialMenuScreen extends Screen {
             graphics.drawCenteredString(font, Component.translatable("message.meplacementtool.no_configured_item"), centerX, centerY + (int)outerRadiusMax + 10, 0xFFFFFF);
         }
 
-        tessellator.end();
+        BufferUploader.drawWithShader(buffer.end());
         
         // Draw divider lines between slices
         buffer = tessellator.getBuilder();
@@ -341,8 +349,10 @@ public class DualLayerRadialMenuScreen extends Screen {
                 buffer.vertex(x2, y2, 11).color(200, 200, 200, 100).endVertex();
             }
         }
-        tessellator.end();
+        BufferUploader.drawWithShader(buffer.end());
         
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
         RenderSystem.disableBlend();
 
         // Draw center hint text

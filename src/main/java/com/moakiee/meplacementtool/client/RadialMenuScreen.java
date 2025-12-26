@@ -125,10 +125,7 @@ public class RadialMenuScreen extends Screen {
         // Check if the open key is still held
         boolean keyIsDown = InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), openKey);
         if (!keyIsDown) {
-            // Key released - select item and close
-            if (selectedItem >= 0 && selectedItem < slots.size()) {
-                selectSlot(slots.get(selectedItem).index);
-            }
+            // Key released - close menu (selection already made via click)
             minecraft.player.closeContainer();
         }
     }
@@ -158,8 +155,9 @@ public class RadialMenuScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        super.render(graphics, mouseX, mouseY, partialTicks);
-
+        // Don't call super.render() - it draws a background that covers our radial menu
+        // Instead just render our content directly
+        
         if (slots.isEmpty()) {
             graphics.drawCenteredString(font, Component.translatable("message.meplacementtool.no_configured_item"), width / 2, height / 2, 0xFFFFFF);
             return;
@@ -195,6 +193,8 @@ public class RadialMenuScreen extends Screen {
         ms.pushPose();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
@@ -216,7 +216,7 @@ public class RadialMenuScreen extends Screen {
         }
 
         // Draw gray background ring as full background
-        drawSlice(buffer, centerX, centerY, 9, radiusIn, radiusOut, 0, 360, 80, 80, 80, 200);
+        drawSlice(buffer, centerX, centerY, 9, radiusIn, radiusOut, 0, 360, 80, 80, 80, 120);
 
         // Only draw highlights for hovered and currently selected slices (not all slices)
         int mousedOverSlot = -1;
@@ -240,7 +240,7 @@ public class RadialMenuScreen extends Screen {
             // Non-selected, non-hovered slices: no additional color, gray background shows through
         }
 
-        tessellator.end();
+        BufferUploader.drawWithShader(buffer.end());
         
         // Draw divider lines between slices
         buffer = tessellator.getBuilder();
@@ -254,8 +254,10 @@ public class RadialMenuScreen extends Screen {
             buffer.vertex(x1, y1, 11).color(200, 200, 200, 100).endVertex();
             buffer.vertex(x2, y2, 11).color(200, 200, 200, 100).endVertex();
         }
-        tessellator.end();
+        BufferUploader.drawWithShader(buffer.end());
         
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
         RenderSystem.disableBlend();
 
         // Draw hovered item name
@@ -295,9 +297,9 @@ public class RadialMenuScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // Left-click selects without closing, G release closes menu
         if (selectedItem >= 0 && selectedItem < slots.size()) {
             selectSlot(slots.get(selectedItem).index);
-            minecraft.player.closeContainer();
         }
         return true;
     }

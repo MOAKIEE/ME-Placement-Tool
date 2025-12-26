@@ -46,7 +46,9 @@ public class WandGhostHandler implements IGhostIngredientHandler<WandScreen> {
             int y = slot.y + screen.getGuiTop();
             Rect2i area = new Rect2i(x, y, 16, 16);
 
-            int idx = i;
+            int visualIdx = i;
+            // Get actual handler index based on current page
+            int actualIdx = menu.getActualSlotIndex(visualIdx);
             // capture a single ItemStack to place (ensure count=1)
             ItemStack toPlace = stack.copy();
             toPlace.setCount(1);
@@ -62,9 +64,9 @@ public class WandGhostHandler implements IGhostIngredientHandler<WandScreen> {
                     try {
                         var handler = menu.getHandler();
                             ItemStack copy = toPlace.copy();
-                            // If this is an AE2 WrappedGenericStack representing a fluid, store it directly in the slot
-                            handler.setStackInSlot(idx, copy);
-                            try { var s = menu.getSlot(idx); s.set(copy); } catch (Exception ignored) {}
+                            // Use actual index (accounts for page offset)
+                            handler.setStackInSlot(actualIdx, copy);
+                            try { var s = menu.getSlot(visualIdx); s.set(copy); } catch (Exception ignored) {}
                             CompoundTag combined = new CompoundTag();
                             combined.put("items", handler.serializeNBT());
                             CompoundTag ftag = new CompoundTag();

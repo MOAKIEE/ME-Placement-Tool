@@ -3,113 +3,76 @@
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1-green.svg)](https://www.minecraft.net/)
 [![Forge](https://img.shields.io/badge/Forge-47.4.10-orange.svg)](https://files.minecraftforge.net/)
 [![License](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)](../LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.2.0-brightgreen.svg)](../../releases)
 
 [🇬🇧 English](../README.md)
 
-一个 Minecraft Forge 模组，为 Applied Energistics 2 添加放置工具，让你可以直接从 ME 网络中放置方块、AE2 部件和流体。
+一个 Minecraft Forge 模组，为 Applied Energistics 2 添加放置工具。可以直接从 ME 网络放置方块、AE2 线缆部件和流体。
 
-## 功能特性
+## 功能
 
 ### ME 放置工具
-- **ME 网络集成** - 通过 ME 无线访问点链接到你的 AE 网络
-- **智能放置** - 直接从 ME 网络放置物品：
-  - 普通方块 - 作为正常方块放置
-  - AE2 线缆部件（总线、面板等）- 自动附着到线缆上
-  - 流体 - 作为流体源方块放置到世界中
-- **3x3 配置界面** - 最多可配置 9 种不同的物品/流体进行放置
-- **HUD 显示** - 显示当前选中的物品和网络连接状态
-- **JEI 集成** - 可直接从 JEI 拖拽物品/流体到配置格子
+- 直接从 ME 网络放置物品
+- 支持普通方块、AE2 线缆部件（总线、面板等）和流体
+- 18 格配置槽，按 G 键打开轮盘快速选择
+- JEI 集成 - 可直接拖拽物品到配置格
+- HUD 显示当前选择和网络状态
 
 ### ME 多方块放置工具
-- **多方块放置** - 一次放置多个方块，智能分布
-- **智能放置算法** - 使用 BFS 算法在相连表面上均匀分布方块
-- **可调放置数量** - 循环切换放置数量：1、8、64、256、1024 个方块
-- **预览系统** - 可视化预览方块将要放置的位置
-- **撤销功能** - 按 Ctrl + 左键撤销最后一次放置操作
+- 使用 BFS 算法一次放置多个方块
+- 可调放置数量：1、8、64、256、1024
+- 双层轮盘菜单：内圈选数量，外圈选物品
+- 放置前预览
+- 支持撤销（Ctrl + 左键）
 
 ## 前置要求
 
 - Minecraft 1.20.1
 - Forge 47.4.10+
-- Applied Energistics 2 (AE2)
-- JEI（可选，用于拖拽功能）
+- Applied Energistics 2
 
-## 安装方法
+## 操作
 
-1. 从 [Releases](../../releases) 页面下载最新版本
-2. 将 `.jar` 文件放入 `mods` 文件夹
-3. 确保已安装 AE2
+| 工具 | 操作 | 按键 |
+|------|------|------|
+| 通用 | 打开 GUI | 右键（对着空气） |
+| 通用 | 放置 | 右键（对着方块） |
+| 通用 | 轮盘菜单 | 按住 G |
+| 通用 | 链接网络 | 放入 ME 无线访问点 |
+| 多方块 | 撤销 | Ctrl + 左键 |
 
-## 使用方法
+## 配置
 
-### ME 放置工具
-通过无线访问点链接到 ME 网络，在 GUI 中配置物品，通过右键点击方块表面直接从网络放置方块。
+配置文件：`config/meplacementtool-common.toml`
 
-### ME 多方块放置工具
-通过无线访问点链接到 ME 网络，在 GUI 中配置物品，使用 Shift+右键切换放置数量，智能放置多个方块并支持预览和撤销。
-
-## 配置文件
-
-模组配置文件位于 `config/meplacementtool-common.toml`：
-
-### 能量设置
 ```toml
-# ME 放置工具的能量容量（默认：100000）
+# 能量设置（单位：AE）
 mePlacementToolEnergyCapacity = 100000
-
-# ME 放置工具每次放置的能量消耗（默认：50）
 mePlacementToolEnergyCost = 50
-
-# ME 多方块放置工具的能量容量（默认：1000000）
 multiblockPlacementToolEnergyCapacity = 1000000
-
-# ME 多方块放置工具的基础能量消耗（默认：200）
-# 总消耗 = 基础消耗 * 放置数量 / 64
 multiblockPlacementToolBaseEnergyCost = 200
-```
 
-### 物品黑名单
-```toml
-# 不能放置的物品（逗号分隔的物品 ID）
-# 示例：["minecraft:bedrock", "minecraft:command_block"]
+# 黑名单物品
 itemBlacklist = []
 ```
 
-## 操作按键
+## 致谢
 
-### ME 放置工具
-| 操作 | 按键 |
-|------|------|
-| 打开界面 | 右键（对着空气） |
-| 放置物品 | 右键（对着方块） |
-| 切换上一个 | Shift + 左键（对着空气） |
-| 切换下一个 | Shift + 右键（对着空气） |
-| 链接网络 | 放入 ME 无线访问点 |
+本项目使用或参考了以下开源项目的代码：
 
-### ME 多方块放置工具
-| 操作 | 按键 |
-|------|------|
-| 打开界面 | 右键（对着空气） |
-| 放置方块 | 右键（对着方块） |
-| 选择槽位 | Shift + 左/右键（对着空气） |
-| 切换放置数量 | Shift + 鼠标滚轮 |
-| 撤销放置 | Ctrl + 左键 |
-| 链接网络 | 放入 ME 无线访问点 |
+- **[Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2)** - ME 网络集成和无线终端实现。感谢 AE2 团队提供的优秀模组和 API。
+
+- **[Ars Nouveau（新生魔艺）](https://github.com/baileyholl/Ars-Nouveau)** - 轮盘菜单渲染实现。本模组的轮盘菜单参考并改编自 Ars Nouveau 的 GUI 代码。
+
+- **[Building Gadgets（建筑手杖）](https://github.com/Direwolf20-MC/BuildingGadgets2)** - 多方块放置概念和撤销系统设计的灵感来源。
+
+感谢这些项目以开源许可证提供代码。
 
 ## 许可证
 
-本项目采用 GNU 较宽松公共许可证 第3版（LGPL-3.0-only）。
+本项目采用 **GNU 宽松通用公共许可证第 3 版**（LGPL-3.0-only）。
 
-你可以在遵循 LGPL-3.0-only 条款的前提下在模组包中使用此模组。
-
-完整许可请参阅仓库根目录的 `LICENSE` 文件。
-
-## 致谢
-
-- **Applied Energistics 2 团队** - 提供了优秀的 AE2 模组和 API
-- **Minecraft Forge 团队** - 提供了模组开发框架
+可在模组包中自由使用本模组。
 
 ## 贡献
 
-欢迎贡献！请随时提交 Pull Request。
+欢迎贡献！可以提交 Issue 或 Pull Request。
