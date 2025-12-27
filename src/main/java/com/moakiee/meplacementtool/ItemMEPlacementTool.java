@@ -163,9 +163,11 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
         var storage = grid.getStorageService().getInventory();
         var src = new appeng.me.helpers.PlayerSource(player);
 
-        // Placement tracking (used for rollback/logging)
+        // Placement tracking (used for rollback/logging and memory card application)
         BlockPos lastPlacementPos = null;
         boolean lastPlacementWasBlock = false;
+        net.minecraft.core.Direction lastPlacementSide = null;
+        appeng.api.parts.IPart lastPlacedPart = null;
 
         // First: detect if the target is an AE wrapped GenericStack representing a fluid
         try {
@@ -424,6 +426,19 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
             return InteractionResult.FAIL;
         }
 
+        // Check if we have enough resources (blank patterns, upgrades) for memory card application
+        if (MemoryCardHelper.hasConfiguredMemoryCard(player)) {
+            var resourceCheck = MemoryCardHelper.checkResourcesForMultipleBlocks(player, grid, 1);
+            if (!resourceCheck.sufficient) {
+                String missing = resourceCheck.getMissingItemsMessage();
+                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_resources", missing), false);
+                return InteractionResult.sidedSuccess(false);
+            }
+        }
+
+        // Check for Mekanism configuration card (no resource requirements)
+        boolean hasMekConfigCard = ModCompat.isMekanismLoaded() && MekanismConfigCardHelper.hasConfiguredConfigCard(player);
+
         // create stack to place
         ItemStack placeStack = aeKey.toStack(1);
 
@@ -483,6 +498,8 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                                     placed = true;
                                     lastPlacementPos = placement.pos();
                                     lastPlacementWasBlock = false;
+                                    lastPlacementSide = placement.side();
+                                    lastPlacedPart = part;
                                 }
                             }
                         }
@@ -530,6 +547,18 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                     var finalState = level.getBlockState(soundPos);
                     level.sendBlockUpdated(soundPos, prevStateBlock, finalState, 3);
                 } catch (Throwable ignored) {}
+
+                // Apply memory card / config card settings from off-hand if present
+                if (MemoryCardHelper.hasConfiguredMemoryCard(player)) {
+                    if (lastPlacementWasBlock) {
+                        MemoryCardHelper.applyMemoryCardToBlock(player, level, soundPos, true, grid);
+                    } else if (lastPlacedPart != null) {
+                        MemoryCardHelper.applyMemoryCardToPart(player, lastPlacedPart, true, grid);
+                    }
+                } else if (hasMekConfigCard && lastPlacementWasBlock) {
+                    // Mekanism Configuration Card (only for blocks, not parts)
+                    MekanismConfigCardHelper.applyConfigCardToBlock(player, level, soundPos, true);
+                }
             }
         } else {
             // placement did not succeed — notify player

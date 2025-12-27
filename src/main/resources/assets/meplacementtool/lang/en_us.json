@@ -8,6 +8,10 @@
   "message.meplacementtool.network_missing": "Network missing: %s",
   "message.meplacementtool.failed_extract": "Failed to extract from network",
   "message.meplacementtool.cannot_place": "Cannot place",
+  "message.meplacementtool.missing_resources": "Missing resources for memory card: %s",
+  "message.meplacementtool.cannot_undo_memory_card": "Cannot undo: configuration applied",
+  "message.meplacementtool.mek_config_loaded": "Configuration loaded",
+  "message.meplacementtool.mek_config_incompatible": "Configuration card incompatible with this block",
   "message.meplacementtool.no_linked_grid": "Not linked to ME network",
   "key.categories.meplacementtool": "ME Placement Tool",
   "key.meplacementtool.open_radial_menu": "Open Radial Menu"

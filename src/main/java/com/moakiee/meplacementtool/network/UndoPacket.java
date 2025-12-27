@@ -2,9 +2,11 @@ package com.moakiee.meplacementtool.network;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 import com.moakiee.meplacementtool.MEPlacementToolMod;
+import com.moakiee.meplacementtool.UndoHistory;
 
 import java.util.function.Supplier;
 
@@ -31,7 +33,10 @@ public class UndoPacket
                 ServerPlayer player = ctx.get().getSender();
                 if(player == null) return;
 
-                MEPlacementToolMod.instance.undoHistory.undo(player, player.level(), msg.pos);
+                UndoHistory.UndoResult result = MEPlacementToolMod.instance.undoHistory.undoWithResult(player, player.level(), msg.pos);
+                if (result == UndoHistory.UndoResult.MEMORY_CARD_APPLIED) {
+                    player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_undo_memory_card"), true);
+                }
             });
             ctx.get().setPacketHandled(true);
         }

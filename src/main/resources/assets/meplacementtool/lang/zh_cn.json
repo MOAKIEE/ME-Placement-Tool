@@ -8,6 +8,10 @@
   "message.meplacementtool.network_missing": "网络缺少： %s",
   "message.meplacementtool.failed_extract": "从网络抽取失败",
   "message.meplacementtool.cannot_place": "无法放置",
+  "message.meplacementtool.missing_resources": "内存卡配置所需资源不足: %s",
+  "message.meplacementtool.cannot_undo_memory_card": "已应用配置，无法撤回",
+  "message.meplacementtool.mek_config_loaded": "配置已加载",
+  "message.meplacementtool.mek_config_incompatible": "配置卡与此方块不兼容",
   "message.meplacementtool.no_linked_grid": "未链接到 ME 网络",
   "key.categories.meplacementtool": "ME 放置工具",
   "key.meplacementtool.open_radial_menu": "打开轮盘菜单"

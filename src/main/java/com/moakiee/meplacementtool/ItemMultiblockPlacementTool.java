@@ -592,6 +592,19 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
             return InteractionResult.sidedSuccess(false);
         }
 
+        // Check if we have enough resources (blank patterns, upgrades) for memory card application
+        if (MemoryCardHelper.hasConfiguredMemoryCard(player)) {
+            var resourceCheck = MemoryCardHelper.checkResourcesForMultipleBlocks(player, grid, placePositions.size());
+            if (!resourceCheck.sufficient) {
+                String missing = resourceCheck.getMissingItemsMessage();
+                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_resources", missing), false);
+                return InteractionResult.sidedSuccess(false);
+            }
+        }
+
+        // Check Mekanism configuration card (no resource requirements)
+        boolean hasMekConfigCard = ModCompat.isMekanismLoaded() && MekanismConfigCardHelper.hasConfiguredConfigCard(player);
+
         int placedCount = 0;
         List<UndoHistory.PlacementSnapshot> placedSnapshots = new ArrayList<>();
         
@@ -665,10 +678,37 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
             return InteractionResult.sidedSuccess(false);
         }
 
-        MEPlacementToolMod.instance.undoHistory.add(player, level, placedSnapshots);
+        // Apply memory card / config card settings from off-hand if present to all placed blocks
+        // Since all blocks are the same type, only show message once (for the first block)
+        boolean configApplied = false;
+        
+        // AE2 Memory Card
+        if (MemoryCardHelper.hasConfiguredMemoryCard(player)) {
+            boolean firstBlock = true;
+            for (UndoHistory.PlacementSnapshot snapshot : placedSnapshots) {
+                if (MemoryCardHelper.applyMemoryCardToBlock(player, level, snapshot.pos, firstBlock, grid)) {
+                    configApplied = true;
+                }
+                firstBlock = false;
+            }
+        }
+        // Mekanism Configuration Card
+        else if (hasMekConfigCard) {
+            boolean firstBlock = true;
+            for (UndoHistory.PlacementSnapshot snapshot : placedSnapshots) {
+                if (MekanismConfigCardHelper.applyConfigCardToBlock(player, level, snapshot.pos, firstBlock)) {
+                    configApplied = true;
+                }
+                firstBlock = false;
+            }
+        }
+
+        // Add to undo history, marking as non-undoable if config was applied
+        MEPlacementToolMod.instance.undoHistory.add(player, level, placedSnapshots, configApplied);
 
         this.usePower(player, ENERGY_COST * placedCount / placementCount, wand);
         level.playSound(null, clickedPos.relative(clickedFace), SoundEvents.STONE_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
+
         return InteractionResult.sidedSuccess(false);
     }
 

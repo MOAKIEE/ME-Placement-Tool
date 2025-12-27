@@ -28,28 +28,49 @@ public class UndoHistory
     }
 
     public void add(Player player, Level world, List<PlacementSnapshot> placeSnapshots) {
+        add(player, world, placeSnapshots, false);
+    }
+
+    public void add(Player player, Level world, List<PlacementSnapshot> placeSnapshots, boolean memoryCardApplied) {
         LinkedList<HistoryEntry> list = getEntryFromPlayer(player).entries;
         list.clear();
-        list.add(new HistoryEntry(placeSnapshots, world));
+        list.add(new HistoryEntry(placeSnapshots, world, memoryCardApplied));
     }
 
     public void removePlayer(Player player) {
         history.remove(player.getUUID());
     }
 
-    public boolean undo(Player player, Level world, BlockPos pos) {
+    /**
+     * Result of undo operation
+     */
+    public enum UndoResult {
+        SUCCESS,
+        NO_HISTORY,
+        OUT_OF_RANGE,
+        MEMORY_CARD_APPLIED,
+        FAILED
+    }
+
+    public UndoResult undoWithResult(Player player, Level world, BlockPos pos) {
         PlayerEntry playerEntry = getEntryFromPlayer(player);
         LinkedList<HistoryEntry> historyEntries = playerEntry.entries;
-        if(historyEntries.isEmpty()) return false;
+        if(historyEntries.isEmpty()) return UndoResult.NO_HISTORY;
         HistoryEntry entry = historyEntries.getLast();
 
-        if(!entry.world.equals(world) || !entry.withinRange(pos)) return false;
+        if(!entry.world.equals(world) || !entry.withinRange(pos)) return UndoResult.OUT_OF_RANGE;
+
+        if(entry.memoryCardApplied) return UndoResult.MEMORY_CARD_APPLIED;
 
         if(entry.undo(player)) {
             historyEntries.remove(entry);
-            return true;
+            return UndoResult.SUCCESS;
         }
-        return false;
+        return UndoResult.FAILED;
+    }
+
+    public boolean undo(Player player, Level world, BlockPos pos) {
+        return undoWithResult(player, world, pos) == UndoResult.SUCCESS;
     }
 
     private static class PlayerEntry
@@ -65,10 +86,12 @@ public class UndoHistory
     {
         public final List<PlacementSnapshot> placeSnapshots;
         public final Level world;
+        public final boolean memoryCardApplied;
 
-        public HistoryEntry(List<PlacementSnapshot> placeSnapshots, Level world) {
+        public HistoryEntry(List<PlacementSnapshot> placeSnapshots, Level world, boolean memoryCardApplied) {
             this.placeSnapshots = placeSnapshots;
             this.world = world;
+            this.memoryCardApplied = memoryCardApplied;
         }
 
         public Set<BlockPos> getBlockPositions() {

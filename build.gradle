@@ -140,6 +140,10 @@ dependencies {
     compileOnly fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
     runtimeOnly fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
 
+    // Mekanism dependency (optional)
+    compileOnly fg.deobf("mekanism:Mekanism:${minecraft_version}-${mekanism_version}")
+    // runtimeOnly fg.deobf("mekanism:Mekanism:${minecraft_version}-${mekanism_version}")
+
     // JEI dependencies
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-forge-api:15.20.0.127")
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-common-api:15.20.0.127")
