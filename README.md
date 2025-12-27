@@ -67,6 +67,8 @@ This project uses code from the following open source projects:
 
 Special thanks to these projects for making their code available under open source licenses.
 
+- **麦淇淋** - Thank you for helping us optimize the 3D models for the tools.
+
 ## License
 
 This project is licensed under the **GNU Lesser General Public License v3.0** (LGPL-3.0-only).
