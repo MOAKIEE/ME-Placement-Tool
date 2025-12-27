@@ -492,10 +492,6 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
         // Find all matching items in the AE network (respects NBT whitelist config)
         var matchingKeys = Config.findAllMatchingKeys(storage, target);
         if (matchingKeys.isEmpty()) {
-            // Log detailed info for debugging
-            var itemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(target.getItem());
-            LOGGER.debug("No matching item found in AE network for {} (ignoreNbt={})", 
-                    itemId, Config.shouldIgnoreNbt(target));
             player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", target.getHoverName()), true);
             return InteractionResult.FAIL;
         }
@@ -503,12 +499,8 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
         // Calculate total available across all matching keys
         long totalAvailable = matchingKeys.stream().mapToLong(java.util.Map.Entry::getValue).sum();
         long totalNeeded = (long) placementCount * target.getCount();
-        
-        LOGGER.debug("Found {} matching AEItemKeys for target: {}, totalAvailable={}, totalNeeded={}", 
-                matchingKeys.size(), target, totalAvailable, totalNeeded);
 
         if (totalAvailable < totalNeeded) {
-            LOGGER.debug("Not enough items: available {} but need {}", totalAvailable, totalNeeded);
             player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", target.getHoverName()), true);
             return InteractionResult.FAIL;
         }
@@ -624,7 +616,6 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
             }
             
             if (currentKey == null) {
-                LOGGER.debug("No more available items to place at {}", placePos);
                 break;
             }
             
@@ -667,7 +658,6 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
         for (var entry : extractionMap.entrySet()) {
             long extracted = storage.extract(entry.getKey(), entry.getValue(), appeng.api.config.Actionable.MODULATE, src);
             totalExtracted += extracted;
-            LOGGER.debug("Extracted {} of {} from AE network", extracted, entry.getKey());
         }
         
         if (totalExtracted <= 0) {
