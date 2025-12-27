@@ -13,7 +13,7 @@ displayName="ME Placement Tool" #mandatory
 #updateJSONURL="https://example.invalid/updates.json"
 displayURL="https://github.com/MOAKIEE/ME-Placement-Tool"
 logoFile="meplacementtool_icon.png"
-authors="MOAKIEE"
+authors="MOAKIEE,CystrySU"
 credits="Applied Energistics 2 team for the excellent API"
 issueTrackerURL="https://github.com/MOAKIEE/ME-Placement-Tool/issues"
 
