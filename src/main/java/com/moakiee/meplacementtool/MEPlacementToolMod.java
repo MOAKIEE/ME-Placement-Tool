@@ -3,8 +3,10 @@ package com.moakiee.meplacementtool;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraftforge.api.distmarker.Dist;
@@ -48,6 +50,35 @@ public class MEPlacementToolMod
     public static final RegistryObject<Item> MULTIBLOCK_PLACEMENT_TOOL = ITEMS.register("multiblock_placement_tool",
             () -> new ItemMultiblockPlacementTool(new Item.Properties().stacksTo(1)));
 
+    public static final RegistryObject<CreativeModeTab> ME_PLACEMENT_TOOL_TAB = CREATIVE_MODE_TABS.register("me_placement_tool_tab",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.meplacementtool"))
+                    .icon(() -> {
+                        var iconStack = new ItemStack(ME_PLACEMENT_TOOL.get());
+                        if (iconStack.getItem() instanceof appeng.api.implementations.items.IAEItemPowerStorage powerStorage) {
+                            powerStorage.injectAEPower(iconStack, powerStorage.getAEMaxPower(iconStack), appeng.api.config.Actionable.MODULATE);
+                        }
+                        return iconStack;
+                    })
+                    .displayItems((parameters, output) -> {
+                        output.accept(ME_PLACEMENT_TOOL.get());
+                        output.accept(MULTIBLOCK_PLACEMENT_TOOL.get());
+                        
+                        var chargedMETool = new ItemStack(ME_PLACEMENT_TOOL.get(), 1);
+                        var chargedMultiblockTool = new ItemStack(MULTIBLOCK_PLACEMENT_TOOL.get(), 1);
+                        
+                        if (chargedMETool.getItem() instanceof appeng.api.implementations.items.IAEItemPowerStorage mePowerStorage) {
+                            mePowerStorage.injectAEPower(chargedMETool, mePowerStorage.getAEMaxPower(chargedMETool), appeng.api.config.Actionable.MODULATE);
+                        }
+                        if (chargedMultiblockTool.getItem() instanceof appeng.api.implementations.items.IAEItemPowerStorage multiPowerStorage) {
+                            multiPowerStorage.injectAEPower(chargedMultiblockTool, multiPowerStorage.getAEMaxPower(chargedMultiblockTool), appeng.api.config.Actionable.MODULATE);
+                        }
+                        
+                        output.accept(chargedMETool);
+                        output.accept(chargedMultiblockTool);
+                    })
+                    .build());
+
     public static MEPlacementToolMod instance;
     public MultiblockPreviewRenderer multiblockPreviewRenderer;
     public UndoHistory undoHistory;
@@ -72,7 +103,7 @@ public class MEPlacementToolMod
 
         MinecraftForge.EVENT_BUS.register(this);
 
-        modEventBus.addListener(this::addCreative);
+
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
@@ -85,14 +116,6 @@ public class MEPlacementToolMod
             GridLinkables.register(MULTIBLOCK_PLACEMENT_TOOL.get(), WirelessTerminalItem.LINKABLE_HANDLER);
         } catch (Exception e) {
             LOGGER.error("Failed to register GridLinkable handler: {}", e.getMessage());
-        }
-    }
-
-    private void addCreative(BuildCreativeModeTabContentsEvent event)
-    {
-        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
-            event.accept(ME_PLACEMENT_TOOL.get());
-            event.accept(MULTIBLOCK_PLACEMENT_TOOL.get());
         }
     }
 

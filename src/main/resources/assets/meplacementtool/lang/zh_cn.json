@@ -1,4 +1,5 @@
 {
+  "itemGroup.meplacementtool": "ME 放置工具",
   "item.meplacementtool.me_placement_tool": "ME 放置工具",
   "item.meplacementtool.multiblock_placement_tool": "ME 多方块放置工具",
   "gui.meplacementtool.placement_config": "放置配置",
