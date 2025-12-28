@@ -29,7 +29,6 @@ import net.minecraftforge.registries.RegistryObject;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import org.slf4j.Logger;
 import appeng.api.features.GridLinkables;
-import appeng.items.tools.powered.WirelessTerminalItem;
 import com.moakiee.meplacementtool.client.MEPartPreviewRenderer;
 import com.moakiee.meplacementtool.client.ModKeyBindings;
 import com.moakiee.meplacementtool.client.MultiblockPreviewRenderer;
@@ -110,10 +109,10 @@ public class MEPlacementToolMod
 
     private void commonSetup(final FMLCommonSetupEvent event)
     {
-        // Register AE2 grid linkable handler for our custom wireless terminal item
+        // Register AE2 grid linkable handler for our custom placement tool items
         try {
-            GridLinkables.register(ME_PLACEMENT_TOOL.get(), WirelessTerminalItem.LINKABLE_HANDLER);
-            GridLinkables.register(MULTIBLOCK_PLACEMENT_TOOL.get(), WirelessTerminalItem.LINKABLE_HANDLER);
+            GridLinkables.register(ME_PLACEMENT_TOOL.get(), BasePlacementToolItem.LINKABLE_HANDLER);
+            GridLinkables.register(MULTIBLOCK_PLACEMENT_TOOL.get(), BasePlacementToolItem.LINKABLE_HANDLER);
         } catch (Exception e) {
             LOGGER.error("Failed to register GridLinkable handler: {}", e.getMessage());
         }
@@ -132,6 +131,7 @@ public class MEPlacementToolMod
         @SubscribeEvent
         public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
             event.register(ModKeyBindings.OPEN_RADIAL_MENU);
+            event.register(ModKeyBindings.UNDO_MODIFIER);
         }
 
         @SubscribeEvent

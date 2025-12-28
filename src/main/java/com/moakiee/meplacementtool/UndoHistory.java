@@ -120,8 +120,8 @@ public class UndoHistory
             }
 
             appeng.api.networking.IGrid grid = null;
-            if(wand.getItem() instanceof appeng.items.tools.powered.WirelessTerminalItem wirelessTerminal) {
-                grid = wirelessTerminal.getLinkedGrid(wand, world, player);
+            if(wand.getItem() instanceof BasePlacementToolItem placementTool) {
+                grid = placementTool.getLinkedGrid(wand, world, player);
             }
 
             if(grid == null) {

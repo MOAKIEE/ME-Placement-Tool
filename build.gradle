@@ -126,6 +126,15 @@ repositories {
         name = "ModMaven"
         url = "https://modmaven.dev"
     }
+    
+    // CurseForge maven for Curios
+    maven {
+        name = "CurseForge"
+        url = "https://cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
 }
 
 dependencies {
@@ -148,6 +157,9 @@ dependencies {
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-forge-api:15.20.0.127")
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-common-api:15.20.0.127")
     runtimeOnly fg.deobf("mezz.jei:jei-1.20.1-forge:15.20.0.127")
+
+    // Curios API (optional, for detecting wireless terminals in curio slots)
+    compileOnly fg.deobf("curse.maven:curios-309927:6418456")
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar

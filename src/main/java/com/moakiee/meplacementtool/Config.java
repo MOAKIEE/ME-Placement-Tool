@@ -149,6 +149,15 @@ public class Config
         if (itemId == null) {
             return false;
         }
+        // Special-case: AE facades should always preserve NBT (they encode texture state)
+        try {
+            if (stack.getItem() instanceof appeng.api.implementations.items.IFacadeItem) {
+                return false;
+            }
+        } catch (Throwable ignored) {
+            // If AE API not present or any error occurs, fall back to config-based behavior
+        }
+
         return !isModInNbtWhitelist(itemId.getNamespace());
     }
 
@@ -165,20 +174,12 @@ public class Config
             net.minecraft.world.item.ItemStack target) {
         java.util.List<java.util.Map.Entry<appeng.api.stacks.AEItemKey, Long>> result = new java.util.ArrayList<>();
         
-        // DEBUG LOGS - Remove after debugging facade placement issues
         var targetItemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(target.getItem());
-        LOGGER.debug("=== FIND MATCHING KEYS DEBUG START ===");
-        LOGGER.debug("Target item: {}, hasTag: {}", targetItemId, target.hasTag());
-        if (target.hasTag()) {
-            LOGGER.debug("Target NBT: {}", target.getTag());
-        }
-        
+
         if (target == null || target.isEmpty()) {
-            LOGGER.debug("Target is null or empty, returning empty result");
-            LOGGER.debug("=== FIND MATCHING KEYS DEBUG END ===");
             return result;
         }
-        
+
         var itemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(target.getItem());
         if (itemId == null) {
             var key = appeng.api.stacks.AEItemKey.of(target);
@@ -188,50 +189,38 @@ public class Config
                     result.add(java.util.Map.entry(key, count));
                 }
             }
-            LOGGER.debug("itemId is null, result size: {}", result.size());
-            LOGGER.debug("=== FIND MATCHING KEYS DEBUG END ===");
             return result;
         }
-        
+
         boolean ignoreNbt = shouldIgnoreNbt(target);
-        LOGGER.debug("ignoreNbt: {}", ignoreNbt);
-        LOGGER.debug("isItemInNbtWhitelist: {}", isItemInNbtWhitelist(target.getItem()));
-        LOGGER.debug("isModInNbtWhitelist: {}", isModInNbtWhitelist(itemId.getNamespace()));
-        
-        // If we need exact NBT match, just check for that specific key
-        if (!ignoreNbt) {
-            LOGGER.debug("Exact NBT match required");
-            var key = appeng.api.stacks.AEItemKey.of(target);
-            if (key != null) {
-                long count = storage.extract(key, Long.MAX_VALUE, appeng.api.config.Actionable.SIMULATE, null);
-                if (count > 0) {
-                    result.add(java.util.Map.entry(key, count));
-                    LOGGER.debug("Found exact NBT match: {}, count: {}", key, count);
-                } else {
-                    LOGGER.debug("No exact NBT match found");
-                }
-            }
-            LOGGER.debug("=== FIND MATCHING KEYS DEBUG END ===");
-            return result;
-        }
-        
-        // Otherwise, find all items with the same ID (ignoring NBT)
-        LOGGER.debug("Ignoring NBT, finding all items with same ID");
+
         var targetItem = target.getItem();
         var availableStacks = storage.getAvailableStacks();
         
-        for (var entry : availableStacks) {
-            var key = entry.getKey();
-            if (key instanceof appeng.api.stacks.AEItemKey itemKey) {
-                if (itemKey.getItem() == targetItem && entry.getLongValue() > 0) {
-                    result.add(java.util.Map.entry(itemKey, entry.getLongValue()));
-                    LOGGER.debug("Found matching item (ignoring NBT): {}, count: {}", itemKey, entry.getLongValue());
+        if (ignoreNbt) {
+            // Ignore NBT: find all items with the same ID
+            for (var entry : availableStacks) {
+                var key = entry.getKey();
+                if (key instanceof appeng.api.stacks.AEItemKey itemKey) {
+                    if (itemKey.getItem() == targetItem && entry.getLongValue() > 0) {
+                        result.add(java.util.Map.entry(itemKey, entry.getLongValue()));
+                    }
+                }
+            }
+        } else {
+            // Preserve NBT: exact match required (for facades, whitelisted items, etc.)
+            var exactKey = appeng.api.stacks.AEItemKey.of(target);
+            if (exactKey != null) {
+                for (var entry : availableStacks) {
+                    var key = entry.getKey();
+                    if (key instanceof appeng.api.stacks.AEItemKey itemKey) {
+                        if (itemKey.equals(exactKey) && entry.getLongValue() > 0) {
+                            result.add(java.util.Map.entry(itemKey, entry.getLongValue()));
+                        }
+                    }
                 }
             }
         }
-        
-        LOGGER.debug("Total matches found: {}", result.size());
-        LOGGER.debug("=== FIND MATCHING KEYS DEBUG END ===");
         
         return result;
     }

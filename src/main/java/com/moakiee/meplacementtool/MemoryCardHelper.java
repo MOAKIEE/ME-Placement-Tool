@@ -178,7 +178,7 @@ public class MemoryCardHelper {
                     }
                 }
             } catch (Exception e) {
-                LOGGER.debug("Failed to parse upgrade item id: {}", itemIdStr);
+                // debug removed: failed to parse upgrade item id
             }
         }
         
@@ -210,12 +210,10 @@ public class MemoryCardHelper {
         int needToFetch = patternsNeeded - existingBlankPatterns;
         
         if (needToFetch <= 0) {
-            LOGGER.debug("Player already has enough blank patterns ({} needed, {} available)", patternsNeeded, existingBlankPatterns);
             return 0; // Player already has enough
         }
         
-        LOGGER.debug("Need to fetch {} blank patterns from network ({} needed, {} available in inventory/tool)", 
-            needToFetch, patternsNeeded, existingBlankPatterns);
+        // debug removed: need to fetch blank patterns
         
         // Try to extract blank patterns from the AE network
         var storage = grid.getStorageService().getInventory();
@@ -225,17 +223,16 @@ public class MemoryCardHelper {
         // First simulate to see how many we can get
         long available = storage.extract(blankPatternKey, needToFetch, Actionable.SIMULATE, src);
         if (available <= 0) {
-            LOGGER.debug("No blank patterns available in AE network");
             return 0;
         }
         
         // Actually extract
         long extracted = storage.extract(blankPatternKey, Math.min(available, needToFetch), Actionable.MODULATE, src);
-        if (extracted > 0) {
+            if (extracted > 0) {
             // Add to player inventory
             ItemStack blankPatterns = AEItems.BLANK_PATTERN.stack((int) extracted);
             player.getInventory().placeItemBackInInventory(blankPatterns);
-            LOGGER.debug("Pre-fetched {} blank patterns from AE network for player {}", extracted, player.getName().getString());
+            // debug removed: pre-fetched blank patterns
         }
         
         return (int) extracted;
@@ -274,13 +271,10 @@ public class MemoryCardHelper {
             int needToFetch = needed - existing;
             
             if (needToFetch <= 0) {
-                LOGGER.debug("Player already has enough {} ({} needed, {} available)", 
-                    upgradeItem.getDescription().getString(), needed, existing);
                 continue; // Player already has enough
             }
             
-            LOGGER.debug("Need to fetch {} {} from network ({} needed, {} available in inventory/tool)", 
-                needToFetch, upgradeItem.getDescription().getString(), needed, existing);
+            // debug removed: need to fetch upgrades
             
             // Try to extract from AE network
             var upgradeKey = AEItemKey.of(upgradeItem);
@@ -291,18 +285,17 @@ public class MemoryCardHelper {
             // First simulate
             long available = storage.extract(upgradeKey, needToFetch, Actionable.SIMULATE, src);
             if (available <= 0) {
-                LOGGER.debug("No {} available in AE network", upgradeItem.getDescription().getString());
                 continue;
             }
             
             // Actually extract
             long extracted = storage.extract(upgradeKey, Math.min(available, needToFetch), Actionable.MODULATE, src);
-            if (extracted > 0) {
+                if (extracted > 0) {
                 // Add to player inventory
                 ItemStack upgradeStack = new ItemStack(upgradeItem, (int) extracted);
                 player.getInventory().placeItemBackInInventory(upgradeStack);
                 totalFetched += (int) extracted;
-                LOGGER.debug("Pre-fetched {} {} from AE network for player {}", extracted, upgradeItem.getDescription().getString(), player.getName().getString());
+                // debug removed: pre-fetched upgrades
             }
         }
         
@@ -491,7 +484,6 @@ public class MemoryCardHelper {
                     // Exact match - use importSettings
                     aeBlockEntity.importSettings(SettingsFrom.MEMORY_CARD, data, player);
                     applied = true;
-                    LOGGER.debug("Applied memory card settings (exact match) to AE2 BlockEntity at {}", pos);
                 } else {
                     // Not exact match - use importGenericSettingsAndNotify for partial restore
                     if (showMessage) {
@@ -500,8 +492,6 @@ public class MemoryCardHelper {
                         MemoryCardItem.importGenericSettings(aeBlockEntity, data, player);
                     }
                     applied = true;
-                    LOGGER.debug("Applied partial memory card settings to AE2 BlockEntity at {} (expected: {}, stored: {})", 
-                        pos, expectedName, storedName);
                 }
             } catch (Exception e) {
                 LOGGER.warn("Failed to apply memory card settings to BlockEntity at {}", pos, e);
@@ -529,7 +519,6 @@ public class MemoryCardHelper {
                             }
                         }
                         applied = true;
-                        LOGGER.debug("Applied memory card settings to part on side {} at {}", side, pos);
                     } catch (Exception e) {
                         LOGGER.warn("Failed to apply memory card settings to part on side {} at {}", side, pos, e);
                     }
@@ -553,7 +542,6 @@ public class MemoryCardHelper {
                         }
                     }
                     applied = true;
-                    LOGGER.debug("Applied memory card settings to center part at {}", pos);
                 } catch (Exception e) {
                     LOGGER.warn("Failed to apply memory card settings to center part at {}", pos, e);
                 }
@@ -597,7 +585,6 @@ public class MemoryCardHelper {
 
         IPart part = partHost.getPart(side);
         if (part == null) {
-            LOGGER.debug("No part found at {} on side {}", pos, side);
             return false;
         }
 
@@ -608,11 +595,10 @@ public class MemoryCardHelper {
 
         boolean applied = false;
         try {
-            if (exactMatch) {
+                if (exactMatch) {
                 // Exact match - use importSettings
                 part.importSettings(SettingsFrom.MEMORY_CARD, data, player);
                 applied = true;
-                LOGGER.debug("Applied memory card settings (exact match) to part at {} on side {}", pos, side);
             } else {
                 // Not exact match - use importGenericSettingsAndNotify for partial restore
                 if (showMessage) {
@@ -621,8 +607,7 @@ public class MemoryCardHelper {
                     MemoryCardItem.importGenericSettings(part, data, player);
                 }
                 applied = true;
-                LOGGER.debug("Applied partial memory card settings to part at {} on side {} (expected: {}, stored: {})", 
-                    pos, side, expectedName, storedName);
+                // debug removed: applied partial memory card settings to part
             }
         } catch (Exception e) {
             LOGGER.warn("Failed to apply memory card settings to part at {} on side {}", pos, side, e);
@@ -689,7 +674,6 @@ public class MemoryCardHelper {
                 // Exact match - use importSettings
                 part.importSettings(SettingsFrom.MEMORY_CARD, data, player);
                 applied = true;
-                LOGGER.debug("Applied memory card settings (exact match) to part");
             } else {
                 // Not exact match - use importGenericSettingsAndNotify for partial restore
                 if (showMessage) {
@@ -698,8 +682,6 @@ public class MemoryCardHelper {
                     MemoryCardItem.importGenericSettings(part, data, player);
                 }
                 applied = true;
-                LOGGER.debug("Applied partial memory card settings to part (expected: {}, stored: {})", 
-                    expectedName, storedName);
             }
         } catch (Exception e) {
             LOGGER.warn("Failed to apply memory card settings to part", e);

@@ -145,7 +145,6 @@ public class MekanismConfigCardHelper {
         // Try to get IConfigCardAccess capability
         Optional<IConfigCardAccess> configCardSupport = CapabilityUtils.getCapability(be, Capabilities.CONFIG_CARD, null).resolve();
         if (configCardSupport.isEmpty()) {
-            LOGGER.debug("Block entity at {} does not support IConfigCardAccess", pos);
             return false;
         }
 
@@ -161,8 +160,6 @@ public class MekanismConfigCardHelper {
                     true
                 );
             }
-            LOGGER.debug("Configuration card data not compatible with block at {} (stored type: {}, block type: {})",
-                pos, storedType, configCardAccess.getConfigurationDataType());
             return false;
         }
 
@@ -177,8 +174,6 @@ public class MekanismConfigCardHelper {
                     true
                 );
             }
-            
-            LOGGER.debug("Applied Mekanism configuration card settings to block at {}", pos);
             return true;
         } catch (Exception e) {
             LOGGER.warn("Failed to apply Mekanism configuration card settings to block at {}", pos, e);

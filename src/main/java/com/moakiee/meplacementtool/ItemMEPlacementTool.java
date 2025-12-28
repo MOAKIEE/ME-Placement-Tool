@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import java.util.function.DoubleSupplier;
 import java.util.function.BiConsumer;
 
-import appeng.items.tools.powered.WirelessTerminalItem;
 import appeng.api.implementations.menuobjects.IMenuItem;
 import appeng.api.implementations.menuobjects.ItemMenuHost;
 import appeng.api.networking.IGridNode;
@@ -18,7 +17,6 @@ import appeng.menu.MenuOpener;
 import appeng.menu.locator.MenuLocators;
 import appeng.menu.me.crafting.CraftAmountMenu;
 import appeng.menu.ISubMenu;
-import appeng.helpers.WirelessTerminalMenuHost;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
@@ -40,9 +38,9 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.items.ItemStackHandler;
 
 /**
- * ME Placement Tool - 占位实现，继承自 AE2 的 WirelessTerminalItem
+ * ME Placement Tool - extends BasePlacementToolItem to avoid being recognized as WirelessTerminalItem
  */
-public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuItem {
+public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuItem {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public ItemMEPlacementTool(Item.Properties props) {
@@ -52,23 +50,25 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
     @Override
     public ItemMenuHost getMenuHost(Player player, int inventorySlot, ItemStack itemStack, BlockPos pos) {
         return new PlacementToolMenuHost(player, inventorySlot, itemStack, (p, subMenu) -> {
-            // Return to main menu when closing submenu
+            // Close the menu directly instead of returning to a main menu
+            p.closeContainer();
         });
     }
 
     /**
-     * Open the crafting menu for an item that can be crafted
+     * Open the crafting menu for an item that can be crafted.
+     * Uses the placement tool itself as the menu host, so we can control the close behavior.
      */
     private void openCraftingMenu(ServerPlayer player, ItemStack wand, AEKey whatToCraft) {
-        // Find the inventory slot containing the wand
-        int slot = findInventorySlot(player, wand);
-        if (slot < 0) {
-            LOGGER.warn("Could not find wand in player inventory");
-            return;
+        // Find the slot containing the placement tool
+        int wandSlot = findInventorySlot(player, wand);
+        if (wandSlot >= 0) {
+            CraftAmountMenu.open(player, MenuLocators.forInventorySlot(wandSlot), whatToCraft, 1);
+        } else if (player.getMainHandItem() == wand) {
+            CraftAmountMenu.open(player, MenuLocators.forHand(player, net.minecraft.world.InteractionHand.MAIN_HAND), whatToCraft, 1);
+        } else if (player.getOffhandItem() == wand) {
+            CraftAmountMenu.open(player, MenuLocators.forHand(player, net.minecraft.world.InteractionHand.OFF_HAND), whatToCraft, 1);
         }
-
-        // Open the CraftAmountMenu with the item to craft
-        CraftAmountMenu.open(player, MenuLocators.forInventorySlot(slot), whatToCraft, 1);
     }
 
     /**
@@ -82,27 +82,6 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
             }
         }
         return -1;
-    }
-
-    /**
-     * Menu host for the placement tool that supports autocrafting
-     * This host ignores wireless range checks when opening crafting menus
-     */
-    private static class PlacementToolMenuHost extends WirelessTerminalMenuHost implements ISubMenuHost {
-        public PlacementToolMenuHost(Player player, Integer slot, ItemStack itemStack,
-                BiConsumer<Player, ISubMenu> returnToMainMenu) {
-            super(player, slot, itemStack, returnToMainMenu);
-        }
-
-        @Override
-        public void returnToMainMenu(Player player, ISubMenu subMenu) {
-            player.closeContainer();
-        }
-
-        @Override
-        public boolean onBroadcastChanges(AbstractContainerMenu menu) {
-            return ensureItemStillInSlot() && drainPower();
-        }
     }
 
     @Override
@@ -252,6 +231,7 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                         player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
                         return InteractionResult.sidedSuccess(false);
                     } else {
+                        LOGGER.info("Consuming {} AE from wand for player {}", ENERGY_COST, player.getName().getString());
                         this.usePower(player, ENERGY_COST, wand);
                         level.playSound(null, fluidPlacePos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
                         return InteractionResult.sidedSuccess(false);
@@ -382,6 +362,7 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                         player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
                         return InteractionResult.sidedSuccess(false);
                     } else {
+                        LOGGER.info("Consuming {} AE from wand for player {}", ENERGY_COST, player.getName().getString());
                         this.usePower(player, ENERGY_COST, wand);
                         level.playSound(null, fluidPlacePos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
                         return InteractionResult.sidedSuccess(false);
@@ -400,10 +381,7 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
         // Find a matching item in the AE network (respects NBT whitelist config)
         var aeKey = Config.findMatchingKey(storage, target);
         if (aeKey == null) {
-            // Log detailed info for debugging
-            var itemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(target.getItem());
-            LOGGER.debug("No matching item found in AE network for {} (ignoreNbt={})", 
-                    itemId, Config.shouldIgnoreNbt(target));
+                var itemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(target.getItem());
             
             // Check if the item can be crafted using a key without NBT consideration
             var craftKey = appeng.api.stacks.AEItemKey.of(target);
@@ -416,18 +394,11 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
             return InteractionResult.FAIL;
         }
         
-        // DEBUG LOGS - Remove after debugging facade placement issues
-        LOGGER.debug("Found matching AEItemKey: {} for target: {}", aeKey, target);
-        LOGGER.debug("aeKey.getItem(): {}, aeKey.hasTag(): {}", aeKey.getItem(), aeKey.hasTag());
-        if (aeKey.hasTag()) {
-            LOGGER.debug("aeKey.getTag(): {}", aeKey.getTag());
-        }
-        LOGGER.debug("Config.shouldIgnoreNbt(target): {}", Config.shouldIgnoreNbt(target));
+        // (debug logs removed)
 
         // simulate extract to ensure availability, but defer actual extraction until after successful placement
         long avail = storage.extract(aeKey, 1L, appeng.api.config.Actionable.SIMULATE, src);
         if (avail <= 0) {
-            LOGGER.debug("Simulated extraction returned 0 for key: {}", aeKey);
             // Check if the item can be crafted
             var craftingService = grid.getCraftingService();
             if (craftingService != null && craftingService.isCraftable(aeKey)) {
@@ -455,11 +426,7 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
         // create stack to place
         ItemStack placeStack = aeKey.toStack(1);
         
-        // DEBUG LOGS - Remove after debugging facade placement issues
-        LOGGER.debug("placeStack created: {}, hasTag: {}", placeStack.getItem(), placeStack.hasTag());
-        if (placeStack.hasTag()) {
-            LOGGER.debug("placeStack NBT: {}", placeStack.getTag());
-        }
+        // (debug logs removed)
 
         // attempt placement: blocks use the adjacent position, parts use the clicked block position
         BlockPos blockPlacePos = context.getClickedPos().relative(context.getClickedFace());
@@ -533,15 +500,7 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                 }
             } else if (placeStack.getItem() instanceof appeng.api.implementations.items.IFacadeItem) {
                 // AE facade placement - use AE2's facade placement logic
-                // DEBUG LOGS - Remove after debugging facade placement issues
-                LOGGER.debug("=== FACADE PLACEMENT DEBUG START ===");
-                LOGGER.debug("Player: {}, Position: {}, Face: {}", 
-                    player.getName().getString(), context.getClickedPos(), context.getClickedFace());
-                LOGGER.debug("placeStack: {}, hasTag: {}", 
-                    placeStack.getItem(), placeStack.hasTag());
-                if (placeStack.hasTag()) {
-                    LOGGER.debug("placeStack NBT: {}", placeStack.getTag());
-                }
+                // (facade debug logs removed)
                 
                 ItemStack origMain = player.getMainHandItem().copy();
                 ItemStack origOff = player.getOffhandItem().copy();
@@ -549,29 +508,19 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                     player.setItemInHand(InteractionHand.MAIN_HAND, placeStack);
                     try {
                         var facadeItem = (appeng.api.implementations.items.IFacadeItem) placeStack.getItem();
-                        LOGGER.debug("facadeItem: {}", facadeItem.getClass().getName());
-                        
                         var facade = facadeItem.createPartFromItemStack(placeStack, context.getClickedFace());
-                        LOGGER.debug("facade created: {}", facade != null);
                         if (facade != null) {
-                            LOGGER.debug("facade.getItemStack(): {}", facade.getItemStack());
-                            LOGGER.debug("facade.getSide(): {}", facade.getSide());
-                            LOGGER.debug("facade.getBlockState(): {}", facade.getBlockState());
                             
                             // Use AE2's facade placement logic directly (from FacadeItem.placeFacade)
-                            LOGGER.debug("Attempting to place facade at position {}", context.getClickedPos());
                             var host = appeng.api.parts.PartHelper.getPartHost(level, context.getClickedPos());
-                            LOGGER.debug("Part host found: {}", host != null);
                             
                             if (host != null) {
                                 // Check if we can place facade on this host
                                 boolean canPlace = host.getPart(null) != null 
                                     && host.getFacadeContainer().canAddFacade(facade);
-                                LOGGER.debug("Can place facade: {}", canPlace);
                                 
                                 if (canPlace) {
                                     boolean added = host.getFacadeContainer().addFacade(facade);
-                                    LOGGER.debug("Facade added to container: {}", added);
                                     
                                     if (added) {
                                         // Play placement sound
@@ -589,18 +538,17 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                                         placed = true;
                                         lastPlacementPos = context.getClickedPos();
                                         lastPlacementWasBlock = false;
-                                        LOGGER.debug("Facade placement marked as successful");
                                     } else {
-                                        LOGGER.debug("Facade placement failed - addFacade returned false");
+                                        // debug removed: addFacade returned false
                                     }
                                 } else {
-                                    LOGGER.debug("Facade placement failed - cannot place facade on this host");
+                                    // debug removed: cannot place facade on this host
                                 }
                             } else {
-                                LOGGER.debug("Facade placement failed - no part host at position");
+                                // debug removed: no part host at position
                             }
                         } else {
-                            LOGGER.debug("Failed to create facade from item stack");
+                            // debug removed: failed to create facade from item stack
                         }
                     } catch (Throwable t) {
                         LOGGER.error("Exception during facade placement attempt for player {} at {}", 
@@ -612,7 +560,6 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                 } finally {
                     player.setItemInHand(InteractionHand.MAIN_HAND, origMain);
                     player.setItemInHand(InteractionHand.OFF_HAND, origOff);
-                    LOGGER.debug("=== FACADE PLACEMENT DEBUG END ===");
                 }
             }
         } catch (Throwable ignored) {
@@ -641,7 +588,9 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                 level.playSound(null, revertPos, SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.8F, 1.0F);
             } else {
                 // consume power and play placement sound
-                this.usePower(player, ENERGY_COST, wand);
+                // Re-fetch the wand from player's hand since restoring origMain may have replaced the ItemStack reference
+                ItemStack actualWand = player.getItemInHand(context.getHand());
+                this.usePower(player, ENERGY_COST, actualWand);
                 BlockPos soundPos = lastPlacementPos != null ? lastPlacementPos : blockPlacePos;
                 level.playSound(null, soundPos, SoundEvents.STONE_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
                 // Ensure clients receive the block update immediately
@@ -664,12 +613,7 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
             }
         } else {
             // placement did not succeed — notify player
-            // DEBUG LOGS - Remove after debugging facade placement issues
-            LOGGER.debug("Placement failed for player {} at position {}", player.getName().getString(), context.getClickedPos());
-            LOGGER.debug("Target item: {}, is IFacadeItem: {}", target.getItem(), target.getItem() instanceof appeng.api.implementations.items.IFacadeItem);
-            LOGGER.debug("Block at clicked pos: {}", level.getBlockState(context.getClickedPos()));
-            LOGGER.debug("Block at adjacent pos: {}", level.getBlockState(blockPlacePos));
-            
+            // debug removed: placement failure details
             player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
         }
 

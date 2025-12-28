@@ -23,9 +23,8 @@ public class UndoKeyHandler
         if(mainHand.isEmpty() || (mainHand.getItem() != MEPlacementToolMod.MULTIBLOCK_PLACEMENT_TOOL.get())) return;
 
         if(event.getButton() == 0 && event.getAction() == InputConstants.PRESS) {
-            boolean ctrlPressed = InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), 341) ||
-                                 InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), 345);
-            if(ctrlPressed) {
+            // Use configurable keybinding instead of hard-coded Ctrl checks
+            if (ModKeyBindings.UNDO_MODIFIER.isDown()) {
                 HitResult hitResult = Minecraft.getInstance().hitResult;
                 if(hitResult != null && hitResult.getType() == HitResult.Type.BLOCK) {
                     BlockHitResult blockHitResult = (BlockHitResult) hitResult;

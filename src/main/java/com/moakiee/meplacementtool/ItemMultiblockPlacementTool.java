@@ -8,7 +8,6 @@ import java.util.function.BiConsumer;
 import java.util.ArrayList;
 import java.util.List;
 
-import appeng.items.tools.powered.WirelessTerminalItem;
 import appeng.api.implementations.menuobjects.IMenuItem;
 import appeng.api.implementations.menuobjects.ItemMenuHost;
 import appeng.api.networking.IGridNode;
@@ -20,7 +19,6 @@ import appeng.menu.MenuOpener;
 import appeng.menu.locator.MenuLocators;
 import appeng.menu.me.crafting.CraftAmountMenu;
 import appeng.menu.ISubMenu;
-import appeng.helpers.WirelessTerminalMenuHost;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
@@ -42,7 +40,10 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.items.ItemStackHandler;
 
-public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements IMenuItem {
+/**
+ * ME Multiblock Placement Tool - extends BasePlacementToolItem to avoid being recognized as WirelessTerminalItem
+ */
+public class ItemMultiblockPlacementTool extends BasePlacementToolItem implements IMenuItem {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final int[] PLACEMENT_COUNTS = {1, 8, 64, 256, 1024};
     private static final String TAG_PLACEMENT_COUNT = "placement_count";
@@ -78,19 +79,30 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
     @Override
     public ItemMenuHost getMenuHost(Player player, int inventorySlot, ItemStack itemStack, BlockPos pos) {
         return new PlacementToolMenuHost(player, inventorySlot, itemStack, (p, subMenu) -> {
+            // Close the menu directly instead of returning to a main menu
+            p.closeContainer();
         });
     }
 
+    /**
+     * Open the crafting menu for an item that can be crafted.
+     * Uses the placement tool itself as the menu host, so we can control the close behavior.
+     */
     private void openCraftingMenu(ServerPlayer player, ItemStack wand, AEKey whatToCraft) {
-        int slot = findInventorySlot(player, wand);
-        if (slot < 0) {
-            LOGGER.warn("Could not find wand in player inventory");
-            return;
+        // Find the slot containing the placement tool
+        int wandSlot = findInventorySlot(player, wand);
+        if (wandSlot >= 0) {
+            CraftAmountMenu.open(player, MenuLocators.forInventorySlot(wandSlot), whatToCraft, 1);
+        } else if (player.getMainHandItem() == wand) {
+            CraftAmountMenu.open(player, MenuLocators.forHand(player, net.minecraft.world.InteractionHand.MAIN_HAND), whatToCraft, 1);
+        } else if (player.getOffhandItem() == wand) {
+            CraftAmountMenu.open(player, MenuLocators.forHand(player, net.minecraft.world.InteractionHand.OFF_HAND), whatToCraft, 1);
         }
-
-        CraftAmountMenu.open(player, MenuLocators.forInventorySlot(slot), whatToCraft, 1);
     }
 
+    /**
+     * Find the inventory slot containing the given item stack
+     */
     private int findInventorySlot(Player player, ItemStack itemStack) {
         var inv = player.getInventory();
         for (int i = 0; i < inv.getContainerSize(); i++) {
@@ -99,23 +111,6 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
             }
         }
         return -1;
-    }
-
-    private static class PlacementToolMenuHost extends WirelessTerminalMenuHost implements ISubMenuHost {
-        public PlacementToolMenuHost(Player player, Integer slot, ItemStack itemStack,
-                BiConsumer<Player, ISubMenu> returnToMainMenu) {
-            super(player, slot, itemStack, returnToMainMenu);
-        }
-
-        @Override
-        public void returnToMainMenu(Player player, ISubMenu subMenu) {
-            player.closeContainer();
-        }
-
-        @Override
-        public boolean onBroadcastChanges(AbstractContainerMenu menu) {
-            return ensureItemStillInSlot() && drainPower();
-        }
     }
 
     @Override
@@ -319,6 +314,7 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
 
                 if (placedCount > 0) {
                     long extracted = storage.extract(aeFluidKey, (long) placedCount * appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK, appeng.api.config.Actionable.MODULATE, src);
+                    LOGGER.info("Consuming {} AE from wand for player {} (placedCount={})", ENERGY_COST * placedCount / placementCount, player.getName().getString(), placedCount);
                     this.usePower(player, ENERGY_COST * placedCount / placementCount, wand);
                     level.playSound(null, clickedPos.relative(clickedFace), SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
                     return InteractionResult.sidedSuccess(false);
@@ -712,6 +708,7 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
         // Add to undo history, marking as non-undoable if config was applied
         MEPlacementToolMod.instance.undoHistory.add(player, level, placedSnapshots, configApplied);
 
+        LOGGER.info("Consuming {} AE from wand for player {} (placedCount={})", ENERGY_COST * placedCount / placementCount, player.getName().getString(), placedCount);
         this.usePower(player, ENERGY_COST * placedCount / placementCount, wand);
         level.playSound(null, clickedPos.relative(clickedFace), SoundEvents.STONE_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
 
