@@ -134,14 +134,18 @@ public class MEPartPreviewRenderer {
             return false;
         }
 
-        // Only render preview for IPartItem (cables, panels, quartz fiber, etc.)
-        if (!(targetItem.getItem() instanceof IPartItem<?>)) {
+        // Only render preview for IPartItem (cables, panels, quartz fiber, etc.) or IFacadeItem
+        if (!(targetItem.getItem() instanceof IPartItem<?>) && !(targetItem.getItem() instanceof appeng.api.implementations.items.IFacadeItem)) {
             return false;
         }
 
         // Render without depth test to also have a preview for parts inside blocks.
-        showPartPlacementPreview(player, poseStack, buffers, camera, hitResult, targetItem, true);
-        showPartPlacementPreview(player, poseStack, buffers, camera, hitResult, targetItem, false);
+        if (targetItem.getItem() instanceof IPartItem<?>) {
+            showPartPlacementPreview(player, poseStack, buffers, camera, hitResult, targetItem, true);
+            showPartPlacementPreview(player, poseStack, buffers, camera, hitResult, targetItem, false);
+        } else if (targetItem.getItem() instanceof appeng.api.implementations.items.IFacadeItem) {
+            showFacadePlacementPreview(player, poseStack, buffers, camera, hitResult, targetItem);
+        }
 
         return true;
     }
@@ -213,6 +217,38 @@ public class MEPartPreviewRenderer {
                 renderPart(poseStack, buffers, camera, placement.pos(), part, placement.side(), true, insideBlock);
             }
         }
+    }
+
+    /**
+     * Show placement preview for AE2 facades
+     */
+    private static void showFacadePlacementPreview(
+            Player player,
+            PoseStack poseStack,
+            MultiBufferSource buffers,
+            Camera camera,
+            BlockHitResult blockHitResult,
+            ItemStack itemInHand) {
+        if (itemInHand.getItem() instanceof appeng.api.implementations.items.IFacadeItem facadeItem) {
+            var facade = facadeItem.createPartFromItemStack(itemInHand, blockHitResult.getDirection());
+            if (facade != null) {
+                renderFacade(poseStack, buffers, camera, blockHitResult.getBlockPos(), facade);
+            }
+        }
+    }
+
+    /**
+     * Render the facade preview boxes.
+     */
+    private static void renderFacade(PoseStack poseStack,
+            MultiBufferSource buffers,
+            Camera camera,
+            BlockPos pos,
+            appeng.api.parts.IFacadePart facade) {
+        var boxes = new ArrayList<AABB>();
+        var helper = new BusCollisionHelper(boxes, facade.getSide(), true);
+        facade.getBoxes(helper, false);
+        renderBoxes(poseStack, buffers, camera, pos, boxes, true, false);
     }
 
     /**

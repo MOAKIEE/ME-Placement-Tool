@@ -28,6 +28,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
@@ -85,6 +86,7 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
 
     /**
      * Menu host for the placement tool that supports autocrafting
+     * This host ignores wireless range checks when opening crafting menus
      */
     private static class PlacementToolMenuHost extends WirelessTerminalMenuHost implements ISubMenuHost {
         public PlacementToolMenuHost(Player player, Integer slot, ItemStack itemStack,
@@ -95,6 +97,11 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
         @Override
         public void returnToMainMenu(Player player, ISubMenu subMenu) {
             player.closeContainer();
+        }
+
+        @Override
+        public boolean onBroadcastChanges(AbstractContainerMenu menu) {
+            return ensureItemStillInSlot() && drainPower();
         }
     }
 
@@ -409,7 +416,13 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
             return InteractionResult.FAIL;
         }
         
+        // DEBUG LOGS - Remove after debugging facade placement issues
         LOGGER.debug("Found matching AEItemKey: {} for target: {}", aeKey, target);
+        LOGGER.debug("aeKey.getItem(): {}, aeKey.hasTag(): {}", aeKey.getItem(), aeKey.hasTag());
+        if (aeKey.hasTag()) {
+            LOGGER.debug("aeKey.getTag(): {}", aeKey.getTag());
+        }
+        LOGGER.debug("Config.shouldIgnoreNbt(target): {}", Config.shouldIgnoreNbt(target));
 
         // simulate extract to ensure availability, but defer actual extraction until after successful placement
         long avail = storage.extract(aeKey, 1L, appeng.api.config.Actionable.SIMULATE, src);
@@ -441,6 +454,12 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
 
         // create stack to place
         ItemStack placeStack = aeKey.toStack(1);
+        
+        // DEBUG LOGS - Remove after debugging facade placement issues
+        LOGGER.debug("placeStack created: {}, hasTag: {}", placeStack.getItem(), placeStack.hasTag());
+        if (placeStack.hasTag()) {
+            LOGGER.debug("placeStack NBT: {}", placeStack.getTag());
+        }
 
         // attempt placement: blocks use the adjacent position, parts use the clicked block position
         BlockPos blockPlacePos = context.getClickedPos().relative(context.getClickedFace());
@@ -512,6 +531,89 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
                     player.setItemInHand(InteractionHand.MAIN_HAND, origMain);
                     player.setItemInHand(InteractionHand.OFF_HAND, origOff);
                 }
+            } else if (placeStack.getItem() instanceof appeng.api.implementations.items.IFacadeItem) {
+                // AE facade placement - use AE2's facade placement logic
+                // DEBUG LOGS - Remove after debugging facade placement issues
+                LOGGER.debug("=== FACADE PLACEMENT DEBUG START ===");
+                LOGGER.debug("Player: {}, Position: {}, Face: {}", 
+                    player.getName().getString(), context.getClickedPos(), context.getClickedFace());
+                LOGGER.debug("placeStack: {}, hasTag: {}", 
+                    placeStack.getItem(), placeStack.hasTag());
+                if (placeStack.hasTag()) {
+                    LOGGER.debug("placeStack NBT: {}", placeStack.getTag());
+                }
+                
+                ItemStack origMain = player.getMainHandItem().copy();
+                ItemStack origOff = player.getOffhandItem().copy();
+                try {
+                    player.setItemInHand(InteractionHand.MAIN_HAND, placeStack);
+                    try {
+                        var facadeItem = (appeng.api.implementations.items.IFacadeItem) placeStack.getItem();
+                        LOGGER.debug("facadeItem: {}", facadeItem.getClass().getName());
+                        
+                        var facade = facadeItem.createPartFromItemStack(placeStack, context.getClickedFace());
+                        LOGGER.debug("facade created: {}", facade != null);
+                        if (facade != null) {
+                            LOGGER.debug("facade.getItemStack(): {}", facade.getItemStack());
+                            LOGGER.debug("facade.getSide(): {}", facade.getSide());
+                            LOGGER.debug("facade.getBlockState(): {}", facade.getBlockState());
+                            
+                            // Use AE2's facade placement logic directly (from FacadeItem.placeFacade)
+                            LOGGER.debug("Attempting to place facade at position {}", context.getClickedPos());
+                            var host = appeng.api.parts.PartHelper.getPartHost(level, context.getClickedPos());
+                            LOGGER.debug("Part host found: {}", host != null);
+                            
+                            if (host != null) {
+                                // Check if we can place facade on this host
+                                boolean canPlace = host.getPart(null) != null 
+                                    && host.getFacadeContainer().canAddFacade(facade);
+                                LOGGER.debug("Can place facade: {}", canPlace);
+                                
+                                if (canPlace) {
+                                    boolean added = host.getFacadeContainer().addFacade(facade);
+                                    LOGGER.debug("Facade added to container: {}", added);
+                                    
+                                    if (added) {
+                                        // Play placement sound
+                                        var blockState = facade.getBlockState();
+                                        var soundType = blockState.getSoundType();
+                                        level.playSound(null, context.getClickedPos(), 
+                                            soundType.getPlaceSound(), 
+                                            net.minecraft.sounds.SoundSource.BLOCKS,
+                                            (soundType.getVolume() + 1.0F) / 2.0F,
+                                            soundType.getPitch() * 0.8F);
+                                        
+                                        host.markForSave();
+                                        host.markForUpdate();
+                                        
+                                        placed = true;
+                                        lastPlacementPos = context.getClickedPos();
+                                        lastPlacementWasBlock = false;
+                                        LOGGER.debug("Facade placement marked as successful");
+                                    } else {
+                                        LOGGER.debug("Facade placement failed - addFacade returned false");
+                                    }
+                                } else {
+                                    LOGGER.debug("Facade placement failed - cannot place facade on this host");
+                                }
+                            } else {
+                                LOGGER.debug("Facade placement failed - no part host at position");
+                            }
+                        } else {
+                            LOGGER.debug("Failed to create facade from item stack");
+                        }
+                    } catch (Throwable t) {
+                        LOGGER.error("Exception during facade placement attempt for player {} at {}", 
+                            player.getName().getString(), context.getClickedPos(), t);
+                    }
+                } catch (Throwable t) {
+                    LOGGER.error("Exception during facade placement for player {} at {}", 
+                        player.getName().getString(), context.getClickedPos(), t);
+                } finally {
+                    player.setItemInHand(InteractionHand.MAIN_HAND, origMain);
+                    player.setItemInHand(InteractionHand.OFF_HAND, origOff);
+                    LOGGER.debug("=== FACADE PLACEMENT DEBUG END ===");
+                }
             }
         } catch (Throwable ignored) {
         }
@@ -562,6 +664,12 @@ public class ItemMEPlacementTool extends WirelessTerminalItem implements IMenuIt
             }
         } else {
             // placement did not succeed — notify player
+            // DEBUG LOGS - Remove after debugging facade placement issues
+            LOGGER.debug("Placement failed for player {} at position {}", player.getName().getString(), context.getClickedPos());
+            LOGGER.debug("Target item: {}, is IFacadeItem: {}", target.getItem(), target.getItem() instanceof appeng.api.implementations.items.IFacadeItem);
+            LOGGER.debug("Block at clicked pos: {}", level.getBlockState(context.getClickedPos()));
+            LOGGER.debug("Block at adjacent pos: {}", level.getBlockState(blockPlacePos));
+            
             player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
         }
 

@@ -1,5 +1,6 @@
 package com.moakiee.meplacementtool;
 
+import com.mojang.logging.LogUtils;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -12,6 +13,8 @@ import java.util.stream.Collectors;
 @Mod.EventBusSubscriber(modid = MEPlacementToolMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class Config
 {
+    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
+    
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
     public static final ForgeConfigSpec.DoubleValue ME_PLACEMENT_TOOL_ENERGY_CAPACITY;
@@ -19,6 +22,7 @@ public class Config
     public static final ForgeConfigSpec.DoubleValue MULTIBLOCK_PLACEMENT_TOOL_ENERGY_CAPACITY;
     public static final ForgeConfigSpec.DoubleValue MULTIBLOCK_PLACEMENT_TOOL_BASE_ENERGY_COST;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> NBT_WHITELIST_MODS;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> NBT_WHITELIST_ITEMS;
 
     static {
         BUILDER.push("energy");
@@ -46,9 +50,18 @@ public class Config
         BUILDER.comment("List of mod IDs whose items should NOT ignore NBT when placing.",
                 "By default, items only match by ID and ignore NBT data.",
                 "Add mod IDs here to preserve NBT matching for those mods' items.",
+                "For AE2 facades, this ensures that facades with different textures are treated as different items.",
                 "Example: [\"ae2\", \"refinedstorage\"]");
         NBT_WHITELIST_MODS = BUILDER
                 .defineListAllowEmpty("nbtWhitelistMods", List.of(), obj -> obj instanceof String);
+
+        BUILDER.comment("List of specific items that should NOT ignore NBT when placing.",
+                "Format: \"modid:itemname\". Wildcards are supported: \"modid:*\" for all items from a mod.",
+                "This takes priority over nbtWhitelistMods.",
+                "For AE2 facades, use \"ae2:facade\" to preserve NBT matching for all facades.",
+                "Example: [\"ae2:facade\", \"mekanism:basic_block\", \"refinedstorage:*\"]");
+        NBT_WHITELIST_ITEMS = BUILDER
+                .defineListAllowEmpty("nbtWhitelistItems", List.of("ae2:facade"), obj -> obj instanceof String);
 
         BUILDER.pop();
     }
@@ -60,6 +73,7 @@ public class Config
     public static double multiblockPlacementToolEnergyCapacity;
     public static double multiblockPlacementToolBaseEnergyCost;
     public static Set<String> nbtWhitelistMods;
+    public static Set<String> nbtWhitelistItems;
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event)
@@ -72,6 +86,10 @@ public class Config
         nbtWhitelistMods = NBT_WHITELIST_MODS.get().stream()
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
+        
+        nbtWhitelistItems = NBT_WHITELIST_ITEMS.get().stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
     }
 
     /**
@@ -82,12 +100,51 @@ public class Config
     }
 
     /**
+     * Check if the given item is in the NBT whitelist (this item should preserve NBT)
+     * Supports wildcards: "modid:*" matches all items from that mod
+     */
+    public static boolean isItemInNbtWhitelist(net.minecraft.world.item.Item item) {
+        if (nbtWhitelistItems == null || nbtWhitelistItems.isEmpty()) {
+            return false;
+        }
+        
+        var itemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(item);
+        if (itemId == null) {
+            return false;
+        }
+        
+        String itemIdStr = itemId.toString().toLowerCase();
+        String modId = itemId.getNamespace().toLowerCase();
+        
+        // Check exact match first
+        if (nbtWhitelistItems.contains(itemIdStr)) {
+            return true;
+        }
+        
+        // Check wildcard match (modid:*)
+        String wildcard = modId + ":*";
+        if (nbtWhitelistItems.contains(wildcard)) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
      * Check if the given ItemStack should ignore NBT when matching in AE network.
+     * Returns true if NBT should be ignored, false if NBT should be preserved.
      */
     public static boolean shouldIgnoreNbt(net.minecraft.world.item.ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return false;
         }
+        
+        // Check item-level whitelist first (highest priority)
+        if (isItemInNbtWhitelist(stack.getItem())) {
+            return false;
+        }
+        
+        // Check mod-level whitelist
         var itemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
         if (itemId == null) {
             return false;
@@ -108,7 +165,17 @@ public class Config
             net.minecraft.world.item.ItemStack target) {
         java.util.List<java.util.Map.Entry<appeng.api.stacks.AEItemKey, Long>> result = new java.util.ArrayList<>();
         
+        // DEBUG LOGS - Remove after debugging facade placement issues
+        var targetItemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(target.getItem());
+        LOGGER.debug("=== FIND MATCHING KEYS DEBUG START ===");
+        LOGGER.debug("Target item: {}, hasTag: {}", targetItemId, target.hasTag());
+        if (target.hasTag()) {
+            LOGGER.debug("Target NBT: {}", target.getTag());
+        }
+        
         if (target == null || target.isEmpty()) {
+            LOGGER.debug("Target is null or empty, returning empty result");
+            LOGGER.debug("=== FIND MATCHING KEYS DEBUG END ===");
             return result;
         }
         
@@ -121,25 +188,35 @@ public class Config
                     result.add(java.util.Map.entry(key, count));
                 }
             }
+            LOGGER.debug("itemId is null, result size: {}", result.size());
+            LOGGER.debug("=== FIND MATCHING KEYS DEBUG END ===");
             return result;
         }
         
-        String modId = itemId.getNamespace();
-        boolean ignoreNbt = !isModInNbtWhitelist(modId);
+        boolean ignoreNbt = shouldIgnoreNbt(target);
+        LOGGER.debug("ignoreNbt: {}", ignoreNbt);
+        LOGGER.debug("isItemInNbtWhitelist: {}", isItemInNbtWhitelist(target.getItem()));
+        LOGGER.debug("isModInNbtWhitelist: {}", isModInNbtWhitelist(itemId.getNamespace()));
         
         // If we need exact NBT match, just check for that specific key
         if (!ignoreNbt) {
+            LOGGER.debug("Exact NBT match required");
             var key = appeng.api.stacks.AEItemKey.of(target);
             if (key != null) {
                 long count = storage.extract(key, Long.MAX_VALUE, appeng.api.config.Actionable.SIMULATE, null);
                 if (count > 0) {
                     result.add(java.util.Map.entry(key, count));
+                    LOGGER.debug("Found exact NBT match: {}, count: {}", key, count);
+                } else {
+                    LOGGER.debug("No exact NBT match found");
                 }
             }
+            LOGGER.debug("=== FIND MATCHING KEYS DEBUG END ===");
             return result;
         }
         
         // Otherwise, find all items with the same ID (ignoring NBT)
+        LOGGER.debug("Ignoring NBT, finding all items with same ID");
         var targetItem = target.getItem();
         var availableStacks = storage.getAvailableStacks();
         
@@ -148,9 +225,13 @@ public class Config
             if (key instanceof appeng.api.stacks.AEItemKey itemKey) {
                 if (itemKey.getItem() == targetItem && entry.getLongValue() > 0) {
                     result.add(java.util.Map.entry(itemKey, entry.getLongValue()));
+                    LOGGER.debug("Found matching item (ignoring NBT): {}, count: {}", itemKey, entry.getLongValue());
                 }
             }
         }
+        
+        LOGGER.debug("Total matches found: {}", result.size());
+        LOGGER.debug("=== FIND MATCHING KEYS DEBUG END ===");
         
         return result;
     }

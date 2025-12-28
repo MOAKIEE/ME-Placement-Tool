@@ -30,6 +30,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
@@ -109,6 +110,11 @@ public class ItemMultiblockPlacementTool extends WirelessTerminalItem implements
         @Override
         public void returnToMainMenu(Player player, ISubMenu subMenu) {
             player.closeContainer();
+        }
+
+        @Override
+        public boolean onBroadcastChanges(AbstractContainerMenu menu) {
+            return ensureItemStillInSlot() && drainPower();
         }
     }
 
