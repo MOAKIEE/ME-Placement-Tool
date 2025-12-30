@@ -2,6 +2,7 @@
   "itemGroup.meplacementtool": "ME Placement Tool",
   "item.meplacementtool.me_placement_tool": "ME Placement Tool",
   "item.meplacementtool.multiblock_placement_tool": "ME Multiblock Placement Tool",
+  "item.meplacementtool.dyeing_card": "Dyeing Card",
   "gui.meplacementtool.placement_config": "Placement Config",
   "message.meplacementtool.device_not_powered": "Device not powered",
   "message.meplacementtool.no_configured_item": "No configured item in selected slot",
