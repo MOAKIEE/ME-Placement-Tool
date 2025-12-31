@@ -48,8 +48,10 @@ public class MEPlacementToolMod
             () -> new ItemMEPlacementTool(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> MULTIBLOCK_PLACEMENT_TOOL = ITEMS.register("multiblock_placement_tool",
             () -> new ItemMultiblockPlacementTool(new Item.Properties().stacksTo(1)));
-    public static final RegistryObject<Item> DYEING_CARD = ITEMS.register("dyeing_card",
-            () -> new Item(new Item.Properties().stacksTo(64)));
+    public static final RegistryObject<Item> KEY_OF_SPECTRUM = ITEMS.register("key_of_spectrum",
+            () -> appeng.api.upgrades.Upgrades.createUpgradeCardItem(new Item.Properties().stacksTo(64)));
+    public static final RegistryObject<Item> PRISM_CORE = ITEMS.register("prism_core",
+            () -> new ItemPrismCore(new Item.Properties().stacksTo(64)));
 
     public static final RegistryObject<CreativeModeTab> ME_PLACEMENT_TOOL_TAB = CREATIVE_MODE_TABS.register("me_placement_tool_tab",
             () -> CreativeModeTab.builder()
@@ -64,7 +66,8 @@ public class MEPlacementToolMod
                     .displayItems((parameters, output) -> {
                         output.accept(ME_PLACEMENT_TOOL.get());
                         output.accept(MULTIBLOCK_PLACEMENT_TOOL.get());
-                        output.accept(DYEING_CARD.get());
+                        output.accept(KEY_OF_SPECTRUM.get());
+                        output.accept(PRISM_CORE.get());
                         
                         var chargedMETool = new ItemStack(ME_PLACEMENT_TOOL.get(), 1);
                         var chargedMultiblockTool = new ItemStack(MULTIBLOCK_PLACEMENT_TOOL.get(), 1);
