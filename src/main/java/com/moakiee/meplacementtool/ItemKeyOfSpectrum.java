@@ -1,20 +1,20 @@
 package com.moakiee.meplacementtool;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
+import appeng.items.materials.UpgradeCardItem;
 
 import java.util.List;
 
 /**
- * Prism Core - An intermediate crafting item that carries the possibility of colors
+ * Key of Spectrum - An upgrade card that allows cables to be dyed in any color
  */
-public class ItemPrismCore extends Item {
+public class ItemKeyOfSpectrum extends UpgradeCardItem {
 
-    public ItemPrismCore(Properties properties) {
+    public ItemKeyOfSpectrum(Properties properties) {
         super(properties);
     }
 
@@ -23,8 +23,7 @@ public class ItemPrismCore extends Item {
                                 @Nullable Level world,
                                 List<Component> tooltip,
                                 TooltipFlag flag) {
-        // Display tooltip with colorful "Key of Spectrum" (colors defined in lang file)
-        tooltip.add(Component.translatable("tooltip.meplacementtool.prism_core.prefix"));
+        tooltip.add(Component.translatable("tooltip.meplacementtool.key_of_spectrum"));
         super.appendHoverText(stack, world, tooltip, flag);
     }
 }

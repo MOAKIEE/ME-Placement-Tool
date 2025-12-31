@@ -49,7 +49,7 @@ public class MEPlacementToolMod
     public static final RegistryObject<Item> MULTIBLOCK_PLACEMENT_TOOL = ITEMS.register("multiblock_placement_tool",
             () -> new ItemMultiblockPlacementTool(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> KEY_OF_SPECTRUM = ITEMS.register("key_of_spectrum",
-            () -> appeng.api.upgrades.Upgrades.createUpgradeCardItem(new Item.Properties().stacksTo(64)));
+            () -> new ItemKeyOfSpectrum(new Item.Properties().stacksTo(64)));
     public static final RegistryObject<Item> PRISM_CORE = ITEMS.register("prism_core",
             () -> new ItemPrismCore(new Item.Properties().stacksTo(64)));
 

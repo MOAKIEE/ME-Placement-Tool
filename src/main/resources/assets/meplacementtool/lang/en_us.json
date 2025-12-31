@@ -3,6 +3,7 @@
   "item.meplacementtool.me_placement_tool": "ME Placement Tool",
   "item.meplacementtool.multiblock_placement_tool": "ME Multiblock Placement Tool",
   "item.meplacementtool.key_of_spectrum": "§cK§6e§ey §ao§bf §dS§cp§6e§ec§at§br§du§cm",
+  "tooltip.meplacementtool.key_of_spectrum": "§7—§bCondense light into color, §edye upon touch",
   "item.meplacementtool.prism_core": "Prism Core",
   "tooltip.meplacementtool.prism_core.prefix": "§7—§bEight hues converge§7, one final §drite§7 to become the §cK§6e§ey §ao§bf §dS§cp§6e§ec§at§br§du§cm",
   "tooltip.meplacementtool.prism_core.rainbow": "Key of Spectrum",
