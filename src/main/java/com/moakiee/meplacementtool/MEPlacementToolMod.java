@@ -52,6 +52,8 @@ public class MEPlacementToolMod
             () -> new ItemKeyOfSpectrum(new Item.Properties().stacksTo(64)));
     public static final RegistryObject<Item> PRISM_CORE = ITEMS.register("prism_core",
             () -> new ItemPrismCore(new Item.Properties().stacksTo(64)));
+    public static final RegistryObject<Item> ME_CABLE_PLACEMENT_TOOL = ITEMS.register("me_cable_placement_tool",
+            () -> new ItemMECablePlacementTool(new Item.Properties().stacksTo(1)));
 
     public static final RegistryObject<CreativeModeTab> ME_PLACEMENT_TOOL_TAB = CREATIVE_MODE_TABS.register("me_placement_tool_tab",
             () -> CreativeModeTab.builder()
@@ -68,6 +70,7 @@ public class MEPlacementToolMod
                         output.accept(MULTIBLOCK_PLACEMENT_TOOL.get());
                         output.accept(KEY_OF_SPECTRUM.get());
                         output.accept(PRISM_CORE.get());
+                        output.accept(ME_CABLE_PLACEMENT_TOOL.get());
                         
                         var chargedMETool = new ItemStack(ME_PLACEMENT_TOOL.get(), 1);
                         var chargedMultiblockTool = new ItemStack(MULTIBLOCK_PLACEMENT_TOOL.get(), 1);
@@ -79,8 +82,14 @@ public class MEPlacementToolMod
                             multiPowerStorage.injectAEPower(chargedMultiblockTool, multiPowerStorage.getAEMaxPower(chargedMultiblockTool), appeng.api.config.Actionable.MODULATE);
                         }
                         
+                        var chargedCableTool = new ItemStack(ME_CABLE_PLACEMENT_TOOL.get(), 1);
+                        if (chargedCableTool.getItem() instanceof appeng.api.implementations.items.IAEItemPowerStorage cablePowerStorage) {
+                            cablePowerStorage.injectAEPower(chargedCableTool, cablePowerStorage.getAEMaxPower(chargedCableTool), appeng.api.config.Actionable.MODULATE);
+                        }
+
                         output.accept(chargedMETool);
                         output.accept(chargedMultiblockTool);
+                        output.accept(chargedCableTool);
                     })
                     .build());
 
@@ -119,6 +128,7 @@ public class MEPlacementToolMod
         try {
             GridLinkables.register(ME_PLACEMENT_TOOL.get(), BasePlacementToolItem.LINKABLE_HANDLER);
             GridLinkables.register(MULTIBLOCK_PLACEMENT_TOOL.get(), BasePlacementToolItem.LINKABLE_HANDLER);
+            GridLinkables.register(ME_CABLE_PLACEMENT_TOOL.get(), BasePlacementToolItem.LINKABLE_HANDLER);
         } catch (Exception e) {
             LOGGER.error("Failed to register GridLinkable handler: {}", e.getMessage());
         }
@@ -148,6 +158,8 @@ public class MEPlacementToolMod
             MinecraftForge.EVENT_BUS.register(new RadialMenuKeyHandler());
             // Install ME Part preview renderer (for cables, panels, quartz fiber, etc.)
             MEPartPreviewRenderer.install();
+            // Install Cable Placement Tool preview renderer
+            com.moakiee.meplacementtool.client.CablePreviewRenderer.install();
         }
     }
 

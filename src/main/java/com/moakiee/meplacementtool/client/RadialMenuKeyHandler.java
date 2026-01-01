@@ -40,6 +40,9 @@ public class RadialMenuKeyHandler {
         } else if (mainHand.getItem() == MEPlacementToolMod.MULTIBLOCK_PLACEMENT_TOOL.get()) {
             // Open dual-layer radial menu for Multiblock Placement Tool
             Minecraft.getInstance().setScreen(new DualLayerRadialMenuScreen(openKey));
+        } else if (mainHand.getItem() == MEPlacementToolMod.ME_CABLE_PLACEMENT_TOOL.get()) {
+            // Open cable tool radial menu
+            Minecraft.getInstance().setScreen(new CableToolRadialMenuScreen(openKey));
         }
     }
 }

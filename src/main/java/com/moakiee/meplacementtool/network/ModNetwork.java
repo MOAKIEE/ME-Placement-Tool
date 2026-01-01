@@ -22,5 +22,7 @@ public class ModNetwork {
                 UndoPacket::decode, UndoPacket.Handler::handle);
         CHANNEL.registerMessage(id++, SyncPagePacket.class, SyncPagePacket::encode,
                 SyncPagePacket::decode, SyncPagePacket::handle);
+        CHANNEL.registerMessage(id++, UpdateCableToolPacket.class, UpdateCableToolPacket::encode,
+                UpdateCableToolPacket::decode, UpdateCableToolPacket::handle);
     }
 }
