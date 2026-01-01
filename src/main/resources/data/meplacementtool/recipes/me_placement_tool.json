@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "  F",
+    " W ",
+    "S  "
+  ],
+  "key": {
+    "F": {
+      "item": "ae2:formation_plane"
+    },
+    "W": {
+      "item": "ae2:wireless_terminal"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "item": "meplacementtool:me_placement_tool",
+    "count": 1
+  }
+}

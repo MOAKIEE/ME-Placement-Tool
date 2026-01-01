@@ -1,0 +1,34 @@
+package com.moakiee.meplacementtool;
+
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+
+import java.util.List;
+
+/**
+ * Prism Core - A decorative/crafting item with rainbow colored tooltip
+ */
+public class ItemPrismCore extends Item {
+
+    public ItemPrismCore(Properties props) {
+        super(props);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
+        tooltipComponents.add(Component.translatable("tooltip.meplacementtool.prism_core.prefix"));
+        // Rainbow text for "光谱的钥匙" / "Key of Spectrum"
+        MutableComponent rainbow = Component.empty();
+        String text = Component.translatable("tooltip.meplacementtool.prism_core.rainbow").getString();
+        ChatFormatting[] colors = {ChatFormatting.RED, ChatFormatting.GOLD, ChatFormatting.GREEN, ChatFormatting.AQUA, ChatFormatting.LIGHT_PURPLE};
+        for (int i = 0; i < text.length(); i++) {
+            rainbow.append(Component.literal(String.valueOf(text.charAt(i))).withStyle(colors[i % colors.length]));
+        }
+        tooltipComponents.add(rainbow);
+        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
+    }
+}

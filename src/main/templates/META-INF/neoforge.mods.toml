@@ -1,0 +1,67 @@
+# ME Placement Tool - NeoForge 1.21.1
+# A tool for placing items directly from your AE2 network
+
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+issueTrackerURL="https://github.com/moakiee/me-placement-tool/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="${mod_authors}"
+description='''
+${mod_description}
+
+Features:
+- Place blocks and AE2 parts directly from your ME network
+- Configure placement slots with specific items
+- Support for fluids and memory card auto-configuration
+- Mekanism configuration card support
+- Radial menu for quick slot selection
+- JEI integration for easy configuration
+'''
+
+# Required: NeoForge
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.0,)"
+ordering="NONE"
+side="BOTH"
+
+# Required: Minecraft
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+# Required: Applied Energistics 2
+[[dependencies.${mod_id}]]
+modId="ae2"
+type="required"
+reason="ME Placement Tool requires AE2 to function"
+versionRange="[19.0.0,)"
+ordering="AFTER"
+side="BOTH"
+
+# Optional: Mekanism (for config card support)
+[[dependencies.${mod_id}]]
+modId="mekanism"
+type="optional"
+reason="Enables Mekanism configuration card support"
+versionRange="[10.7.0,)"
+ordering="AFTER"
+side="BOTH"
+
+# Optional: JEI (for ghost ingredient drag & drop)
+[[dependencies.${mod_id}]]
+modId="jei"
+type="optional"
+reason="Enables JEI integration for easy slot configuration"
+versionRange="[19.0.0,)"
+ordering="AFTER"
+side="CLIENT"
