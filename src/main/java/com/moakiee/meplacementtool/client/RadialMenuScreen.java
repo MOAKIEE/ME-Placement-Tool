@@ -203,15 +203,14 @@ public class RadialMenuScreen extends Screen {
         buffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
 
         // Determine selected item
-        // Allow selection when mouse angle is within slice range and mouse is beyond inner radius
-        // No outer radius limit - selection extends outward infinitely
+        // Allow selection based on angle only - works inside the ring and extends outward infinitely
         if (!closing) {
             selectedItem = -1;
             for (int i = 0; i < numberOfSlices; i++) {
                 float sliceBorderLeft = (((i - 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
                 float sliceBorderRight = (((i + 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
-                // Only check angle and that mouse is beyond inner radius (no outer radius limit)
-                if (mouseAngle >= sliceBorderLeft && mouseAngle < sliceBorderRight && mouseDistance >= radiusIn) {
+                // Only check angle - no distance limit, selection works everywhere
+                if (mouseAngle >= sliceBorderLeft && mouseAngle < sliceBorderRight) {
                     selectedItem = i;
                     break;
                 }
