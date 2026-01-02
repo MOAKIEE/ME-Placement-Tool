@@ -20,7 +20,9 @@ public class UndoKeyHandler
         if(player == null) return;
 
         ItemStack mainHand = player.getMainHandItem();
-        if(mainHand.isEmpty() || (mainHand.getItem() != MEPlacementToolMod.MULTIBLOCK_PLACEMENT_TOOL.get())) return;
+        boolean holdingUndoableTool = mainHand.getItem() == MEPlacementToolMod.MULTIBLOCK_PLACEMENT_TOOL.get() ||
+                                      mainHand.getItem() == MEPlacementToolMod.ME_CABLE_PLACEMENT_TOOL.get();
+        if(mainHand.isEmpty() || !holdingUndoableTool) return;
 
         if(event.getButton() == 0 && event.getAction() == InputConstants.PRESS) {
             // Use configurable keybinding instead of hard-coded Ctrl checks

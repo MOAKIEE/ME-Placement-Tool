@@ -1,6 +1,7 @@
 package com.moakiee.meplacementtool;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -9,8 +10,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import appeng.api.networking.IGrid;
+import appeng.api.parts.IPart;
+import appeng.api.parts.IPartHost;
+import appeng.api.parts.PartHelper;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.util.AEColor;
 
 import java.util.*;
 
@@ -34,7 +40,22 @@ public class UndoHistory
     public void add(Player player, Level world, List<PlacementSnapshot> placeSnapshots, boolean memoryCardApplied) {
         LinkedList<HistoryEntry> list = getEntryFromPlayer(player).entries;
         list.clear();
-        list.add(new HistoryEntry(placeSnapshots, world, memoryCardApplied));
+        list.add(new HistoryEntry(placeSnapshots, world, memoryCardApplied, false));
+    }
+
+    /**
+     * Add cable placement history with return key override.
+     * When undoing cable placements, we return transparent cables instead of the colored ones.
+     */
+    public void addCablePlacement(Player player, Level world, List<CablePlacementSnapshot> cableSnapshots) {
+        LinkedList<HistoryEntry> list = getEntryFromPlayer(player).entries;
+        list.clear();
+        // Convert CablePlacementSnapshot to PlacementSnapshot for storage
+        List<PlacementSnapshot> snapshots = new ArrayList<>();
+        for (CablePlacementSnapshot cableSnap : cableSnapshots) {
+            snapshots.add(cableSnap);
+        }
+        list.add(new HistoryEntry(snapshots, world, false, true));
     }
 
     public void removePlayer(Player player) {
@@ -87,11 +108,13 @@ public class UndoHistory
         public final List<PlacementSnapshot> placeSnapshots;
         public final Level world;
         public final boolean memoryCardApplied;
+        public final boolean isCablePlacement;
 
-        public HistoryEntry(List<PlacementSnapshot> placeSnapshots, Level world, boolean memoryCardApplied) {
+        public HistoryEntry(List<PlacementSnapshot> placeSnapshots, Level world, boolean memoryCardApplied, boolean isCablePlacement) {
             this.placeSnapshots = placeSnapshots;
             this.world = world;
             this.memoryCardApplied = memoryCardApplied;
+            this.isCablePlacement = isCablePlacement;
         }
 
         public Set<BlockPos> getBlockPositions() {
@@ -115,7 +138,15 @@ public class UndoHistory
 
         public boolean undo(Player player) {
             ItemStack wand = player.getMainHandItem();
-            if(wand.isEmpty() || wand.getItem() != MEPlacementToolMod.MULTIBLOCK_PLACEMENT_TOOL.get()) {
+            
+            // Check if holding the correct tool
+            boolean holdingMultiblockTool = wand.getItem() == MEPlacementToolMod.MULTIBLOCK_PLACEMENT_TOOL.get();
+            boolean holdingCableTool = wand.getItem() == MEPlacementToolMod.ME_CABLE_PLACEMENT_TOOL.get();
+            
+            if (isCablePlacement && !holdingCableTool) {
+                return false;
+            }
+            if (!isCablePlacement && !holdingMultiblockTool) {
                 return false;
             }
 
@@ -128,16 +159,22 @@ public class UndoHistory
                 return false;
             }
 
+            // Check all snapshots can be restored
             for(PlacementSnapshot snapshot : placeSnapshots) {
                 if(!snapshot.canRestore(world, player)) return false;
             }
+            
+            // Perform undo
             for(PlacementSnapshot snapshot : placeSnapshots) {
                 if(snapshot.restore(world, player)) {
                     if(!player.isCreative()) {
                         var storage = grid.getStorageService().getInventory();
                         var src = new appeng.me.helpers.PlayerSource(player);
-                        if(snapshot.aeKey != null) {
-                            storage.insert(snapshot.aeKey, snapshot.amount, appeng.api.config.Actionable.MODULATE, src);
+                        
+                        // For cable placements, use the return key (transparent cable)
+                        AEKey returnKey = snapshot.getReturnKey();
+                        if(returnKey != null) {
+                            storage.insert(returnKey, snapshot.amount, appeng.api.config.Actionable.MODULATE, src);
                         }
                     }
                 }
@@ -173,5 +210,66 @@ public class UndoHistory
             world.removeBlock(pos, false);
             return true;
         }
+        
+        /**
+         * Get the key to return to AE network when undoing.
+         * Override in subclasses to return different items (e.g., transparent cable instead of colored).
+         */
+        public AEKey getReturnKey() {
+            return aeKey;
+        }
+    }
+    
+    /**
+     * Snapshot for cable placements that handles AE2 Part removal.
+     */
+    public static class CablePlacementSnapshot extends PlacementSnapshot
+    {
+        public final ItemMECablePlacementTool.CableType cableType;
+        public final AEKey returnKey; // Transparent cable key for return
+        
+        public CablePlacementSnapshot(BlockPos pos, ItemMECablePlacementTool.CableType cableType, AEKey returnKey) {
+            super(null, pos, ItemStack.EMPTY, null, 1);
+            this.cableType = cableType;
+            this.returnKey = returnKey;
+        }
+        
+        @Override
+        public boolean canRestore(Level world, Player player) {
+            // Check if there's a cable part at this position
+            IPartHost host = PartHelper.getPartHost(world, pos);
+            if (host == null) return false;
+            
+            // Check if there's a cable (center part)
+            IPart cablePart = host.getPart(null);
+            return cablePart != null;
+        }
+        
+        @Override
+        public boolean restore(Level world, Player player) {
+            IPartHost host = PartHelper.getPartHost(world, pos);
+            if (host == null) return false;
+            
+            // Remove the cable part (center part, side = null)
+            IPart cablePart = host.getPart(null);
+            if (cablePart != null) {
+                // Use removePartFromSide instead of removePart
+                host.removePartFromSide(null);
+                host.markForUpdate();
+                
+                // If host is now empty, cleanup the block entity
+                if (host.isEmpty()) {
+                    host.cleanup();
+                }
+                return true;
+            }
+            return false;
+        }
+        
+        @Override
+        public AEKey getReturnKey() {
+            return returnKey;
+        }
     }
 }
+

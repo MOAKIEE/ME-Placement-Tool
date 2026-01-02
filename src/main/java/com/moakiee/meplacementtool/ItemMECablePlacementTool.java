@@ -215,8 +215,9 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             }
         }
 
-        // Place Cables
+        // Place Cables and track for undo
         int placedCount = 0;
+        List<UndoHistory.CablePlacementSnapshot> placedSnapshots = new java.util.ArrayList<>();
 
         for (BlockPos pos : positions) {
             if (!level.getBlockState(pos).isAir()) continue;
@@ -232,12 +233,17 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             if (placeCable(player, (ServerLevel) level, pos, placeCableStack)) {
                 storage.extract(extractCableKey, 1, Actionable.MODULATE, src);
                 placedCount++;
+                // Record for undo - return transparent cable, not colored
+                placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, extractCableKey));
             }
         }
 
         if (placedCount > 0) {
             this.usePower(player, Config.mePlacementToolEnergyCost * placedCount, tool);
             player.displayClientMessage(Component.translatable("message.meplacementtool.placed_count", placedCount), true);
+            
+            // Add to undo history
+            MEPlacementToolMod.instance.undoHistory.addCablePlacement(player, level, placedSnapshots);
         }
     }
 
@@ -299,8 +305,10 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             }
         }
 
-        // Place Cables
+        // Place Cables and track for undo
         int placedCount = 0;
+        List<UndoHistory.CablePlacementSnapshot> placedSnapshots = new java.util.ArrayList<>();
+        
         for (BlockPos pos : positions) {
             if (!level.getBlockState(pos).isAir()) continue;
 
@@ -313,12 +321,17 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             if (placeCable(player, (ServerLevel) level, pos, placeCableStack)) {
                 storage.extract(extractCableKey, 1, Actionable.MODULATE, src);
                 placedCount++;
+                // Record for undo - return transparent cable, not colored
+                placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, extractCableKey));
             }
         }
 
         if (placedCount > 0) {
             this.usePower(player, Config.mePlacementToolEnergyCost * placedCount, tool);
             player.displayClientMessage(Component.translatable("message.meplacementtool.placed_count", placedCount), true);
+            
+            // Add to undo history
+            MEPlacementToolMod.instance.undoHistory.addCablePlacement(player, level, placedSnapshots);
         }
     }
 

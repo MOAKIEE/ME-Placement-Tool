@@ -169,6 +169,14 @@ public class MEPlacementToolMod
         public static long lastSelectedTime = 0L;
         public static String lastCountText = null;
         public static long lastCountTime = 0L;
+        
+        // HUD renderer for tool information
+        private static final com.moakiee.meplacementtool.client.ToolInfoHudRenderer toolInfoHudRenderer = new com.moakiee.meplacementtool.client.ToolInfoHudRenderer();
+        
+        static {
+            // Register the HUD renderer
+            MinecraftForge.EVENT_BUS.register(toolInfoHudRenderer);
+        }
 
         @SubscribeEvent
         public static void onRenderCrosshair(RenderGuiOverlayEvent.Pre event) {

@@ -21,5 +21,14 @@
   "message.meplacementtool.no_linked_grid": "Not linked to ME network",
   "key.categories.meplacementtool": "ME Placement Tool",
   "key.meplacementtool.open_radial_menu": "Open Radial Menu",
-  "key.meplacementtool.undo_modifier": "Undo modifier"
+  "key.meplacementtool.undo_modifier": "Undo modifier",
+  "meplacementtool.hud.item": "Item: %s",
+  "meplacementtool.hud.count": "Count: %d",
+  "meplacementtool.hud.placement_count": "Place: %d",
+  "meplacementtool.hud.cable_type": "Cable: %s",
+  "meplacementtool.hud.color": "Color: %s",
+  "meplacementtool.hud.mode": "Mode: %s",
+  "meplacementtool.hud.upgrade": "Upgrade: %s",
+  "meplacementtool.hud.upgrade.yes": "Installed",
+  "meplacementtool.hud.upgrade.no": "None"
 }

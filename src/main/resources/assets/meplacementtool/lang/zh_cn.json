@@ -60,5 +60,14 @@
   "meplacementtool.color.transparent": "福鲁伊克斯",
   "key.categories.meplacementtool": "ME 放置工具",
   "key.meplacementtool.open_radial_menu": "打开轮盘菜单",
-  "key.meplacementtool.undo_modifier": "撤回按键"
+  "key.meplacementtool.undo_modifier": "撤回按键",
+  "meplacementtool.hud.item": "物品: %s",
+  "meplacementtool.hud.count": "数量: %d",
+  "meplacementtool.hud.placement_count": "放置数: %d",
+  "meplacementtool.hud.cable_type": "线缆: %s",
+  "meplacementtool.hud.color": "颜色: %s",
+  "meplacementtool.hud.mode": "模式: %s",
+  "meplacementtool.hud.upgrade": "升级: %s",
+  "meplacementtool.hud.upgrade.yes": "已安装",
+  "meplacementtool.hud.upgrade.no": "无"
 }
