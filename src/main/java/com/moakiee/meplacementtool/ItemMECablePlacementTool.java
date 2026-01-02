@@ -60,7 +60,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     }
 
     public ItemMECablePlacementTool(Item.Properties props) {
-        super(() -> Config.mePlacementToolEnergyCapacity, props);
+        super(() -> Config.cablePlacementToolEnergyCapacity, props);
     }
 
     @Override
@@ -185,7 +185,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         }
 
         // Check Power
-        double energyCost = Config.mePlacementToolEnergyCost * positions.size();
+        double energyCost = Config.cablePlacementToolEnergyCost * positions.size();
         if (!this.hasPower(player, energyCost, tool)) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.device_not_powered"), true);
             return;
@@ -239,7 +239,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         }
 
         if (placedCount > 0) {
-            this.usePower(player, Config.mePlacementToolEnergyCost * placedCount, tool);
+            this.usePower(player, Config.cablePlacementToolEnergyCost * placedCount, tool);
             player.displayClientMessage(Component.translatable("message.meplacementtool.placed_count", placedCount), true);
             
             // Add to undo history
