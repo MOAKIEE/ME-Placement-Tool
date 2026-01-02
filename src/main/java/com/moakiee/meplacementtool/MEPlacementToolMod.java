@@ -29,6 +29,7 @@ import com.moakiee.meplacementtool.client.ModKeyBindings;
 import com.moakiee.meplacementtool.client.MEPartPreviewRenderer;
 import com.moakiee.meplacementtool.client.MultiblockPreviewRenderer;
 import com.moakiee.meplacementtool.client.RadialMenuKeyHandler;
+import com.moakiee.meplacementtool.client.ToolInfoHudRenderer;
 import com.moakiee.meplacementtool.client.UndoKeyHandler;
 import com.moakiee.meplacementtool.network.ModNetwork;
 
@@ -176,6 +177,9 @@ public class MEPlacementToolMod {
             NeoForge.EVENT_BUS.register(new UndoKeyHandler());
             NeoForge.EVENT_BUS.register(new RadialMenuKeyHandler());
             NeoForge.EVENT_BUS.register(ClientForgeEvents.class);
+            
+            // HUD renderer for tool information display
+            NeoForge.EVENT_BUS.register(new ToolInfoHudRenderer());
             
             // Install ME Part preview renderer
             MEPartPreviewRenderer.install();

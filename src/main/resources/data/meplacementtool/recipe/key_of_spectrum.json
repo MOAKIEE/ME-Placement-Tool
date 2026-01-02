@@ -1,10 +1,6 @@
 {
     "type": "minecraft:crafting_shaped",
-    "pattern": [
-        "LCP",
-        "BUK",
-        "WRG"
-    ],
+    "category": "misc",
     "key": {
         "U": {
             "item": "meplacementtool:prism_core"
@@ -34,8 +30,13 @@
             "item": "ae2:green_paint_ball"
         }
     },
+    "pattern": [
+        "LCP",
+        "BUK",
+        "WRG"
+    ],
     "result": {
-        "item": "meplacementtool:key_of_spectrum",
-        "count": 1
+        "count": 1,
+        "id": "meplacementtool:key_of_spectrum"
     }
 }
