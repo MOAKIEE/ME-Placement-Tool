@@ -66,16 +66,16 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     private static final int COLOR_BTN_SPACING = 2;
     
     // With upgrade layout: 3 columns (Color, Cable, Mode)
-    // Add padding from left edge and increase spacing between columns
-    private static final int UPGRADE_COLOR_START_X = 12;      // +4 from edge
-    private static final int UPGRADE_CABLE_START_X = 70;      // Increased gap from color
-    private static final int UPGRADE_MODE_START_X = 118;      // Adjusted accordingly
-    private static final int UPGRADE_CONTENT_START_Y = 26;    // +4 from top, after header
+    // Further adjusted: more padding and spacing
+    private static final int UPGRADE_COLOR_START_X = 14;      // More padding from edge
+    private static final int UPGRADE_CABLE_START_X = 74;      // More gap from color
+    private static final int UPGRADE_MODE_START_X = 122;      // Adjusted accordingly
+    private static final int UPGRADE_CONTENT_START_Y = 30;    // More padding from top
     
     // Without upgrade layout: 2 columns (Cable, Mode), centered in visible area
-    private static final int NO_UPGRADE_CABLE_START_X = 28;   // More padding from left
-    private static final int NO_UPGRADE_MODE_START_X = 95;    // Adjusted for balance
-    private static final int NO_UPGRADE_CONTENT_START_Y = 26; // +4 from top, after header
+    private static final int NO_UPGRADE_CABLE_START_X = 32;   // More padding from left
+    private static final int NO_UPGRADE_MODE_START_X = 100;   // Adjusted for balance
+    private static final int NO_UPGRADE_CONTENT_START_Y = 30; // More padding from top
     
     // External Upgrade panel (right side of GUI, like AE2)
     private static final int UPGRADE_PANEL_PADDING = 7;
@@ -156,7 +156,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
      * Draw section headers when upgrade is installed (3 columns).
      */
     private void drawSectionHeadersWithUpgrade(GuiGraphics guiGraphics, int x, int y) {
-        int headerY = y + VISIBLE_Y + 4;  // Add padding from top edge
+        int headerY = y + VISIBLE_Y + 8;  // More padding from top edge
         
         // Color section header
         String colorHeader = Component.translatable("gui.meplacementtool.color").getString();
@@ -175,7 +175,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
      * Draw section headers when no upgrade is installed (2 columns, centered).
      */
     private void drawSectionHeadersNoUpgrade(GuiGraphics guiGraphics, int x, int y) {
-        int headerY = y + VISIBLE_Y + 4;  // Add padding from top edge
+        int headerY = y + VISIBLE_Y + 8;  // More padding from top edge
         
         // Cable section header
         String cableHeader = Component.translatable("gui.meplacementtool.cable_type").getString();
@@ -217,25 +217,25 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             guiGraphics.blit(BACKGROUND, bx, by, btnU, btnV, BTN_SIZE, BTN_SIZE);
             
             // Draw small color block inside button (centered, ~8x8)
+            // Default: move up 1px; When pressed: move down 1px from default position
             int colorBlockSize = 8;
             int cbx = bx + (BTN_SIZE - colorBlockSize) / 2;
-            int cby = by + (BTN_SIZE - colorBlockSize) / 2;
+            int cby = by + (BTN_SIZE - colorBlockSize) / 2 - 1;  // Default: up 1px
+            if (selected) {
+                cby += 1;  // Pressed: down 1px from adjusted position
+            }
             int colorValue = color == AEColor.TRANSPARENT ? 0x8B479B : color.mediumVariant;
             guiGraphics.fill(cbx, cby, cbx + colorBlockSize, cby + colorBlockSize, 0xFF000000 | colorValue);
-            
-            // Draw selection border on color block
-            if (selected) {
-                drawBorder(guiGraphics, cbx - 1, cby - 1, colorBlockSize + 2, colorBlockSize + 2, 0xFFFFFFFF);
-            }
         }
     }
     
     /**
-     * Draw cable type section: button on left, cable item icon on right.
+     * Draw cable type section: button with scaled cable icon inside, name on right.
      */
     private void drawCableSection(GuiGraphics guiGraphics, int baseX, int baseY, int mouseX, int mouseY) {
         int selectedCable = menu.currentCableType;
         ItemMECablePlacementTool.CableType[] types = ItemMECablePlacementTool.CableType.values();
+        String[] cableKeys = {"glass", "covered", "smart", "dense_covered", "dense_smart"};
         
         for (int i = 0; i < types.length; i++) {
             int bx = baseX;
@@ -246,7 +246,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             
             if (hovered) {
                 hoveredCableIndex = i;
-                hintText = Component.translatable("meplacementtool.cable." + types[i].name().toLowerCase());
+                hintText = Component.translatable("meplacementtool.cable." + cableKeys[i]);
                 hintColor = 0x8B479B;
             }
             
@@ -255,9 +255,22 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             int btnV = selected ? BTN_V_PRESSED : BTN_V_NORMAL;
             guiGraphics.blit(BACKGROUND, bx, by, btnU, btnV, BTN_SIZE, BTN_SIZE);
             
-            // Draw cable item icon to the RIGHT of the button
+            // Draw scaled cable item icon INSIDE the button (centered)
             ItemStack cableStack = types[i].getStack(AEColor.TRANSPARENT);
-            guiGraphics.renderItem(cableStack, bx + BTN_SIZE + 2, by);
+            guiGraphics.pose().pushPose();
+            // Scale down to fit in button (0.75x scale, centered)
+            float scale = 0.75f;
+            float offsetX = bx + (BTN_SIZE - 16 * scale) / 2;
+            float offsetY = by + (BTN_SIZE - 16 * scale) / 2;
+            guiGraphics.pose().translate(offsetX, offsetY, 0);
+            guiGraphics.pose().scale(scale, scale, 1.0f);
+            guiGraphics.renderItem(cableStack, 0, 0);
+            guiGraphics.pose().popPose();
+            
+            // Draw cable short name to the RIGHT of the button
+            String cableName = Component.translatable("meplacementtool.cable." + cableKeys[i] + ".short").getString();
+            int textColor = selected ? 0xFFFFFF : 0x404040;
+            guiGraphics.drawString(font, cableName, bx + BTN_SIZE + 3, by + 4, textColor, false);
         }
     }
     
@@ -294,7 +307,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             
             // Draw mode short name to the RIGHT of the button
             String modeName = Component.translatable("meplacementtool.mode." + modeKeys[i] + ".short").getString();
-            int textColor = selected ? 0xFFFFFF : 0xA0A0A0;
+            int textColor = selected ? 0xFFFFFF : 0x404040;
             guiGraphics.drawString(font, modeName, bx + BTN_SIZE + 3, by + 4, textColor, false);
         }
     }
