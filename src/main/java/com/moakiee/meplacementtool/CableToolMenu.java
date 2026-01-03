@@ -83,13 +83,16 @@ public class CableToolMenu extends AEBaseMenu {
         loadUpgradeFromTool();
 
         // Add upgrade slot - only accepts Key of Spectrum
-        // Use standard UPGRADE semantic so that UpgradesPanel can find and display it
+        // Position at right side of GUI for upgrade card
         var upgradeSlot = new KeyOfSpectrumSlot(this.upgradeInv, 0);
         upgradeSlot.setIcon(Icon.BACKGROUND_UPGRADE);  // Show upgrade card ghost icon when empty
+        // Set slot position (will be adjusted by screen later if needed)
         this.addSlot(upgradeSlot, SlotSemantics.UPGRADE);
 
-        // Create player inventory slots
-        this.createPlayerInventorySlots(playerInventory);
+        // Create player inventory slots with custom positions
+        // Main inventory: starts at (8,172), 9 columns x 3 rows, 16x16 slots, 2px spacing
+        // Hotbar: starts at (8,230), 9 slots
+        createCustomPlayerInventorySlots(playerInventory);
 
         // Load current settings from tool
         loadSettings();
@@ -112,6 +115,34 @@ public class CableToolMenu extends AEBaseMenu {
         this.currentCableType = ItemMECablePlacementTool.getCableType(toolStack).ordinal();
         this.currentColor = ItemMECablePlacementTool.getColor(toolStack).ordinal();
         this.hasUpgrade = ItemMECablePlacementTool.hasUpgrade(toolStack);
+    }
+
+    /**
+     * Create player inventory slots at custom positions matching the GUI texture.
+     * Main inventory: (8,172), 9 columns x 3 rows, slot size 16px, spacing 2px (total 18px per cell)
+     * Hotbar: (8,230), 9 slots, same spacing
+     */
+    private void createCustomPlayerInventorySlots(Inventory playerInventory) {
+        final int SLOT_SIZE = 18; // 16px slot + 2px spacing
+        final int INV_X = 8;
+        final int INV_Y = 172;
+        final int HOTBAR_Y = 230;
+        
+        // Main inventory (slots 9-35)
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                int index = col + row * 9 + 9;
+                int x = INV_X + col * SLOT_SIZE;
+                int y = INV_Y + row * SLOT_SIZE;
+                this.addSlot(new net.minecraft.world.inventory.Slot(playerInventory, index, x, y), SlotSemantics.PLAYER_INVENTORY);
+            }
+        }
+        
+        // Hotbar (slots 0-8)
+        for (int col = 0; col < 9; col++) {
+            int x = INV_X + col * SLOT_SIZE;
+            this.addSlot(new net.minecraft.world.inventory.Slot(playerInventory, col, x, HOTBAR_Y), SlotSemantics.PLAYER_HOTBAR);
+        }
     }
 
     private void onUpgradeChanged() {

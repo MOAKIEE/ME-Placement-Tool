@@ -148,14 +148,11 @@ public class MEPlacementToolMod
             // register screen for our wand menu
             event.enqueueWork(() -> MenuScreens.register(ModMenus.WAND_MENU.get(), WandScreen::new));
             
-            // register screen for cable tool menu
+            // register screen for cable tool menu (without AE2 StyleManager dependency)
             event.enqueueWork(() -> {
                 MenuScreens.<CableToolMenu, com.moakiee.meplacementtool.client.CableToolScreen>register(
                     ModMenus.CABLE_TOOL_MENU.get(),
-                    (menu, playerInv, title) -> {
-                        var style = appeng.client.gui.style.StyleManager.loadStyleDoc("/screens/cable_tool.json");
-                        return new com.moakiee.meplacementtool.client.CableToolScreen(menu, playerInv, title, style);
-                    }
+                    (menu, playerInv, title) -> new com.moakiee.meplacementtool.client.CableToolScreen(menu, playerInv, title)
                 );
             });
         }

@@ -36,8 +36,11 @@
   "meplacementtool.cable.dense_covered": "致密包层线缆",
   "meplacementtool.cable.dense_smart": "致密线缆",
   "meplacementtool.mode.line": "直线",
+  "meplacementtool.mode.line.short": "直线",
   "meplacementtool.mode.plane_fill": "填充",
+  "meplacementtool.mode.plane_fill.short": "填充",
   "meplacementtool.mode.plane_branching": "分支",
+  "meplacementtool.mode.plane_branching.short": "分支",
   "message.meplacementtool.branch_point1_set": "分支起点: %s",
   "message.meplacementtool.branch_point2_set": "方向与间隔: %s",
   "message.meplacementtool.branch_point3_set": "区域: %s",
@@ -71,5 +74,8 @@
   "meplacementtool.hud.upgrade.yes": "已安装",
   "meplacementtool.hud.upgrade.no": "无",
   "gui.meplacementtool.cable_tool": "线缆放置工具",
+  "gui.meplacementtool.cable_type": "线缆",
+  "gui.meplacementtool.mode": "模式",
+  "gui.meplacementtool.color": "颜色",
   "gui.meplacementtool.compatible_upgrades": "兼容的升级:"
 }
