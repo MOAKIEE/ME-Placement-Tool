@@ -13,6 +13,9 @@ public class ModMenus {
     public static final RegistryObject<MenuType<WandMenu>> WAND_MENU = MENUS.register("wand_menu",
             () -> IForgeMenuType.create((id, inv, buf) -> new WandMenu(id, inv, buf)));
 
+    public static final RegistryObject<MenuType<CableToolMenu>> CABLE_TOOL_MENU = MENUS.register("cable_tool_menu",
+            () -> IForgeMenuType.create((id, inv, buf) -> new CableToolMenu(id, inv, buf)));
+
     public static void register(IEventBus bus) {
         MENUS.register(bus);
     }

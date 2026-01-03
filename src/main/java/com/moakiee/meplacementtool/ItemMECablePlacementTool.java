@@ -71,36 +71,37 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (level.isClientSide) {
-            return InteractionResultHolder.success(stack);
-        }
-
-        if (player.isShiftKeyDown()) {
-            // Handle Upgrade Card
-            ItemStack offhand = player.getItemInHand(InteractionHand.OFF_HAND);
-            if (offhand.getItem() == MEPlacementToolMod.KEY_OF_SPECTRUM.get()) {
-                // Insert
-                if (!hasUpgrade(stack)) {
-                    setUpgrade(stack, true);
-                    if (!player.isCreative()) {
-                        offhand.shrink(1);
-                    }
-                    player.displayClientMessage(Component.translatable("message.meplacementtool.upgrade_inserted"), true);
-                } else {
-                    player.displayClientMessage(Component.translatable("message.meplacementtool.upgrade_already_present"), true);
-                }
-            } else if (offhand.isEmpty()) {
-                // Remove
-                if (hasUpgrade(stack)) {
-                    setUpgrade(stack, false);
-                    player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(MEPlacementToolMod.KEY_OF_SPECTRUM.get()));
-                    player.displayClientMessage(Component.translatable("message.meplacementtool.upgrade_removed"), true);
-                }
+        
+        if (!player.isShiftKeyDown()) {
+            // Open GUI on right-click (non-sneaking)
+            if (!level.isClientSide && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                openCableToolMenu(serverPlayer, hand);
             }
             return InteractionResultHolder.success(stack);
         }
 
         return InteractionResultHolder.pass(stack);
+    }
+
+    /**
+     * Opens the Cable Tool GUI menu for the player.
+     */
+    private void openCableToolMenu(net.minecraft.server.level.ServerPlayer player, InteractionHand hand) {
+        int slot = hand == InteractionHand.MAIN_HAND ? player.getInventory().selected : 40;
+        ItemStack stack = player.getItemInHand(hand);
+        net.minecraftforge.network.NetworkHooks.openScreen(player, new net.minecraft.world.MenuProvider() {
+            @Override
+            public net.minecraft.network.chat.Component getDisplayName() {
+                return Component.translatable("gui.meplacementtool.cable_tool");
+            }
+
+            @Override
+            public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory playerInventory, Player p) {
+                return new CableToolMenu(containerId, playerInventory, stack, slot);
+            }
+        }, buf -> {
+            buf.writeInt(slot);
+        });
     }
 
     @Override

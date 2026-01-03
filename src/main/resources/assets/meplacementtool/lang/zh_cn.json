@@ -69,5 +69,7 @@
   "meplacementtool.hud.mode": "模式: %s",
   "meplacementtool.hud.upgrade": "升级: %s",
   "meplacementtool.hud.upgrade.yes": "已安装",
-  "meplacementtool.hud.upgrade.no": "无"
+  "meplacementtool.hud.upgrade.no": "无",
+  "gui.meplacementtool.cable_tool": "线缆放置工具",
+  "gui.meplacementtool.compatible_upgrades": "兼容的升级:"
 }

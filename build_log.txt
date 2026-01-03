@@ -1,0 +1,50 @@
+﻿To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.8/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Java: 11.0.15, JVM: 11.0.15+8-LTS-149 (Oracle Corporation), Arch: amd64
+
+> Task :compileJava
+.\gradlew : C:\Project\ae工作区\1.20.1
+-forge\ME Placement Tool\src\main\j
+ava\com\moakiee\meplacementtool\MEP
+lacementToolMod.java:104: 警告: [remo
+val] FMLJavaModLoadingContext 中的 ge
+t() 已过时, 且标记为待删除
+所在位置 行:1 字符: 30
++ ... OOL_OPTIONS = ''; .\gradlew :
+compileJava --console=plain 2>&1 | 
+Out-F ...
++                       ~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotS 
+   pecified: (C:\Project\ae工作...(  
+  ) 已过时, 且标记为待删除:String) [], Rem   
+ oteException
+    + FullyQualifiedErrorId : Nati 
+   veCommandError
+ 
+        IEventBus modEventBus = FML
+JavaModLoadingContext.get().getModE
+ventBus();
+                                   
+                     ^
+C:\Project\ae工作区\1.20.1-forge\ME Pl
+acement Tool\src\main\java\com\moak
+iee\meplacementtool\MEPlacementTool
+Mod.java:122: 警告: [removal] ModLoad
+ingContext 中的 get() 已过时, 且标记为待删除
+        ModLoadingContext.get().reg
+isterConfig(ModConfig.Type.COMMON, 
+Config.SPEC);
+                         ^
+2 个警告
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.8/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 27s
+1 actionable task: 1 executed

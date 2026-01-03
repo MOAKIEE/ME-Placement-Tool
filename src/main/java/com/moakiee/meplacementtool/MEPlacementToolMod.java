@@ -132,6 +132,11 @@ public class MEPlacementToolMod
         } catch (Exception e) {
             LOGGER.error("Failed to register GridLinkable handler: {}", e.getMessage());
         }
+
+        // Register Key of Spectrum as an upgrade card for the Cable Placement Tool
+        event.enqueueWork(() -> {
+            appeng.api.upgrades.Upgrades.add(KEY_OF_SPECTRUM.get(), ME_CABLE_PLACEMENT_TOOL.get(), 1);
+        });
     }
 
     @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -142,6 +147,17 @@ public class MEPlacementToolMod
         {
             // register screen for our wand menu
             event.enqueueWork(() -> MenuScreens.register(ModMenus.WAND_MENU.get(), WandScreen::new));
+            
+            // register screen for cable tool menu
+            event.enqueueWork(() -> {
+                MenuScreens.<CableToolMenu, com.moakiee.meplacementtool.client.CableToolScreen>register(
+                    ModMenus.CABLE_TOOL_MENU.get(),
+                    (menu, playerInv, title) -> {
+                        var style = appeng.client.gui.style.StyleManager.loadStyleDoc("/screens/cable_tool.json");
+                        return new com.moakiee.meplacementtool.client.CableToolScreen(menu, playerInv, title, style);
+                    }
+                );
+            });
         }
 
         @SubscribeEvent
