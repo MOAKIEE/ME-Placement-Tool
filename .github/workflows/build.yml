@@ -28,3 +28,10 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew build
+
+      - name: Upload Mod Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: me-placement-tools
+          path: build/libs/*.jar    # 这个路径对你的项目是正确的
+          retention-days: 15        # (可选) 设置文件保留天数
