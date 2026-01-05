@@ -24,6 +24,12 @@
 - 放置前预览
 - 支持撤销（Ctrl + 左键）
 
+### ME 线缆放置工具
+- 高效放置 AE2 线缆
+- 三种模式：直线、填充和分支
+- 智能染色系统：优先使用 副手 > ME 网络 > 背包 中的染料
+- 支持“光谱的钥匙”升级卡进行免费染色
+
 ## 前置要求
 
 - Minecraft 1.20.1
@@ -55,25 +61,40 @@ multiblockPlacementToolBaseEnergyCost = 200
 itemBlacklist = []
 ```
 
-## 致谢
+## 致谢 & 鸣谢
 
-本项目使用或参考了以下开源项目的代码：
+### 代码参考与许可证
 
-- **[Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2)** - ME 网络集成和无线终端实现。感谢 AE2 团队提供的优秀模组和 API。
+#### ME 多方块放置工具
+基于 **Theta-Dev** 的 **[Construction Wand](https://github.com/Theta-Dev/ConstructionWand)**。
 
-- **[Ars Nouveau（新生魔艺）](https://github.com/baileyholl/Ars-Nouveau)** - 轮盘菜单渲染实现。本模组的轮盘菜单参考并改编自 Ars Nouveau 的 GUI 代码。
+- **[The MIT License (MIT)](https://github.com/Theta-Dev/ConstructionWand/blob/1.21/LICENSE)**
 
-- **[Construction Wand（建筑手杖）](https://github.com/Theta-Dev/ConstructionWand)** - 多方块放置概念和撤销系统设计的灵感来源。
+#### 轮盘菜单 (G 键)
+基于 **baileyholl** 的 **[Ars Nouveau](https://github.com/baileyholl/Ars-Nouveau)**。
 
-感谢这些项目以开源许可证提供代码。
+- **[GNU Lesser General Public License v3.0](https://github.com/baileyholl/Ars-Nouveau/blob/main/license.txt)**
 
-- **麦淇淋** - 感谢帮助我们优化工具的 3D 模型。
+#### Applied Energistics 2
+使用了 **[Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2)** API 并参考了其实现。
 
-## 许可证
+- Licensed under the [GNU Lesser General Public License v3.0 (LGPL-3.0)](https://github.com/AppliedEnergistics/Applied-Energistics-2/blob/main/LICENSE).<br>
+- The API is licensed under the MIT License.
 
-本项目采用 **GNU 宽松通用公共许可证第 3 版**（LGPL-3.0-only）。
+### 资源与许可证
 
-可在模组包中自由使用本模组。
+- **GUI 材质**：基于 **Applied Energistics 2** 材质修改。
+  - Copyright (c) 2020, Ridanisaurus Rid
+  - Copyright (c) 2013 - 2020 AlgorithmX2 et al
+  - License: **[CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)**
+
+- **物品模型和材质**：由 **_leng (麦淇淋)** 创作。
+  - Copyright (c) 2025-2026 _leng
+  - License: **[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)**
+
+
+- **源码**：
+  - License **GNU Lesser General Public License v3.0** (LGPL-3.0-only).
 
 ## 贡献
 
