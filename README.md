@@ -27,6 +27,12 @@ A Minecraft NeoForge mod that adds placement tools for Applied Energistics 2. Pl
 - Undo support (Ctrl + Left-click)
 - NBT-aware placement with configurable whitelist
 
+### ME Cable Placement Tool
+- Efficiently place AE2 cables
+- Three models: line, fill and branch
+- Smart dyeing system: uses dye from Offhand > ME Network > Inventory
+- Supports "Spectral Key" upgrade for free coloring
+
 ## Requirements
 
 - Minecraft 1.21.1
@@ -68,23 +74,39 @@ nbtIgnoreWhitelist = ["ae2:interface", "ae2:pattern_provider", ...]
 
 ## Acknowledgements
 
-This project uses code from the following open source projects:
+### Code References & Licenses
 
-- **[Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2)** - ME network integration and wireless terminal implementation. Thanks to the AE2 team for the excellent mod and API.
+#### ME Multiblock Placement Tool
+Based on **[Construction Wand](https://github.com/Theta-Dev/ConstructionWand)** by **Theta-Dev**.
 
-- **[Ars Nouveau](https://github.com/baileyholl/Ars-Nouveau)** - Radial menu rendering implementation. The radial menu in this mod is inspired by and adapted from Ars Nouveau's GUI code.
+- **[The MIT License (MIT)](https://github.com/Theta-Dev/ConstructionWand/blob/1.21/LICENSE)**
 
-- **[Construction Wand](https://github.com/Theta-Dev/ConstructionWand)** - Multi-block placement concepts and undo system design inspiration.
+#### Radial Menu (G Key)
+Based on **[Ars Nouveau](https://github.com/baileyholl/Ars-Nouveau)** by **baileyholl**.
 
-Special thanks to these projects for making their code available under open source licenses.
+- **[GNU Lesser General Public License v3.0](https://github.com/baileyholl/Ars-Nouveau/blob/main/license.txt)**
 
-- **麦淇淋** - Thank you for helping us optimize the 3D models for the tools.
+#### Applied Energistics 2
+Uses the **[Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2)** API and references its implementation.
 
-## License
+- Licensed under the [GNU Lesser General Public License v3.0 (LGPL-3.0)](https://github.com/AppliedEnergistics/Applied-Energistics-2/blob/main/LICENSE).<br>
+- The API is licensed under the MIT License.
 
-This project is licensed under the **GNU Lesser General Public License v3.0** (LGPL-3.0-only).
+### Assets & Licenses
 
-You are free to use this mod in modpacks.
+- **GUI Textures**: Modified based on **Applied Energistics 2** textures.
+  - Copyright (c) 2020, Ridanisaurus Rid
+  - Copyright (c) 2013 - 2020 AlgorithmX2 et al
+  - License: **[CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)**
+
+- **Item Models and Textures**: Created by **_leng (麦淇淋)**.
+  - Copyright (c) 2025-2026 _leng
+  - License: **[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)**
+
+
+- **Source**：
+  - License **GNU Lesser General Public License v3.0** (LGPL-3.0-only).
+
 
 ## Contributing
 
