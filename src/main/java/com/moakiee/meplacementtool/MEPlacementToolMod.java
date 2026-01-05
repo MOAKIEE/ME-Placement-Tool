@@ -197,7 +197,8 @@ public class MEPlacementToolMod
             if (event.getOverlay() == VanillaGuiOverlay.CROSSHAIR.type()) {
                 var screen = Minecraft.getInstance().screen;
                 if (screen instanceof com.moakiee.meplacementtool.client.RadialMenuScreen || 
-                    screen instanceof com.moakiee.meplacementtool.client.DualLayerRadialMenuScreen) {
+                    screen instanceof com.moakiee.meplacementtool.client.DualLayerRadialMenuScreen ||
+                    screen instanceof com.moakiee.meplacementtool.client.CableToolRadialMenuScreen) {
                     event.setCanceled(true);
                 }
             }
@@ -239,6 +240,57 @@ public class MEPlacementToolMod
                     LogUtils.getLogger().warn("Error rendering overlay", t);
                 }
             }
+    }
+
+    /**
+     * Server-side event handlers for common (both client and server) events.
+     */
+    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+    public static class CommonForgeEvents {
+        @SubscribeEvent
+        public static void onLeftClickBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickBlock event) {
+            if (handleCableToolLeftClick(event.getEntity(), event.getLevel().isClientSide)) {
+                event.setCanceled(true);
+            }
+        }
+
+        @SubscribeEvent
+        public static void onLeftClickEmpty(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty event) {
+            // This event only fires on client side, so we need to handle it there
+            handleCableToolLeftClick(event.getEntity(), true);
+        }
+
+        /**
+         * Handle left click for Cable Placement Tool - clears selected points.
+         * @return true if points were cleared and event should be canceled
+         */
+        private static boolean handleCableToolLeftClick(net.minecraft.world.entity.player.Player player, boolean isClientSide) {
+            var stack = player.getMainHandItem();
+            
+            // Only handle for Cable Placement Tool
+            if (stack.getItem() != ME_CABLE_PLACEMENT_TOOL.get()) {
+                return false;
+            }
+            
+            // Check if any points are set
+            var p1 = ItemMECablePlacementTool.getPoint1(stack);
+            var p2 = ItemMECablePlacementTool.getPoint2(stack);
+            var p3 = ItemMECablePlacementTool.getPoint3(stack);
+            
+            if (p1 != null || p2 != null || p3 != null) {
+                // Clear all points
+                ItemMECablePlacementTool.setPoint1(stack, null);
+                ItemMECablePlacementTool.setPoint2(stack, null);
+                ItemMECablePlacementTool.setPoint3(stack, null);
+                
+                if (!isClientSide) {
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.meplacementtool.points_cleared"), true);
+                }
+                
+                return true;
+            }
+            return false;
+        }
     }
 
     

@@ -7,11 +7,14 @@ import com.moakiee.meplacementtool.CableToolMenu;
 import com.moakiee.meplacementtool.ItemMECablePlacementTool;
 import com.moakiee.meplacementtool.network.ModNetwork;
 import com.moakiee.meplacementtool.network.UpdateCableToolPacket;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -409,6 +412,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             if (hoveredColorIndex >= 0 && menu.hasUpgradeInstalled()) {
                 menu.setColor(hoveredColorIndex);
                 syncToServer();
+                playButtonClickSound();
                 return true;
             }
             
@@ -416,6 +420,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             if (hoveredCableIndex >= 0) {
                 menu.setCableType(hoveredCableIndex);
                 syncToServer();
+                playButtonClickSound();
                 return true;
             }
             
@@ -423,11 +428,19 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             if (hoveredModeIndex >= 0) {
                 menu.setMode(hoveredModeIndex);
                 syncToServer();
+                playButtonClickSound();
                 return true;
             }
         }
         
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /**
+     * Play button click sound effect (same as vanilla/AE2 buttons).
+     */
+    private void playButtonClickSound() {
+        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
     }
 
     private void syncToServer() {

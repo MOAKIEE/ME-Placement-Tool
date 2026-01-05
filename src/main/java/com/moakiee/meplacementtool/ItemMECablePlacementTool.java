@@ -114,15 +114,8 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             return InteractionResult.SUCCESS;
         }
 
-        if (player.isShiftKeyDown()) {
-            // Clear all points
-            setPoint1(stack, null);
-            setPoint2(stack, null);
-            setPoint3(stack, null);
-            player.displayClientMessage(Component.translatable("message.meplacementtool.points_cleared"), true);
-            return InteractionResult.SUCCESS;
-        }
-
+        // Left-click clears points (handled in event handler)
+        // Right-click sets points
         // Get the position next to the clicked face (like vanilla block placement)
         BlockPos clickedPos = context.getClickedPos();
         Direction face = context.getClickedFace();
@@ -170,6 +163,44 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         return InteractionResult.SUCCESS;
     }
 
+    /**
+     * Find an available cable key from ME storage.
+     * Priority: same color > any other color
+     */
+    private AEItemKey findAvailableCableKey(MEStorage storage, PlayerSource src, CableType cableType, AEColor preferredColor) {
+        // First try: preferred (same) color
+        ItemStack preferredStack = cableType.getStack(preferredColor);
+        AEItemKey preferredKey = AEItemKey.of(preferredStack);
+        if (storage.extract(preferredKey, 1, Actionable.SIMULATE, src) >= 1) {
+            return preferredKey;
+        }
+        
+        // Second try: any other color
+        for (AEColor c : AEColor.values()) {
+            if (c == preferredColor) continue;
+            ItemStack stack = cableType.getStack(c);
+            AEItemKey key = AEItemKey.of(stack);
+            if (storage.extract(key, 1, Actionable.SIMULATE, src) >= 1) {
+                return key;
+            }
+        }
+        
+        return null; // No cable available
+    }
+
+    /**
+     * Get the AEColor from a cable AEItemKey.
+     */
+    private AEColor getColorFromCableKey(AEItemKey key, CableType cableType) {
+        for (AEColor c : AEColor.values()) {
+            ItemStack stack = cableType.getStack(c);
+            if (AEItemKey.of(stack).equals(key)) {
+                return c;
+            }
+        }
+        return AEColor.TRANSPARENT;
+    }
+
     private void executePlacement(ServerPlayer player, ItemStack tool, Level level, BlockPos p1, BlockPos p2) {
         PlacementMode mode = getMode(tool);
         CableType cableType = getCableType(tool);
@@ -198,44 +229,48 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         MEStorage storage = grid.getStorageService().getInventory();
         PlayerSource src = new PlayerSource(player);
 
-        // Always extract TRANSPARENT cable from network
-        ItemStack extractCableStack = cableType.getStack(AEColor.TRANSPARENT);
-        AEItemKey extractCableKey = AEItemKey.of(extractCableStack);
-        
         // The actual cable to place
         ItemStack placeCableStack = cableType.getStack(color);
 
-        // Consume Dye if needed
-        if (colorLogic.needsDye) {
-            int totalCables = positions.size();
-            int dyeCount = (totalCables / 8) + 1;
-            
-            if (!consumeDye(player, storage, src, color, dyeCount)) {
-                 player.displayClientMessage(Component.translatable("message.meplacementtool.missing_dye", dyeCount, DyeItem.byColor(color.dye).getDescription()), true);
-                 return;
-            }
-        }
-
         // Place Cables and track for undo
+        // Dye consumption is now dynamic based on extracted cable color
         int placedCount = 0;
+        int dyeConsumed = 0;
         List<UndoHistory.CablePlacementSnapshot> placedSnapshots = new java.util.ArrayList<>();
 
         for (BlockPos pos : positions) {
             if (!level.getBlockState(pos).isAir()) continue;
 
-            // Extract Cable (transparent)
-            long extracted = storage.extract(extractCableKey, 1, Actionable.SIMULATE, src);
-            if (extracted < 1) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", extractCableStack.getHoverName()), true);
+            // Find available cable (priority: same color > any color)
+            AEItemKey keyToExtract = findAvailableCableKey(storage, src, cableType, color);
+            if (keyToExtract == null) {
+                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()), true);
                 break;
+            }
+
+            // Check if we need dye for this cable (only if extracted color != target color)
+            AEColor extractedColor = getColorFromCableKey(keyToExtract, cableType);
+            boolean needsDyeForThis = colorLogic.needsDye && (extractedColor != color);
+
+            // If dye is needed, try to consume it
+            if (needsDyeForThis && color != AEColor.TRANSPARENT) {
+                // Check dye availability (1 dye per 8 cables, we check per cable here)
+                // For simplicity, consume 1 dye per 8 cables that need dyeing
+                if ((dyeConsumed == 0 || placedCount % 8 == 0) && dyeConsumed < (placedCount / 8) + 1) {
+                    if (!consumeDye(player, storage, src, color, 1)) {
+                        player.displayClientMessage(Component.translatable("message.meplacementtool.missing_dye", 1, DyeItem.byColor(color.dye).getDescription()), true);
+                        break;
+                    }
+                    dyeConsumed++;
+                }
             }
 
             // Place
             if (placeCable(player, (ServerLevel) level, pos, placeCableStack)) {
-                storage.extract(extractCableKey, 1, Actionable.MODULATE, src);
+                storage.extract(keyToExtract, 1, Actionable.MODULATE, src);
                 placedCount++;
-                // Record for undo - return transparent cable, not colored
-                placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, extractCableKey));
+                // Record for undo - return the same type of cable that was extracted
+                placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, keyToExtract));
             }
         }
 
@@ -290,40 +325,46 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         MEStorage storage = grid.getStorageService().getInventory();
         PlayerSource src = new PlayerSource(player);
 
-        // Determine which cable to extract from network
-        ItemStack extractCableStack = cableType.getStack(AEColor.TRANSPARENT);
-        AEItemKey extractCableKey = AEItemKey.of(extractCableStack);
+        // The actual cable to place
         ItemStack placeCableStack = cableType.getStack(color);
 
-        // Consume Dye if needed
-        if (colorLogic.needsDye) {
-            int totalCables = positions.size();
-            int dyeCount = (totalCables / 8) + 1;
-            
-            if (!consumeDye(player, storage, src, color, dyeCount)) {
-                 player.displayClientMessage(Component.translatable("message.meplacementtool.missing_dye", dyeCount, DyeItem.byColor(color.dye).getDescription()), true);
-                 return;
-            }
-        }
-
         // Place Cables and track for undo
+        // Dye consumption is now dynamic based on extracted cable color
         int placedCount = 0;
+        int dyeConsumed = 0;
         List<UndoHistory.CablePlacementSnapshot> placedSnapshots = new java.util.ArrayList<>();
         
         for (BlockPos pos : positions) {
             if (!level.getBlockState(pos).isAir()) continue;
 
-            long extracted = storage.extract(extractCableKey, 1, Actionable.SIMULATE, src);
-            if (extracted < 1) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", extractCableStack.getHoverName()), true);
+            // Find available cable (priority: same color > any color)
+            AEItemKey keyToExtract = findAvailableCableKey(storage, src, cableType, color);
+            if (keyToExtract == null) {
+                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()), true);
                 break;
             }
 
+            // Check if we need dye for this cable (only if extracted color != target color)
+            AEColor extractedColor = getColorFromCableKey(keyToExtract, cableType);
+            boolean needsDyeForThis = colorLogic.needsDye && (extractedColor != color);
+
+            // If dye is needed, try to consume it
+            if (needsDyeForThis && color != AEColor.TRANSPARENT) {
+                // Check dye availability (1 dye per 8 cables that need dyeing)
+                if ((dyeConsumed == 0 || placedCount % 8 == 0) && dyeConsumed < (placedCount / 8) + 1) {
+                    if (!consumeDye(player, storage, src, color, 1)) {
+                        player.displayClientMessage(Component.translatable("message.meplacementtool.missing_dye", 1, DyeItem.byColor(color.dye).getDescription()), true);
+                        break;
+                    }
+                    dyeConsumed++;
+                }
+            }
+
             if (placeCable(player, (ServerLevel) level, pos, placeCableStack)) {
-                storage.extract(extractCableKey, 1, Actionable.MODULATE, src);
+                storage.extract(keyToExtract, 1, Actionable.MODULATE, src);
                 placedCount++;
-                // Record for undo - return transparent cable, not colored
-                placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, extractCableKey));
+                // Record for undo - return the same type of cable that was extracted
+                placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, keyToExtract));
             }
         }
 
