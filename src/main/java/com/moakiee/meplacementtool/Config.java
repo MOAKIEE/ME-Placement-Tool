@@ -188,8 +188,6 @@ public class Config
             net.minecraft.world.item.ItemStack target) {
         java.util.List<java.util.Map.Entry<appeng.api.stacks.AEItemKey, Long>> result = new java.util.ArrayList<>();
         
-        var targetItemId = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(target.getItem());
-
         if (target == null || target.isEmpty()) {
             return result;
         }
@@ -208,11 +206,10 @@ public class Config
 
         boolean ignoreNbt = shouldIgnoreNbt(target);
 
-        var targetItem = target.getItem();
-        var availableStacks = storage.getAvailableStacks();
-        
         if (ignoreNbt) {
-            // Ignore NBT: find all items with the same ID
+            // Ignore NBT: find all items with the same ID (must iterate)
+            var targetItem = target.getItem();
+            var availableStacks = storage.getAvailableStacks();
             for (var entry : availableStacks) {
                 var key = entry.getKey();
                 if (key instanceof appeng.api.stacks.AEItemKey itemKey) {
@@ -222,16 +219,12 @@ public class Config
                 }
             }
         } else {
-            // Preserve NBT: exact match required (for facades, whitelisted items, etc.)
+            // Preserve NBT: exact match - use direct extract instead of iterating storage (performance optimization)
             var exactKey = appeng.api.stacks.AEItemKey.of(target);
             if (exactKey != null) {
-                for (var entry : availableStacks) {
-                    var key = entry.getKey();
-                    if (key instanceof appeng.api.stacks.AEItemKey itemKey) {
-                        if (itemKey.equals(exactKey) && entry.getLongValue() > 0) {
-                            result.add(java.util.Map.entry(itemKey, entry.getLongValue()));
-                        }
-                    }
+                long count = storage.extract(exactKey, Long.MAX_VALUE, appeng.api.config.Actionable.SIMULATE, null);
+                if (count > 0) {
+                    result.add(java.util.Map.entry(exactKey, count));
                 }
             }
         }

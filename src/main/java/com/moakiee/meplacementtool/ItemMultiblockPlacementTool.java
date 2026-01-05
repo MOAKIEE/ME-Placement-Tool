@@ -198,7 +198,10 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 BlockPos startingPoint = clickedPos.relative(clickedFace);
                 candidates.add(startingPoint);
 
-                while (!candidates.isEmpty() && placePositions.size() < placementCount) {
+                // Limit max candidates explored to prevent infinite loop (performance fix)
+                final int MAX_CANDIDATES = placementCount * 10;
+
+                while (!candidates.isEmpty() && placePositions.size() < placementCount && allCandidates.size() < MAX_CANDIDATES) {
                     BlockPos currentCandidate = candidates.removeFirst();
                     if (!allCandidates.add(currentCandidate)) {
                         continue;
@@ -227,47 +230,45 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
 
                         if (canPlace) {
                             placePositions.add(currentCandidate);
-                        }
-
-                        // Add adjacent positions based on clicked face
-                        switch (clickedFace) {
-                            case DOWN:
-                            case UP:
-                                candidates.add(currentCandidate.north());
-                                candidates.add(currentCandidate.south());
-                                candidates.add(currentCandidate.east());
-                                candidates.add(currentCandidate.west());
-                                candidates.add(currentCandidate.north().east());
-                                candidates.add(currentCandidate.north().west());
-                                candidates.add(currentCandidate.south().east());
-                                candidates.add(currentCandidate.south().west());
-                                break;
-                            case NORTH:
-                            case SOUTH:
-                                candidates.add(currentCandidate.east());
-                                candidates.add(currentCandidate.west());
-                                candidates.add(currentCandidate.above());
-                                candidates.add(currentCandidate.below());
-                                candidates.add(currentCandidate.above().east());
-                                candidates.add(currentCandidate.above().west());
-                                candidates.add(currentCandidate.below().east());
-                                candidates.add(currentCandidate.below().west());
-                                break;
-                            case EAST:
-                            case WEST:
-                                candidates.add(currentCandidate.north());
-                                candidates.add(currentCandidate.south());
-                                candidates.add(currentCandidate.above());
-                                candidates.add(currentCandidate.below());
-                                candidates.add(currentCandidate.above().north());
-                                candidates.add(currentCandidate.above().south());
-                                candidates.add(currentCandidate.below().north());
-                                candidates.add(currentCandidate.below().south());
-                                break;
+                            // Only expand candidates after successful placement (matches ConstructionWand behavior)
+                            switch (clickedFace) {
+                                case DOWN:
+                                case UP:
+                                    candidates.add(currentCandidate.north());
+                                    candidates.add(currentCandidate.south());
+                                    candidates.add(currentCandidate.east());
+                                    candidates.add(currentCandidate.west());
+                                    candidates.add(currentCandidate.north().east());
+                                    candidates.add(currentCandidate.north().west());
+                                    candidates.add(currentCandidate.south().east());
+                                    candidates.add(currentCandidate.south().west());
+                                    break;
+                                case NORTH:
+                                case SOUTH:
+                                    candidates.add(currentCandidate.east());
+                                    candidates.add(currentCandidate.west());
+                                    candidates.add(currentCandidate.above());
+                                    candidates.add(currentCandidate.below());
+                                    candidates.add(currentCandidate.above().east());
+                                    candidates.add(currentCandidate.above().west());
+                                    candidates.add(currentCandidate.below().east());
+                                    candidates.add(currentCandidate.below().west());
+                                    break;
+                                case EAST:
+                                case WEST:
+                                    candidates.add(currentCandidate.north());
+                                    candidates.add(currentCandidate.south());
+                                    candidates.add(currentCandidate.above());
+                                    candidates.add(currentCandidate.below());
+                                    candidates.add(currentCandidate.above().north());
+                                    candidates.add(currentCandidate.above().south());
+                                    candidates.add(currentCandidate.below().north());
+                                    candidates.add(currentCandidate.below().south());
+                                    break;
+                            }
                         }
                     }
                 }
-
                 if (placePositions.isEmpty()) {
                     player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
                     return InteractionResult.sidedSuccess(false);
@@ -363,7 +364,10 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 BlockPos startingPoint = clickedPos.relative(clickedFace);
                 candidates.add(startingPoint);
 
-                while (!candidates.isEmpty() && placePositions.size() < placementCount) {
+                // Limit max candidates explored to prevent infinite loop (performance fix)
+                final int MAX_CANDIDATES = placementCount * 10;
+
+                while (!candidates.isEmpty() && placePositions.size() < placementCount && allCandidates.size() < MAX_CANDIDATES) {
                     BlockPos currentCandidate = candidates.removeFirst();
                     if (!allCandidates.add(currentCandidate)) {
                         continue;
@@ -392,47 +396,45 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
 
                         if (canPlace) {
                             placePositions.add(currentCandidate);
-                        }
-
-                        // Add adjacent positions based on clicked face
-                        switch (clickedFace) {
-                            case DOWN:
-                            case UP:
-                                candidates.add(currentCandidate.north());
-                                candidates.add(currentCandidate.south());
-                                candidates.add(currentCandidate.east());
-                                candidates.add(currentCandidate.west());
-                                candidates.add(currentCandidate.north().east());
-                                candidates.add(currentCandidate.north().west());
-                                candidates.add(currentCandidate.south().east());
-                                candidates.add(currentCandidate.south().west());
-                                break;
-                            case NORTH:
-                            case SOUTH:
-                                candidates.add(currentCandidate.east());
-                                candidates.add(currentCandidate.west());
-                                candidates.add(currentCandidate.above());
-                                candidates.add(currentCandidate.below());
-                                candidates.add(currentCandidate.above().east());
-                                candidates.add(currentCandidate.above().west());
-                                candidates.add(currentCandidate.below().east());
-                                candidates.add(currentCandidate.below().west());
-                                break;
-                            case EAST:
-                            case WEST:
-                                candidates.add(currentCandidate.north());
-                                candidates.add(currentCandidate.south());
-                                candidates.add(currentCandidate.above());
-                                candidates.add(currentCandidate.below());
-                                candidates.add(currentCandidate.above().north());
-                                candidates.add(currentCandidate.above().south());
-                                candidates.add(currentCandidate.below().north());
-                                candidates.add(currentCandidate.below().south());
-                                break;
+                            // Only expand candidates after successful placement (matches ConstructionWand behavior)
+                            switch (clickedFace) {
+                                case DOWN:
+                                case UP:
+                                    candidates.add(currentCandidate.north());
+                                    candidates.add(currentCandidate.south());
+                                    candidates.add(currentCandidate.east());
+                                    candidates.add(currentCandidate.west());
+                                    candidates.add(currentCandidate.north().east());
+                                    candidates.add(currentCandidate.north().west());
+                                    candidates.add(currentCandidate.south().east());
+                                    candidates.add(currentCandidate.south().west());
+                                    break;
+                                case NORTH:
+                                case SOUTH:
+                                    candidates.add(currentCandidate.east());
+                                    candidates.add(currentCandidate.west());
+                                    candidates.add(currentCandidate.above());
+                                    candidates.add(currentCandidate.below());
+                                    candidates.add(currentCandidate.above().east());
+                                    candidates.add(currentCandidate.above().west());
+                                    candidates.add(currentCandidate.below().east());
+                                    candidates.add(currentCandidate.below().west());
+                                    break;
+                                case EAST:
+                                case WEST:
+                                    candidates.add(currentCandidate.north());
+                                    candidates.add(currentCandidate.south());
+                                    candidates.add(currentCandidate.above());
+                                    candidates.add(currentCandidate.below());
+                                    candidates.add(currentCandidate.above().north());
+                                    candidates.add(currentCandidate.above().south());
+                                    candidates.add(currentCandidate.below().north());
+                                    candidates.add(currentCandidate.below().south());
+                                    break;
+                            }
                         }
                     }
                 }
-
                 if (placePositions.isEmpty()) {
                     player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
                     return InteractionResult.sidedSuccess(false);
@@ -525,7 +527,10 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         BlockPos startingPoint = clickedPos.relative(clickedFace);
         candidates.add(startingPoint);
 
-        while (!candidates.isEmpty() && placePositions.size() < placementCount) {
+        // Limit max candidates explored to prevent infinite loop (performance fix)
+        final int MAX_CANDIDATES = placementCount * 10;
+
+        while (!candidates.isEmpty() && placePositions.size() < placementCount && allCandidates.size() < MAX_CANDIDATES) {
             BlockPos currentCandidate = candidates.removeFirst();
             if (!allCandidates.add(currentCandidate)) {
                 continue;
@@ -549,42 +554,42 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 }
                 if (canPlace) {
                     placePositions.add(currentCandidate);
-                }
-
-                switch (clickedFace) {
-                    case DOWN:
-                    case UP:
-                        candidates.add(currentCandidate.north());
-                        candidates.add(currentCandidate.south());
-                        candidates.add(currentCandidate.east());
-                        candidates.add(currentCandidate.west());
-                        candidates.add(currentCandidate.north().east());
-                        candidates.add(currentCandidate.north().west());
-                        candidates.add(currentCandidate.south().east());
-                        candidates.add(currentCandidate.south().west());
-                        break;
-                    case NORTH:
-                    case SOUTH:
-                        candidates.add(currentCandidate.east());
-                        candidates.add(currentCandidate.west());
-                        candidates.add(currentCandidate.above());
-                        candidates.add(currentCandidate.below());
-                        candidates.add(currentCandidate.above().east());
-                        candidates.add(currentCandidate.above().west());
-                        candidates.add(currentCandidate.below().east());
-                        candidates.add(currentCandidate.below().west());
-                        break;
-                    case EAST:
-                    case WEST:
-                        candidates.add(currentCandidate.north());
-                        candidates.add(currentCandidate.south());
-                        candidates.add(currentCandidate.above());
-                        candidates.add(currentCandidate.below());
-                        candidates.add(currentCandidate.above().north());
-                        candidates.add(currentCandidate.above().south());
-                        candidates.add(currentCandidate.below().north());
-                        candidates.add(currentCandidate.below().south());
-                        break;
+                    // Only expand candidates after successful placement (matches ConstructionWand behavior)
+                    switch (clickedFace) {
+                        case DOWN:
+                        case UP:
+                            candidates.add(currentCandidate.north());
+                            candidates.add(currentCandidate.south());
+                            candidates.add(currentCandidate.east());
+                            candidates.add(currentCandidate.west());
+                            candidates.add(currentCandidate.north().east());
+                            candidates.add(currentCandidate.north().west());
+                            candidates.add(currentCandidate.south().east());
+                            candidates.add(currentCandidate.south().west());
+                            break;
+                        case NORTH:
+                        case SOUTH:
+                            candidates.add(currentCandidate.east());
+                            candidates.add(currentCandidate.west());
+                            candidates.add(currentCandidate.above());
+                            candidates.add(currentCandidate.below());
+                            candidates.add(currentCandidate.above().east());
+                            candidates.add(currentCandidate.above().west());
+                            candidates.add(currentCandidate.below().east());
+                            candidates.add(currentCandidate.below().west());
+                            break;
+                        case EAST:
+                        case WEST:
+                            candidates.add(currentCandidate.north());
+                            candidates.add(currentCandidate.south());
+                            candidates.add(currentCandidate.above());
+                            candidates.add(currentCandidate.below());
+                            candidates.add(currentCandidate.above().north());
+                            candidates.add(currentCandidate.above().south());
+                            candidates.add(currentCandidate.below().north());
+                            candidates.add(currentCandidate.below().south());
+                            break;
+                    }
                 }
             }
         }
