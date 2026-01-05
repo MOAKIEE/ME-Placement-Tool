@@ -313,10 +313,13 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         HashSet<BlockPos> allCandidates = new HashSet<>();
         ArrayList<BlockPos> placePositions = new ArrayList<>();
 
+        // MAX_CANDIDATES limit to prevent infinite loops when placeable positions are fewer than requested
+        final int MAX_CANDIDATES = maxCount * 10;
+
         BlockPos startingPoint = clickedPos.relative(clickedFace);
         candidates.add(startingPoint);
 
-        while (!candidates.isEmpty() && placePositions.size() < maxCount) {
+        while (!candidates.isEmpty() && placePositions.size() < maxCount && allCandidates.size() < MAX_CANDIDATES) {
             BlockPos currentCandidate = candidates.removeFirst();
             if (!allCandidates.add(currentCandidate)) {
                 continue;
@@ -340,10 +343,9 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
 
                 if (canPlace) {
                     placePositions.add(currentCandidate);
+                    // Only expand candidates after successful placement (prevents cross-pit overflow)
+                    addAdjacentPositions(candidates, currentCandidate, clickedFace);
                 }
-
-                // Add adjacent positions based on face
-                addAdjacentPositions(candidates, currentCandidate, clickedFace);
             }
         }
 
@@ -464,10 +466,13 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         HashSet<BlockPos> allCandidates = new HashSet<>();
         ArrayList<BlockPos> placePositions = new ArrayList<>();
 
+        // MAX_CANDIDATES limit to prevent infinite loops when placeable positions are fewer than requested
+        final int MAX_CANDIDATES = maxCount * 10;
+
         BlockPos startingPoint = clickedPos.relative(clickedFace);
         candidates.add(startingPoint);
 
-        while (!candidates.isEmpty() && placePositions.size() < maxCount) {
+        while (!candidates.isEmpty() && placePositions.size() < maxCount && allCandidates.size() < MAX_CANDIDATES) {
             BlockPos currentCandidate = candidates.removeFirst();
             if (!allCandidates.add(currentCandidate)) {
                 continue;
@@ -494,9 +499,9 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 boolean canPlace = !stateIsLegacy && (stateIsAir || canBeReplaced || (isLiquidContainer && containerCanPlace));
                 if (canPlace) {
                     placePositions.add(currentCandidate);
+                    // Only expand candidates after successful placement (prevents cross-pit overflow)
+                    addAdjacentPositions(candidates, currentCandidate, clickedFace);
                 }
-
-                addAdjacentPositions(candidates, currentCandidate, clickedFace);
             }
         }
 

@@ -92,10 +92,13 @@ public class MultiblockPreviewRenderer {
         Set<BlockPos> allCandidates = new HashSet<>();
         ArrayList<BlockPos> positions = new ArrayList<>();
 
+        // MAX_CANDIDATES limit to prevent infinite loops when placeable positions are fewer than requested
+        final int MAX_CANDIDATES = placementCount * 10;
+
         BlockPos startingPoint = clickedPos.relative(clickedFace);
         candidates.add(startingPoint);
 
-        while (!candidates.isEmpty() && positions.size() < placementCount) {
+        while (!candidates.isEmpty() && positions.size() < placementCount && allCandidates.size() < MAX_CANDIDATES) {
             BlockPos currentCandidate = candidates.removeFirst();
             if (!allCandidates.add(currentCandidate)) {
                 continue;
@@ -119,9 +122,9 @@ public class MultiblockPreviewRenderer {
                 }
                 if (canPlace) {
                     positions.add(currentCandidate);
+                    // Only expand candidates after successful placement (prevents cross-pit overflow)
+                    addAdjacentPositions(candidates, currentCandidate, clickedFace);
                 }
-
-                addAdjacentPositions(candidates, currentCandidate, clickedFace);
             }
         }
 
