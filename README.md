@@ -45,7 +45,7 @@ A Minecraft Forge mod that adds placement tools for Applied Energistics 2. Place
 - **Link to Network**: Place the tool into an ME Wireless Access Point to bind it to your network.
 
 ### ME Multiblock Placement Tool
-- **Ctrl + Right-click**: Undo last operation
+- **Ctrl + left-click**: Undo last operation
 
 ## Configuration
 
