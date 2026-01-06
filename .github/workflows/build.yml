@@ -33,5 +33,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: me-placement-tools
-          path: build/libs/*.jar    # 这个路径对你的项目是正确的
-          retention-days: 15        # (可选) 设置文件保留天数
+          path: build/libs/*.jar
+          retention-days: 15
