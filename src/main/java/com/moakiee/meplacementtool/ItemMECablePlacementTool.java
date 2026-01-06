@@ -28,6 +28,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -71,7 +72,27 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        // GUI is opened via G key, not right-click
+        
+        // In LINE mode, if point1 is set, allow confirming placement by right-clicking air
+        PlacementMode mode = getMode(stack);
+        BlockPos p1 = getPoint1(stack);
+        
+        if (mode == PlacementMode.LINE && p1 != null) {
+            if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+                // Use player look direction to determine endpoint
+                BlockPos endpoint = findLine(player, p1);
+                if (endpoint != null) {
+                    setPoint2(stack, endpoint);
+                    player.displayClientMessage(Component.translatable("message.meplacementtool.point2_set", endpoint.toShortString()), true);
+                    executePlacement(serverPlayer, stack, level, p1, endpoint);
+                    setPoint1(stack, null);
+                    setPoint2(stack, null);
+                    return InteractionResultHolder.success(stack);
+                }
+            }
+            return InteractionResultHolder.success(stack);
+        }
+        
         return InteractionResultHolder.pass(stack);
     }
 
@@ -118,8 +139,29 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                 setPoint2(stack, null);
                 setPoint3(stack, null);
             }
+        } else if (mode == PlacementMode.LINE) {
+            // LINE mode: first click sets start, second click uses player look direction
+            if (p1 == null) {
+                setPoint1(stack, targetPos);
+                player.displayClientMessage(Component.translatable("message.meplacementtool.point1_set", targetPos.toShortString()), true);
+            } else {
+                // Use player look direction to determine endpoint (effortless-building style)
+                BlockPos endpoint = findLine(player, p1);
+                if (endpoint != null) {
+                    setPoint2(stack, endpoint);
+                    player.displayClientMessage(Component.translatable("message.meplacementtool.point2_set", endpoint.toShortString()), true);
+                    executePlacement((ServerPlayer) player, stack, level, p1, endpoint);
+                } else {
+                    // Fallback: use clicked position
+                    setPoint2(stack, targetPos);
+                    player.displayClientMessage(Component.translatable("message.meplacementtool.point2_set", targetPos.toShortString()), true);
+                    executePlacement((ServerPlayer) player, stack, level, p1, targetPos);
+                }
+                setPoint1(stack, null);
+                setPoint2(stack, null);
+            }
         } else {
-            // LINE and PLANE_FILL use 2 points
+            // PLANE_FILL uses 2 points (original behavior)
             if (p1 == null) {
                 setPoint1(stack, targetPos);
                 player.displayClientMessage(Component.translatable("message.meplacementtool.point1_set", targetPos.toShortString()), true);
@@ -365,44 +407,9 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         int dz = Math.abs(z2 - z1);
 
         if (mode == PlacementMode.LINE) {
-            // Determine main axis and check if we should snap
-            int maxDelta = Math.max(dx, Math.max(dy, dz));
-            
-            // Snap threshold: if main axis >= 10 and deviations <= 3, snap to main axis
-            final int SNAP_MIN_LENGTH = 10;
-            final int SNAP_MAX_DEVIATION = 3;
-            
-            if (maxDelta == dx && dx >= SNAP_MIN_LENGTH && dy <= SNAP_MAX_DEVIATION && dz <= SNAP_MAX_DEVIATION) {
-                // Snap to X axis
-                int min = Math.min(x1, x2);
-                int max = Math.max(x1, x2);
-                for (int x = min; x <= max; x++) list.add(new BlockPos(x, y1, z1));
-            } else if (maxDelta == dy && dy >= SNAP_MIN_LENGTH && dx <= SNAP_MAX_DEVIATION && dz <= SNAP_MAX_DEVIATION) {
-                // Snap to Y axis
-                int min = Math.min(y1, y2);
-                int max = Math.max(y1, y2);
-                for (int y = min; y <= max; y++) list.add(new BlockPos(x1, y, z1));
-            } else if (maxDelta == dz && dz >= SNAP_MIN_LENGTH && dx <= SNAP_MAX_DEVIATION && dy <= SNAP_MAX_DEVIATION) {
-                // Snap to Z axis
-                int min = Math.min(z1, z2);
-                int max = Math.max(z1, z2);
-                for (int z = min; z <= max; z++) list.add(new BlockPos(x1, y1, z));
-            } 
-            // Standard axis-aligned lines (exact alignment only) - NO diagonal lines
-            else if (dx > 0 && dy == 0 && dz == 0) {
-                int min = Math.min(x1, x2);
-                int max = Math.max(x1, x2);
-                for (int x = min; x <= max; x++) list.add(new BlockPos(x, y1, z1));
-            } else if (dx == 0 && dy > 0 && dz == 0) {
-                int min = Math.min(y1, y2);
-                int max = Math.max(y1, y2);
-                for (int y = min; y <= max; y++) list.add(new BlockPos(x1, y, z1));
-            } else if (dx == 0 && dy == 0 && dz > 0) {
-                int min = Math.min(z1, z2);
-                int max = Math.max(z1, z2);
-                for (int z = min; z <= max; z++) list.add(new BlockPos(x1, y1, z));
-            }
-            // If not meeting any criteria, return empty list (no diagonal lines allowed)
+            // LINE mode uses getLineBlocks for axis-aligned lines
+            // findLine already returns axis-aligned endpoint, so we just generate the line blocks
+            return getLineBlocks(x1, y1, z1, x2, y2, z2);
         } else if (mode == PlacementMode.PLANE_FILL) {
             // Fill area - works for any 3D box
             int minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
@@ -682,4 +689,164 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         return remaining <= 0;
     }
+
+    // ==================== Line Mode (based on effortless-building) ====================
+
+    /**
+     * Find line endpoint based on player look direction.
+     * Ported from effortless-building Line.findLine()
+     */
+    public static BlockPos findLine(Player player, BlockPos firstPos) {
+        Vec3 look = getPlayerLookVec(player);
+        Vec3 start = new Vec3(player.getX(), player.getY() + player.getEyeHeight(), player.getZ());
+
+        List<LineCriteria> criteriaList = new ArrayList<>(3);
+
+        // X plane
+        Vec3 xBound = findXBound(firstPos.getX(), start, look);
+        criteriaList.add(new LineCriteria(xBound, firstPos, start));
+
+        // Y plane
+        Vec3 yBound = findYBound(firstPos.getY(), start, look);
+        criteriaList.add(new LineCriteria(yBound, firstPos, start));
+
+        // Z plane
+        Vec3 zBound = findZBound(firstPos.getZ(), start, look);
+        criteriaList.add(new LineCriteria(zBound, firstPos, start));
+
+        // Remove invalid criteria
+        int reach = 64;
+        criteriaList.removeIf(c -> !c.isValid(start, look, reach));
+
+        if (criteriaList.isEmpty()) return null;
+
+        // Select the best criteria
+        LineCriteria selected = criteriaList.get(0);
+        if (criteriaList.size() > 1) {
+            for (int i = 1; i < criteriaList.size(); i++) {
+                LineCriteria criteria = criteriaList.get(i);
+                if (criteria.distToLineSq < 2.0 && selected.distToLineSq < 2.0) {
+                    // Both very close to line, choose closest to player
+                    if (criteria.distToPlayerSq < selected.distToPlayerSq)
+                        selected = criteria;
+                } else {
+                    // Pick closest to line
+                    if (criteria.distToLineSq < selected.distToLineSq)
+                        selected = criteria;
+                }
+            }
+        }
+
+        return BlockPos.containing(selected.lineBound);
+    }
+
+    /**
+     * Get line blocks between two positions (axis-aligned only).
+     * Ported from effortless-building Line.getLineBlocks()
+     */
+    public static List<BlockPos> getLineBlocks(int x1, int y1, int z1, int x2, int y2, int z2) {
+        List<BlockPos> list = new ArrayList<>();
+
+        if (x1 != x2) {
+            for (int x = x1; x1 < x2 ? x <= x2 : x >= x2; x += x1 < x2 ? 1 : -1) {
+                list.add(new BlockPos(x, y1, z1));
+            }
+        } else if (y1 != y2) {
+            for (int y = y1; y1 < y2 ? y <= y2 : y >= y2; y += y1 < y2 ? 1 : -1) {
+                list.add(new BlockPos(x1, y, z1));
+            }
+        } else {
+            for (int z = z1; z1 < z2 ? z <= z2 : z >= z2; z += z1 < z2 ? 1 : -1) {
+                list.add(new BlockPos(x1, y1, z));
+            }
+        }
+
+        return list;
+    }
+
+    private static Vec3 getPlayerLookVec(Player player) {
+        Vec3 lookVec = player.getLookAngle();
+        double x = lookVec.x;
+        double y = lookVec.y;
+        double z = lookVec.z;
+
+        // Avoid exactly 0 or 1 to prevent division issues
+        if (Math.abs(x) < 0.0001) x = 0.0001;
+        if (Math.abs(x - 1.0) < 0.0001) x = 0.9999;
+        if (Math.abs(x + 1.0) < 0.0001) x = -0.9999;
+
+        if (Math.abs(y) < 0.0001) y = 0.0001;
+        if (Math.abs(y - 1.0) < 0.0001) y = 0.9999;
+        if (Math.abs(y + 1.0) < 0.0001) y = -0.9999;
+
+        if (Math.abs(z) < 0.0001) z = 0.0001;
+        if (Math.abs(z - 1.0) < 0.0001) z = 0.9999;
+        if (Math.abs(z + 1.0) < 0.0001) z = -0.9999;
+
+        return new Vec3(x, y, z);
+    }
+
+    private static Vec3 findXBound(double x, Vec3 start, Vec3 look) {
+        double y = (x - start.x) / look.x * look.y + start.y;
+        double z = (x - start.x) / look.x * look.z + start.z;
+        return new Vec3(x, y, z);
+    }
+
+    private static Vec3 findYBound(double y, Vec3 start, Vec3 look) {
+        double x = (y - start.y) / look.y * look.x + start.x;
+        double z = (y - start.y) / look.y * look.z + start.z;
+        return new Vec3(x, y, z);
+    }
+
+    private static Vec3 findZBound(double z, Vec3 start, Vec3 look) {
+        double x = (z - start.z) / look.z * look.x + start.x;
+        double y = (z - start.z) / look.z * look.y + start.y;
+        return new Vec3(x, y, z);
+    }
+
+    private static class LineCriteria {
+        Vec3 planeBound;
+        Vec3 lineBound;
+        double distToLineSq;
+        double distToPlayerSq;
+
+        LineCriteria(Vec3 planeBound, BlockPos firstPos, Vec3 start) {
+            this.planeBound = planeBound;
+            this.lineBound = toLongestLine(planeBound, firstPos);
+            this.distToLineSq = this.lineBound.subtract(planeBound).lengthSqr();
+            this.distToPlayerSq = planeBound.subtract(start).lengthSqr();
+        }
+
+        // Convert plane bound to axis-aligned line (select longest axis)
+        private Vec3 toLongestLine(Vec3 boundVec, BlockPos firstPos) {
+            int bx = (int) Math.floor(boundVec.x);
+            int by = (int) Math.floor(boundVec.y);
+            int bz = (int) Math.floor(boundVec.z);
+
+            int dx = Math.abs(bx - firstPos.getX());
+            int dy = Math.abs(by - firstPos.getY());
+            int dz = Math.abs(bz - firstPos.getZ());
+
+            int longest = Math.max(dx, Math.max(dy, dz));
+            if (longest == dx && dx > 0) {
+                return new Vec3(bx, firstPos.getY(), firstPos.getZ());
+            }
+            if (longest == dy && dy > 0) {
+                return new Vec3(firstPos.getX(), by, firstPos.getZ());
+            }
+            if (longest == dz && dz > 0) {
+                return new Vec3(firstPos.getX(), firstPos.getY(), bz);
+            }
+            return new Vec3(firstPos.getX(), firstPos.getY(), firstPos.getZ());
+        }
+
+        boolean isValid(Vec3 start, Vec3 look, int reach) {
+            // Must be in front of player
+            if (planeBound.subtract(start).dot(look) <= 0) return false;
+            // Must be at least 1 block away and within reach
+            if (distToPlayerSq < 1 || distToPlayerSq > reach * reach) return false;
+            return true;
+        }
+    }
 }
+
