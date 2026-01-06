@@ -92,6 +92,9 @@ public class CablePreviewRenderer {
     private static final double CABLE_ARM_MIN = 0.375;   // 6/16
     private static final double CABLE_ARM_MAX = 0.625;   // 10/16
 
+    // Cache for last target position (used when looking at air)
+    private static BlockPos lastTargetPos = null;
+
     public static void install() {
         MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGH, CablePreviewRenderer::handleBlockEvent);
         MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGH, CablePreviewRenderer::handleRenderEvent);
@@ -112,12 +115,21 @@ public class CablePreviewRenderer {
             return;
         }
 
+        // Update cached target position
+        BlockPos clickedPos = blockHitResult.getBlockPos();
+        Direction face = blockHitResult.getDirection();
+        BlockPos targetPos = clickedPos.relative(face);
+        if (!level.getBlockState(targetPos).isAir()) {
+            targetPos = clickedPos;
+        }
+        lastTargetPos = targetPos;
+
         if (renderCablePreview(level, poseStack, buffers, camera, blockHitResult, false)) {
             // Don't cancel the event - let normal highlighting still work
         }
     }
 
-    // Handle render level event (for air preview when point1 is set in LINE mode)
+    // Handle render level event (for air preview when point1 is set)
     private static void handleRenderEvent(net.minecraftforge.client.event.RenderLevelStageEvent evt) {
         if (evt.getStage() != net.minecraftforge.client.event.RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
@@ -133,14 +145,14 @@ public class CablePreviewRenderer {
         // Check if player is holding ME Cable Placement Tool
         ItemStack wand = player.getMainHandItem();
         if (wand.isEmpty() || wand.getItem() != MEPlacementToolMod.ME_CABLE_PLACEMENT_TOOL.get()) {
+            lastTargetPos = null;  // Clear cache when not holding tool
             return;
         }
         
-        // Only render air preview for LINE mode when point1 is set and looking at air
-        ItemMECablePlacementTool.PlacementMode mode = ItemMECablePlacementTool.getMode(wand);
+        // Render air preview for all modes when point1 is set and looking at air
         BlockPos point1 = ItemMECablePlacementTool.getPoint1(wand);
         
-        if (mode == ItemMECablePlacementTool.PlacementMode.LINE && point1 != null) {
+        if (point1 != null) {
             var hitResult = mc.hitResult;
             // Only render if NOT looking at a block (air preview)
             if (hitResult == null || hitResult.getType() != HitResult.Type.BLOCK) {
@@ -176,19 +188,36 @@ public class CablePreviewRenderer {
         BlockPos point2 = ItemMECablePlacementTool.getPoint2(wand);
         ItemMECablePlacementTool.PlacementMode mode = ItemMECablePlacementTool.getMode(wand);
 
-        // For LINE mode with air preview (when hitResult is null)
-        if (isAirPreview && mode == ItemMECablePlacementTool.PlacementMode.LINE && point1 != null) {
-            // Render point1 marker
+        // For air preview (when hitResult is null), use cached lastTargetPos
+        if (isAirPreview && point1 != null) {
+            // Render point1 marker always
             renderSingleBlockOutline(poseStack, buffers, camera, point1, POINT1_RED, POINT1_GREEN, POINT1_BLUE, 0.8f, false);
             renderSingleBlockOutline(poseStack, buffers, camera, point1, POINT1_RED, POINT1_GREEN, POINT1_BLUE, 0.3f, true);
 
-            // Use player look direction to calculate endpoint
-            BlockPos lineEnd = ItemMECablePlacementTool.findLine(player, point1);
-            if (lineEnd != null) {
-                // Calculate and render preview positions
-                List<BlockPos> positions = ItemMECablePlacementTool.calculatePositions(point1, lineEnd, mode);
-                renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.5f, false);
-                renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.15f, true);
+            if (mode == ItemMECablePlacementTool.PlacementMode.LINE) {
+                // LINE mode: use player look direction
+                BlockPos lineEnd = ItemMECablePlacementTool.findLine(player, point1);
+                if (lineEnd != null) {
+                    List<BlockPos> positions = ItemMECablePlacementTool.calculatePositions(point1, lineEnd, mode);
+                    renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.5f, false);
+                    renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.15f, true);
+                }
+            } else if (mode == ItemMECablePlacementTool.PlacementMode.PLANE_FILL) {
+                // PLANE_FILL: use cached lastTargetPos
+                if (lastTargetPos != null) {
+                    List<BlockPos> positions = ItemMECablePlacementTool.calculatePositions(point1, lastTargetPos, mode);
+                    renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.5f, false);
+                    renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.15f, true);
+                }
+            } else if (mode == ItemMECablePlacementTool.PlacementMode.PLANE_BRANCHING) {
+                // PLANE_BRANCHING: use cached lastTargetPos for point2 or point3
+                if (point2 != null) {
+                    renderSingleBlockOutline(poseStack, buffers, camera, point2, 1.0f, 0.5f, 0.0f, 0.8f, false);
+                    renderSingleBlockOutline(poseStack, buffers, camera, point2, 1.0f, 0.5f, 0.0f, 0.3f, true);
+                    if (lastTargetPos != null) {
+                        renderBranchingSegments(poseStack, buffers, camera, level, point1, point2, lastTargetPos);
+                    }
+                }
             }
             return true;
         }

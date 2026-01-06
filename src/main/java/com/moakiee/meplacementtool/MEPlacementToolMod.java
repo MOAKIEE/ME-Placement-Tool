@@ -309,6 +309,33 @@ public class MEPlacementToolMod
             }
             return false;
         }
+
+        /**
+         * Handle item switch - reset cable tool points when switching away from the tool.
+         */
+        @SubscribeEvent
+        public static void onEquipmentChange(net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent event) {
+            if (!(event.getEntity() instanceof net.minecraft.world.entity.player.Player player)) {
+                return;
+            }
+            
+            // Only care about main hand slot
+            if (event.getSlot() != net.minecraft.world.entity.EquipmentSlot.MAINHAND) {
+                return;
+            }
+            
+            var oldItem = event.getFrom();
+            var newItem = event.getTo();
+            
+            // If switching AWAY FROM cable placement tool (to a different item)
+            if (oldItem.getItem() == ME_CABLE_PLACEMENT_TOOL.get() && 
+                newItem.getItem() != ME_CABLE_PLACEMENT_TOOL.get()) {
+                // Reset all points on the old tool
+                ItemMECablePlacementTool.setPoint1(oldItem, null);
+                ItemMECablePlacementTool.setPoint2(oldItem, null);
+                ItemMECablePlacementTool.setPoint3(oldItem, null);
+            }
+        }
     }
 
     

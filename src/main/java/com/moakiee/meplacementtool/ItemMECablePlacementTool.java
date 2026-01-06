@@ -29,6 +29,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -292,6 +294,15 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             this.usePower(player, Config.cablePlacementToolEnergyCost * placedCount, tool);
             player.displayClientMessage(Component.translatable("message.meplacementtool.placed_count", placedCount), true);
             
+            // Play cable placement sound (use first placed position)
+            if (!placedSnapshots.isEmpty()) {
+                BlockPos soundPos = placedSnapshots.get(0).pos;
+                var placedState = level.getBlockState(soundPos);
+                var soundType = placedState.getSoundType(level, soundPos, player);
+                level.playSound(null, soundPos, soundType.getPlaceSound(), SoundSource.BLOCKS, 
+                    (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
+            }
+            
             // Add to undo history
             MEPlacementToolMod.instance.undoHistory.addCablePlacement(player, level, placedSnapshots);
         }
@@ -385,6 +396,15 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         if (placedCount > 0) {
             this.usePower(player, Config.mePlacementToolEnergyCost * placedCount, tool);
             player.displayClientMessage(Component.translatable("message.meplacementtool.placed_count", placedCount), true);
+            
+            // Play cable placement sound (use first placed position)
+            if (!placedSnapshots.isEmpty()) {
+                BlockPos soundPos = placedSnapshots.get(0).pos;
+                var placedState = level.getBlockState(soundPos);
+                var soundType = placedState.getSoundType(level, soundPos, player);
+                level.playSound(null, soundPos, soundType.getPlaceSound(), SoundSource.BLOCKS, 
+                    (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
+            }
             
             // Add to undo history
             MEPlacementToolMod.instance.undoHistory.addCablePlacement(player, level, placedSnapshots);
@@ -560,6 +580,10 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
     public static void setMode(ItemStack stack, PlacementMode mode) {
         stack.getOrCreateTag().putInt("Mode", mode.ordinal());
+        // Reset all points when mode changes
+        setPoint1(stack, null);
+        setPoint2(stack, null);
+        setPoint3(stack, null);
     }
 
     public static CableType getCableType(ItemStack stack) {
