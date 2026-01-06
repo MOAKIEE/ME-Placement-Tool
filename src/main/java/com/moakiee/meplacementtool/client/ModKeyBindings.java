@@ -19,6 +19,14 @@ public class ModKeyBindings {
             CATEGORY
     );
 
+    public static final KeyMapping OPEN_CABLE_TOOL_GUI = new KeyMapping(
+            "key.meplacementtool.open_cable_tool_gui",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_G,
+            CATEGORY
+    );
+
         public static final KeyMapping UNDO_MODIFIER = new KeyMapping(
             "key.meplacementtool.undo_modifier",
             KeyConflictContext.IN_GAME,

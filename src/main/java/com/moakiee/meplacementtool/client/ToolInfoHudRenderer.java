@@ -58,8 +58,7 @@ public class ToolInfoHudRenderer {
 
         // Check if any radial menu is open - don't render HUD if so
         if (mc.screen instanceof RadialMenuScreen || 
-            mc.screen instanceof DualLayerRadialMenuScreen ||
-            mc.screen instanceof CableToolRadialMenuScreen) {
+            mc.screen instanceof DualLayerRadialMenuScreen) {
             return;
         }
 

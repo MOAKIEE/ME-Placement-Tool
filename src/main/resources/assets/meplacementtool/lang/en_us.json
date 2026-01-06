@@ -21,6 +21,7 @@
   "message.meplacementtool.no_linked_grid": "Not linked to ME network",
   "key.categories.meplacementtool": "ME Placement Tool",
   "key.meplacementtool.open_radial_menu": "Open Radial Menu",
+  "key.meplacementtool.open_cable_tool_gui": "Open Cable Tool GUI",
   "key.meplacementtool.undo_modifier": "Undo modifier",
   "meplacementtool.hud.item": "Item: %s",
   "meplacementtool.hud.count": "Count: %d",

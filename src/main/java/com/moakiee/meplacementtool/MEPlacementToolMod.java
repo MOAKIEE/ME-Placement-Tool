@@ -160,6 +160,7 @@ public class MEPlacementToolMod
         @SubscribeEvent
         public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
             event.register(ModKeyBindings.OPEN_RADIAL_MENU);
+            event.register(ModKeyBindings.OPEN_CABLE_TOOL_GUI);
             event.register(ModKeyBindings.UNDO_MODIFIER);
         }
 
@@ -197,8 +198,7 @@ public class MEPlacementToolMod
             if (event.getOverlay() == VanillaGuiOverlay.CROSSHAIR.type()) {
                 var screen = Minecraft.getInstance().screen;
                 if (screen instanceof com.moakiee.meplacementtool.client.RadialMenuScreen || 
-                    screen instanceof com.moakiee.meplacementtool.client.DualLayerRadialMenuScreen ||
-                    screen instanceof com.moakiee.meplacementtool.client.CableToolRadialMenuScreen) {
+                    screen instanceof com.moakiee.meplacementtool.client.DualLayerRadialMenuScreen) {
                     event.setCanceled(true);
                 }
             }
@@ -256,8 +256,26 @@ public class MEPlacementToolMod
 
         @SubscribeEvent
         public static void onLeftClickEmpty(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty event) {
-            // This event only fires on client side, so we need to handle it there
-            handleCableToolLeftClick(event.getEntity(), true);
+            // This event only fires on client side, so we need to send a packet to server
+            var player = event.getEntity();
+            var stack = player.getMainHandItem();
+            
+            if (stack.getItem() != ME_CABLE_PLACEMENT_TOOL.get()) {
+                return;
+            }
+            
+            // Check if any points are set (client-side check)
+            var p1 = ItemMECablePlacementTool.getPoint1(stack);
+            var p2 = ItemMECablePlacementTool.getPoint2(stack);
+            var p3 = ItemMECablePlacementTool.getPoint3(stack);
+            
+            if (p1 != null || p2 != null || p3 != null) {
+                // Send packet to server to clear points
+                int slot = player.getInventory().selected;
+                com.moakiee.meplacementtool.network.ModNetwork.CHANNEL.sendToServer(
+                    new com.moakiee.meplacementtool.network.ClearCableToolPointsPacket(slot)
+                );
+            }
         }
 
         /**

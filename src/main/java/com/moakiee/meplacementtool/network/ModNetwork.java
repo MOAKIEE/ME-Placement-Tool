@@ -24,5 +24,9 @@ public class ModNetwork {
                 SyncPagePacket::decode, SyncPagePacket::handle);
         CHANNEL.registerMessage(id++, UpdateCableToolPacket.class, UpdateCableToolPacket::encode,
                 UpdateCableToolPacket::decode, UpdateCableToolPacket::handle);
+        CHANNEL.registerMessage(id++, OpenCableToolGuiPacket.class, OpenCableToolGuiPacket::encode,
+                OpenCableToolGuiPacket::decode, OpenCableToolGuiPacket::handle);
+        CHANNEL.registerMessage(id++, ClearCableToolPointsPacket.class, ClearCableToolPointsPacket::encode,
+                ClearCableToolPointsPacket::decode, ClearCableToolPointsPacket::handle);
     }
 }

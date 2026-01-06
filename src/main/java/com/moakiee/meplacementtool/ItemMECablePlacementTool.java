@@ -71,38 +71,10 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        
-        if (!player.isShiftKeyDown()) {
-            // Open GUI on right-click (non-sneaking)
-            if (!level.isClientSide && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                openCableToolMenu(serverPlayer, hand);
-            }
-            return InteractionResultHolder.success(stack);
-        }
-
+        // GUI is opened via G key, not right-click
         return InteractionResultHolder.pass(stack);
     }
 
-    /**
-     * Opens the Cable Tool GUI menu for the player.
-     */
-    private void openCableToolMenu(net.minecraft.server.level.ServerPlayer player, InteractionHand hand) {
-        int slot = hand == InteractionHand.MAIN_HAND ? player.getInventory().selected : 40;
-        ItemStack stack = player.getItemInHand(hand);
-        net.minecraftforge.network.NetworkHooks.openScreen(player, new net.minecraft.world.MenuProvider() {
-            @Override
-            public net.minecraft.network.chat.Component getDisplayName() {
-                return Component.translatable("gui.meplacementtool.cable_tool");
-            }
-
-            @Override
-            public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory playerInventory, Player p) {
-                return new CableToolMenu(containerId, playerInventory, stack, slot);
-            }
-        }, buf -> {
-            buf.writeInt(slot);
-        });
-    }
 
     @Override
     public InteractionResult useOn(UseOnContext context) {
