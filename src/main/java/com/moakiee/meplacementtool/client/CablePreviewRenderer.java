@@ -74,10 +74,7 @@ public class CablePreviewRenderer {
                     .setCullState(NO_CULL)
                     .createCompositeState(false));
 
-    // Preview box colors (cyan/blue like other tools)
-    private static final float PREVIEW_RED = 0.0f;
-    private static final float PREVIEW_GREEN = 0.75f;
-    private static final float PREVIEW_BLUE = 1.0f;
+    // Rainbow gradient preview is now used instead of static color
 
     // First point marker color (yellow)
     private static final float POINT1_RED = 1.0f;
@@ -199,15 +196,17 @@ public class CablePreviewRenderer {
                 BlockPos lineEnd = ItemMECablePlacementTool.findLine(player, point1);
                 if (lineEnd != null) {
                     List<BlockPos> positions = ItemMECablePlacementTool.calculatePositions(point1, lineEnd, mode);
-                    renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.5f, false);
-                    renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.15f, true);
+                    // Render bounding box with rainbow gradient
+                    renderRainbowBoundingBox(poseStack, buffers, camera, level, positions, 0.6f, false);
+                    renderRainbowBoundingBox(poseStack, buffers, camera, level, positions, 0.2f, true);
                 }
             } else if (mode == ItemMECablePlacementTool.PlacementMode.PLANE_FILL) {
                 // PLANE_FILL: use cached lastTargetPos
                 if (lastTargetPos != null) {
                     List<BlockPos> positions = ItemMECablePlacementTool.calculatePositions(point1, lastTargetPos, mode);
-                    renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.5f, false);
-                    renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.15f, true);
+                    // Render bounding box with rainbow gradient
+                    renderRainbowBoundingBox(poseStack, buffers, camera, level, positions, 0.6f, false);
+                    renderRainbowBoundingBox(poseStack, buffers, camera, level, positions, 0.2f, true);
                 }
             } else if (mode == ItemMECablePlacementTool.PlacementMode.PLANE_BRANCHING) {
                 // PLANE_BRANCHING: use cached lastTargetPos for point2 or point3
@@ -270,10 +269,10 @@ public class CablePreviewRenderer {
                     }
                 }
 
-                // Calculate and render preview positions
+                // Calculate and render preview bounding box with rainbow gradient
                 List<BlockPos> positions = ItemMECablePlacementTool.calculatePositions(point1, endPos, mode);
-                renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.5f, false);
-                renderBoundingBox(poseStack, buffers, camera, level, positions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.15f, true);
+                renderRainbowBoundingBox(poseStack, buffers, camera, level, positions, 0.6f, false);
+                renderRainbowBoundingBox(poseStack, buffers, camera, level, positions, 0.2f, true);
 
                 return true;
             }
@@ -294,60 +293,110 @@ public class CablePreviewRenderer {
 
         // P1 to P2 determines trunk direction and branch interval
         int dx12 = x2 - x1;
+        int dy12 = y2 - y1;
         int dz12 = z2 - z1;
 
-        // Branch interval is the distance from P1 to P2
-        int interval = Math.max(1, Math.abs(dx12) + Math.abs(dz12));
-        if (interval <= 0) interval = 1;
+        // Find the dominant axis for trunk direction
+        int absDx = Math.abs(dx12);
+        int absDy = Math.abs(dy12);
+        int absDz = Math.abs(dz12);
 
-        // Determine main trunk direction (X or Z) based on P1-P2
-        boolean trunkAlongX = Math.abs(dx12) >= Math.abs(dz12);
-        int trunkDir = trunkAlongX ? Integer.signum(dx12) : Integer.signum(dz12);
-        if (trunkDir == 0) trunkDir = 1;
+        // Trunk axis: 0=X, 1=Y, 2=Z
+        int trunkAxis;
+        int trunkDir;
+        int interval;
 
-        // P1 to P3 determines the extent of the plane
+        if (absDx >= absDy && absDx >= absDz) {
+            trunkAxis = 0;
+            trunkDir = dx12 == 0 ? 1 : Integer.signum(dx12);
+            interval = Math.max(1, absDx);
+        } else if (absDy >= absDx && absDy >= absDz) {
+            trunkAxis = 1;
+            trunkDir = dy12 == 0 ? 1 : Integer.signum(dy12);
+            interval = Math.max(1, absDy);
+        } else {
+            trunkAxis = 2;
+            trunkDir = dz12 == 0 ? 1 : Integer.signum(dz12);
+            interval = Math.max(1, absDz);
+        }
+
+        // P1 to P3 determines the extent
         int dx13 = x3 - x1;
+        int dy13 = y3 - y1;
         int dz13 = z3 - z1;
 
-        // Calculate trunk length and branch length
-        int trunkLength, branchLength;
+        // Determine branch axis
+        int branchAxis;
         int branchDir;
+        int trunkLength;
+        int branchLength;
 
-        if (trunkAlongX) {
+        if (trunkAxis == 0) {
             trunkLength = Math.abs(dx13);
-            branchLength = Math.abs(dz13);
-            branchDir = dz13 == 0 ? 1 : Integer.signum(dz13);
+            if (Math.abs(dy13) >= Math.abs(dz13)) {
+                branchAxis = 1;
+                branchLength = Math.abs(dy13);
+                branchDir = dy13 == 0 ? 1 : Integer.signum(dy13);
+            } else {
+                branchAxis = 2;
+                branchLength = Math.abs(dz13);
+                branchDir = dz13 == 0 ? 1 : Integer.signum(dz13);
+            }
+        } else if (trunkAxis == 1) {
+            trunkLength = Math.abs(dy13);
+            if (Math.abs(dx13) >= Math.abs(dz13)) {
+                branchAxis = 0;
+                branchLength = Math.abs(dx13);
+                branchDir = dx13 == 0 ? 1 : Integer.signum(dx13);
+            } else {
+                branchAxis = 2;
+                branchLength = Math.abs(dz13);
+                branchDir = dz13 == 0 ? 1 : Integer.signum(dz13);
+            }
         } else {
             trunkLength = Math.abs(dz13);
-            branchLength = Math.abs(dx13);
-            branchDir = dx13 == 0 ? 1 : Integer.signum(dx13);
+            if (Math.abs(dx13) >= Math.abs(dy13)) {
+                branchAxis = 0;
+                branchLength = Math.abs(dx13);
+                branchDir = dx13 == 0 ? 1 : Integer.signum(dx13);
+            } else {
+                branchAxis = 1;
+                branchLength = Math.abs(dy13);
+                branchDir = dy13 == 0 ? 1 : Integer.signum(dy13);
+            }
         }
 
-        // 1. Render Trunk as one bounding box
+        // 1. Render Trunk with rainbow gradient bounding box
         List<BlockPos> trunkPositions = new ArrayList<>();
         for (int t = 0; t <= trunkLength; t++) {
-            int trunkX = trunkAlongX ? x1 + t * trunkDir : x1;
-            int trunkZ = trunkAlongX ? z1 : z1 + t * trunkDir;
-            trunkPositions.add(new BlockPos(trunkX, y1, trunkZ));
+            int tx = x1, ty = y1, tz = z1;
+            if (trunkAxis == 0) tx = x1 + t * trunkDir;
+            else if (trunkAxis == 1) ty = y1 + t * trunkDir;
+            else tz = z1 + t * trunkDir;
+            trunkPositions.add(new BlockPos(tx, ty, tz));
         }
-        renderBoundingBox(poseStack, buffers, camera, level, trunkPositions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.5f, false);
-        renderBoundingBox(poseStack, buffers, camera, level, trunkPositions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.15f, true);
+        renderRainbowBoundingBox(poseStack, buffers, camera, level, trunkPositions, 0.6f, false);
+        renderRainbowBoundingBox(poseStack, buffers, camera, level, trunkPositions, 0.2f, true);
 
-        // 2. Render Branches as separate bounding boxes
+        // 2. Render Branches with rainbow gradient bounding boxes
         for (int t = 0; t <= trunkLength; t++) {
             if (t % interval == 0) {
-                int trunkX = trunkAlongX ? x1 + t * trunkDir : x1;
-                int trunkZ = trunkAlongX ? z1 : z1 + t * trunkDir;
-                
+                int tx = x1, ty = y1, tz = z1;
+                if (trunkAxis == 0) tx = x1 + t * trunkDir;
+                else if (trunkAxis == 1) ty = y1 + t * trunkDir;
+                else tz = z1 + t * trunkDir;
+
                 List<BlockPos> branchPositions = new ArrayList<>();
                 for (int b = 0; b <= branchLength; b++) {
-                    int branchX = trunkAlongX ? trunkX : trunkX + b * branchDir;
-                    int branchZ = trunkAlongX ? trunkZ + b * branchDir : trunkZ;
-                    branchPositions.add(new BlockPos(branchX, y1, branchZ));
+                    int bx = tx, by = ty, bz = tz;
+                    if (branchAxis == 0) bx = tx + b * branchDir;
+                    else if (branchAxis == 1) by = ty + b * branchDir;
+                    else bz = tz + b * branchDir;
+                    branchPositions.add(new BlockPos(bx, by, bz));
                 }
                 if (!branchPositions.isEmpty()) {
-                    renderBoundingBox(poseStack, buffers, camera, level, branchPositions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.5f, false);
-                    renderBoundingBox(poseStack, buffers, camera, level, branchPositions, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE, 0.15f, true);
+                    renderRainbowBoundingBox(poseStack, buffers, camera, level, branchPositions, 0.6f, false);
+                    renderRainbowBoundingBox(poseStack, buffers, camera, level, branchPositions, 0.2f, true);
                 }
             }
         }
@@ -355,13 +404,14 @@ public class CablePreviewRenderer {
 
     /**
      * Render a bounding box around all positions as a single outline with exactly 12 edges.
+     * Uses time-based rainbow color for smooth animation.
      */
-    private static void renderBoundingBox(PoseStack poseStack,
+    private static void renderRainbowBoundingBox(PoseStack poseStack,
             MultiBufferSource buffers,
             Camera camera,
             ClientLevel level,
             List<BlockPos> positions,
-            float red, float green, float blue, float alpha,
+            float alpha,
             boolean insideBlock) {
 
         if (positions.isEmpty()) return;
@@ -398,11 +448,17 @@ public class CablePreviewRenderer {
         double y1 = maxY + CABLE_CORE_MAX - camY;
         double z1 = maxZ + CABLE_CORE_MAX - camZ;
 
+        // Get time-based rainbow color
+        float[] color = RainbowRenderHelper.getTimeBasedRainbowColor();
+        float red = color[0];
+        float green = color[1];
+        float blue = color[2];
+
         poseStack.pushPose();
         var matrix = poseStack.last().pose();
         var normal = poseStack.last().normal();
 
-        // Draw exactly 12 edges of the bounding box
+        // Draw exactly 12 edges of the bounding box with time-based rainbow color
         // Bottom 4 edges
         drawLine(buffer, matrix, normal, (float)x0, (float)y0, (float)z0, (float)x1, (float)y0, (float)z0, red, green, blue, alpha);
         drawLine(buffer, matrix, normal, (float)x1, (float)y0, (float)z0, (float)x1, (float)y0, (float)z1, red, green, blue, alpha);

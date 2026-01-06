@@ -76,10 +76,7 @@ public class MEPartPreviewRenderer {
                     .setCullState(NO_CULL)
                     .createCompositeState(false));
 
-    // Preview box color - same as MultiblockPreviewRenderer (cyan/blue)
-    private static final float PREVIEW_RED = 0.0f;
-    private static final float PREVIEW_GREEN = 0.75f;
-    private static final float PREVIEW_BLUE = 1.0f;
+    // Rainbow gradient preview is now used instead of static color
 
     public static void install() {
         // Use HIGH priority to run before AE2's handler (which uses default priority)
@@ -284,20 +281,15 @@ public class MEPartPreviewRenderer {
         var buffer = buffers.getBuffer(renderType);
         float alpha = insideBlock ? 0.2f : preview ? 0.6f : 0.4f;
 
-        for (var box : boxes) {
-            var shape = Shapes.create(box);
-
-            LevelRenderer.renderShape(
-                    poseStack,
-                    buffer,
-                    shape,
-                    pos.getX() - camera.getPosition().x,
-                    pos.getY() - camera.getPosition().y,
-                    pos.getZ() - camera.getPosition().z,
-                    PREVIEW_RED,
-                    PREVIEW_GREEN,
-                    PREVIEW_BLUE,
-                    alpha);
-        }
+        // Use rainbow gradient based on spatial position
+        RainbowRenderHelper.renderRainbowBoxes(
+                poseStack,
+                buffer,
+                pos,
+                boxes,
+                camera.getPosition().x,
+                camera.getPosition().y,
+                camera.getPosition().z,
+                alpha);
     }
 }

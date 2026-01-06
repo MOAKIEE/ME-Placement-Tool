@@ -449,8 +449,9 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
     /**
      * Calculate branching positions using 3 points.
+     * Supports all 3 planes: XZ (horizontal), XY (vertical east-west), YZ (vertical north-south).
      * Point 1 (A): Start point
-     * Point 2 (B): Determines main trunk direction and branch interval (interval = distance - 1)
+     * Point 2 (B): Determines main trunk direction and branch interval
      * Point 3 (C): Forms a plane with Point 1, determines branch length
      */
     public static List<BlockPos> calculateBranchPositions(BlockPos p1, BlockPos p2, BlockPos p3) {
@@ -465,49 +466,102 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         int dy12 = y2 - y1;
         int dz12 = z2 - z1;
         
-        // Branch interval is the distance from P1 to P2
-        int interval = Math.max(1, Math.abs(dx12) + Math.abs(dz12)); // Manhattan distance in XZ plane
-        if (interval <= 0) interval = 1;
+        // Find the dominant axis for trunk direction (largest absolute delta)
+        int absDx = Math.abs(dx12);
+        int absDy = Math.abs(dy12);
+        int absDz = Math.abs(dz12);
         
-        // Determine main trunk direction (X or Z) based on P1-P2
-        boolean trunkAlongX = Math.abs(dx12) >= Math.abs(dz12);
-        int trunkDir = trunkAlongX ? Integer.signum(dx12) : Integer.signum(dz12);
-        if (trunkDir == 0) trunkDir = 1;
+        // Trunk axis: 0=X, 1=Y, 2=Z
+        int trunkAxis;
+        int trunkDir;
+        int interval;
+        
+        if (absDx >= absDy && absDx >= absDz) {
+            trunkAxis = 0; // X
+            trunkDir = dx12 == 0 ? 1 : Integer.signum(dx12);
+            interval = Math.max(1, absDx);
+        } else if (absDy >= absDx && absDy >= absDz) {
+            trunkAxis = 1; // Y
+            trunkDir = dy12 == 0 ? 1 : Integer.signum(dy12);
+            interval = Math.max(1, absDy);
+        } else {
+            trunkAxis = 2; // Z
+            trunkDir = dz12 == 0 ? 1 : Integer.signum(dz12);
+            interval = Math.max(1, absDz);
+        }
         
         // P1 to P3 determines the extent of the plane
         int dx13 = x3 - x1;
+        int dy13 = y3 - y1;
         int dz13 = z3 - z1;
         
-        // Calculate trunk length (in the direction of P1-P3, along the trunk axis)
-        int trunkLength, branchLength;
+        // Determine branch axis (different from trunk axis, choose the one with largest delta)
+        int branchAxis;
         int branchDir;
+        int trunkLength;
+        int branchLength;
         
-        if (trunkAlongX) {
-            // Trunk along X, branches along Z
+        if (trunkAxis == 0) {
+            // Trunk along X, branch along Y or Z
             trunkLength = Math.abs(dx13);
-            branchLength = Math.abs(dz13);
-            branchDir = dz13 == 0 ? 1 : Integer.signum(dz13);
+            if (Math.abs(dy13) >= Math.abs(dz13)) {
+                branchAxis = 1; // Y
+                branchLength = Math.abs(dy13);
+                branchDir = dy13 == 0 ? 1 : Integer.signum(dy13);
+            } else {
+                branchAxis = 2; // Z
+                branchLength = Math.abs(dz13);
+                branchDir = dz13 == 0 ? 1 : Integer.signum(dz13);
+            }
+        } else if (trunkAxis == 1) {
+            // Trunk along Y, branch along X or Z
+            trunkLength = Math.abs(dy13);
+            if (Math.abs(dx13) >= Math.abs(dz13)) {
+                branchAxis = 0; // X
+                branchLength = Math.abs(dx13);
+                branchDir = dx13 == 0 ? 1 : Integer.signum(dx13);
+            } else {
+                branchAxis = 2; // Z
+                branchLength = Math.abs(dz13);
+                branchDir = dz13 == 0 ? 1 : Integer.signum(dz13);
+            }
         } else {
-            // Trunk along Z, branches along X  
+            // Trunk along Z, branch along X or Y
             trunkLength = Math.abs(dz13);
-            branchLength = Math.abs(dx13);
-            branchDir = dx13 == 0 ? 1 : Integer.signum(dx13);
+            if (Math.abs(dx13) >= Math.abs(dy13)) {
+                branchAxis = 0; // X
+                branchLength = Math.abs(dx13);
+                branchDir = dx13 == 0 ? 1 : Integer.signum(dx13);
+            } else {
+                branchAxis = 1; // Y
+                branchLength = Math.abs(dy13);
+                branchDir = dy13 == 0 ? 1 : Integer.signum(dy13);
+            }
         }
         
-        // Generate trunk and branches
+        // Generate trunk and branches using the determined axes
         for (int t = 0; t <= trunkLength; t++) {
-            int trunkX = trunkAlongX ? x1 + t * trunkDir : x1;
-            int trunkZ = trunkAlongX ? z1 : z1 + t * trunkDir;
+            int tx = x1, ty = y1, tz = z1;
+            
+            // Move along trunk axis
+            if (trunkAxis == 0) tx = x1 + t * trunkDir;
+            else if (trunkAxis == 1) ty = y1 + t * trunkDir;
+            else tz = z1 + t * trunkDir;
             
             // Add trunk position
-            list.add(new BlockPos(trunkX, y1, trunkZ));
+            list.add(new BlockPos(tx, ty, tz));
             
-            // Add branches at intervals (starting from first position, every 'interval' blocks)
+            // Add branches at intervals
             if (t % interval == 0) {
                 for (int b = 1; b <= branchLength; b++) {
-                    int branchX = trunkAlongX ? trunkX : trunkX + b * branchDir;
-                    int branchZ = trunkAlongX ? trunkZ + b * branchDir : trunkZ;
-                    list.add(new BlockPos(branchX, y1, branchZ));
+                    int bx = tx, by = ty, bz = tz;
+                    
+                    // Move along branch axis
+                    if (branchAxis == 0) bx = tx + b * branchDir;
+                    else if (branchAxis == 1) by = ty + b * branchDir;
+                    else bz = tz + b * branchDir;
+                    
+                    list.add(new BlockPos(bx, by, bz));
                 }
             }
         }

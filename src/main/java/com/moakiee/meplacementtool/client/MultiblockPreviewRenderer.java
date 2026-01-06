@@ -65,6 +65,7 @@ public class MultiblockPreviewRenderer
         double camY = camera.getPosition().y;
         double camZ = camera.getPosition().z;
 
+        // Render all blocks with cyan/blue color (original style)
         for(BlockPos block : blocks) {
             AABB aabb = new AABB(block).move(-camX, -camY, -camZ);
             LevelRenderer.renderLineBox(ms, lineBuilder, aabb, 0.0F, 0.75F, 1.0F, 0.4F);
