@@ -10,10 +10,10 @@ item_ids:
   - meplacementtool:prism_core
 ---
 
-# 棱镜核心
+# 棱镜原体
 
 <ItemImage id="meplacementtool:prism_core" scale="4" />
 
-**棱镜核心** 是制作 **<ItemLink id="meplacementtool:key_of_spectrum" />** 的中间合成产物。
+**棱镜原体** 是制作 **<ItemLink id="meplacementtool:key_of_spectrum" />** 的中间合成产物。
 
 <RecipeFor id="meplacementtool:prism_core" />
