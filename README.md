@@ -1,7 +1,7 @@
 # ME Placement Tool
 
 [![Modrinth](https://img.shields.io/modrinth/dt/uDNrWncj?style=flat&logo=modrinth&label=Modrinth)](https://modrinth.com/project/uDNrWncj)
-[![CurseForge](https://cf.way2muchnoise.eu/1408718.svg)](https://www.curseforge.com/minecraft/mc-mods/me-placement-tool)
+[![CurseForge](https://img.shields.io/curseforge/dt/1408718?style=flat&logo=curseforge&label=CurseForge)](https://www.curseforge.com/minecraft/mc-mods/me-placement-tool)
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1-green.svg)](https://www.minecraft.net/)
 [![Forge](https://img.shields.io/badge/Forge-47.4.10-orange.svg)](https://files.minecraftforge.net/)
 [![License](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)](LICENSE)
