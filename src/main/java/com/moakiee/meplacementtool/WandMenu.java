@@ -85,7 +85,7 @@ public class WandMenu extends AEBaseMenu {
             ghostSemantic = appeng.menu.SlotSemantics.register("ME_WAND_GHOST", false);
         }
 
-        // Add 9 ghost slots - these don't render items, WandScreen handles rendering
+        // Add 9 ghost slots - these render items based on current page via getItem()
         // 3x3 grid: starts at (62,19), 16px slots with 2px spacing = 18px per cell
         int startX = 62;
         int startY = 19;  // Updated from 17 to 19 per new toolbox.png
@@ -95,6 +95,7 @@ public class WandMenu extends AEBaseMenu {
             int x = startX + col * 18;
             int y = startY + row * 18;
             GhostSlot s = new GhostSlot(this.handler, i, x, y);
+            s.setMenu(this); // Set menu reference for page-aware item retrieval
             this.addSlot(s, ghostSemantic);
             this.ghostSlots.add(s);
         }

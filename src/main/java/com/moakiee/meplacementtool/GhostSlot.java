@@ -6,13 +6,14 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.SlotItemHandler;
 
 /**
- * A ghost slot that does NOT render its contents automatically.
- * The actual item display and click handling is managed externally (by WandScreen/WandMenu)
- * based on the current page. This avoids Container sync issues with dynamic slot indices.
+ * A ghost slot for the WandMenu that displays items based on the current page.
+ * The actual item handler contains items for all pages, but this slot shows
+ * only the item for the current page position.
  */
 public class GhostSlot extends SlotItemHandler {
     private final int visualIndex; // 0-8 position in the 3x3 grid
     private final IItemHandler itemHandler;
+    private WandMenu menu; // Reference to menu for page info
 
     public GhostSlot(IItemHandler itemHandler, int visualIndex, int x, int y) {
         super(itemHandler, visualIndex, x, y);
@@ -20,18 +21,29 @@ public class GhostSlot extends SlotItemHandler {
         this.itemHandler = itemHandler;
     }
 
+    /**
+     * Set the menu reference for page-aware item retrieval.
+     */
+    public void setMenu(WandMenu menu) {
+        this.menu = menu;
+    }
+
     public int getVisualIndex() {
         return visualIndex;
     }
 
     /**
-     * Returns EMPTY so vanilla rendering shows nothing.
-     * The actual item is rendered by WandScreen based on current page.
+     * Returns the item for the current page position.
+     * This allows standard Minecraft slot rendering to work correctly.
      */
     @Override
     public ItemStack getItem() {
-        // Return empty so the default slot rendering shows nothing
-        // WandScreen will render the correct item based on page
+        if (menu != null) {
+            int actualIndex = menu.getActualSlotIndex(visualIndex);
+            if (actualIndex >= 0 && actualIndex < itemHandler.getSlots()) {
+                return itemHandler.getStackInSlot(actualIndex);
+            }
+        }
         return ItemStack.EMPTY;
     }
 

@@ -79,9 +79,6 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
         this.renderBackground(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTicks);
         
-        // Render items in ghost slots based on current page
-        renderGhostSlotItems(guiGraphics, mouseX, mouseY);
-        
         // Render custom button textures (override default button rendering)
         renderPageButtons(guiGraphics);
         
@@ -109,40 +106,7 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
         }
     }
 
-    /**
-     * Render items in ghost slots based on current page.
-     * GhostSlot.getItem() returns EMPTY, so we manually render the correct items.
-     */
-    private void renderGhostSlotItems(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        int relX = (this.width - this.imageWidth) / 2;
-        int relY = (this.height - this.imageHeight) / 2;
-
-        for (int i = 0; i < WandMenu.SLOTS_PER_PAGE; i++) {
-            GhostSlot slot = this.menu.getGhostSlots().get(i);
-            ItemStack stack = this.menu.getItemAtVisualSlot(i);
-            
-            if (!stack.isEmpty()) {
-                int x = relX + slot.x;
-                int y = relY + slot.y;
-                guiGraphics.renderItem(stack, x, y);
-                guiGraphics.renderItemDecorations(this.font, stack, x, y);
-            }
-        }
-    }
-
-    @Override
-    protected void renderTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        super.renderTooltip(guiGraphics, mouseX, mouseY);
-        
-        // Custom tooltip for ghost slots (since their getItem() returns EMPTY)
-        if (this.hoveredSlot instanceof GhostSlot ghostSlot) {
-            int visualIndex = ghostSlot.getVisualIndex();
-            ItemStack stack = this.menu.getItemAtVisualSlot(visualIndex);
-            if (!stack.isEmpty()) {
-                guiGraphics.renderTooltip(this.font, stack, mouseX, mouseY);
-            }
-        }
-    }
+    // Ghost slot items are now rendered through standard slot rendering via GhostSlot.getItem()
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTicks, int x, int y) {
