@@ -2,13 +2,11 @@
 
 [![Modrinth](https://img.shields.io/modrinth/dt/uDNrWncj?style=flat&logo=modrinth&label=Modrinth)](https://modrinth.com/project/uDNrWncj)
 [![CurseForge](https://img.shields.io/curseforge/dt/1408718?style=flat&logo=curseforge&label=CurseForge)](https://www.curseforge.com/minecraft/mc-mods/me-placement-tool)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1-green.svg)](https://www.minecraft.net/)
-[![Forge](https://img.shields.io/badge/Forge-47.4.10-orange.svg)](https://files.minecraftforge.net/)
 [![License](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)](../LICENSE)
 
 [🇬🇧 English](../README.md)
 
-一个 Minecraft Forge 模组，为 Applied Energistics 2 添加放置工具。可以直接从 ME 网络放置方块、AE2 线缆部件和流体。
+一个 Minecraft 模组，为 Applied Energistics 2 添加放置工具。可以直接从 ME 网络放置方块、AE2 线缆部件和流体。
 
 ## 功能
 
