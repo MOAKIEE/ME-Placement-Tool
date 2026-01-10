@@ -195,6 +195,9 @@ public class MEPlacementToolMod {
             
             // Install ME Part preview renderer
             MEPartPreviewRenderer.install();
+            
+            // Install Cable preview renderer for ME Cable Placement Tool
+            com.moakiee.meplacementtool.client.CablePreviewRenderer.install();
         }
 
         @SubscribeEvent
@@ -271,5 +274,100 @@ public class MEPlacementToolMod {
 
         // Note: GUI overlay rendering will be handled in a separate event handler
         // registered through NeoForge's RegisterGuiLayersEvent
+    }
+
+    /**
+     * Common Forge event subscribers (both client and server)
+     */
+    @net.neoforged.fml.common.EventBusSubscriber(modid = MODID, bus = net.neoforged.fml.common.EventBusSubscriber.Bus.GAME)
+    public static class CommonForgeEvents {
+        @SubscribeEvent
+        public static void onLeftClickBlock(net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock event) {
+            if (handleCableToolLeftClick(event.getEntity(), event.getLevel().isClientSide)) {
+                event.setCanceled(true);
+            }
+        }
+
+        @SubscribeEvent
+        public static void onLeftClickEmpty(net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty event) {
+            // This event only fires on client side, so we need to send a packet to server
+            var player = event.getEntity();
+            var stack = player.getMainHandItem();
+            
+            if (stack.getItem() != ME_CABLE_PLACEMENT_TOOL.get()) {
+                return;
+            }
+            
+            // Check if any points are set (client-side check)
+            var p1 = ItemMECablePlacementTool.getPoint1(stack);
+            var p2 = ItemMECablePlacementTool.getPoint2(stack);
+            var p3 = ItemMECablePlacementTool.getPoint3(stack);
+            
+            if (p1 != null || p2 != null || p3 != null) {
+                // Clear points locally on client for immediate visual feedback
+                ItemMECablePlacementTool.clearAllPoints(stack);
+                
+                // Send packet to server to clear points on server side
+                int slot = player.getInventory().selected;
+                net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                    new com.moakiee.meplacementtool.network.ClearCableToolPointsPayload(slot)
+                );
+            }
+        }
+
+        /**
+         * Handle left click for Cable Placement Tool - clears selected points.
+         * @return true if points were cleared and event should be canceled
+         */
+        private static boolean handleCableToolLeftClick(net.minecraft.world.entity.player.Player player, boolean isClientSide) {
+            var stack = player.getMainHandItem();
+            
+            // Only handle for Cable Placement Tool
+            if (stack.getItem() != ME_CABLE_PLACEMENT_TOOL.get()) {
+                return false;
+            }
+            
+            // Check if any points are set
+            var p1 = ItemMECablePlacementTool.getPoint1(stack);
+            var p2 = ItemMECablePlacementTool.getPoint2(stack);
+            var p3 = ItemMECablePlacementTool.getPoint3(stack);
+            
+            if (p1 != null || p2 != null || p3 != null) {
+                // Clear all points
+                ItemMECablePlacementTool.clearAllPoints(stack);
+                
+                if (!isClientSide) {
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.meplacementtool.points_cleared"), true);
+                }
+                
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Handle item switch - reset cable tool points when switching away from the tool.
+         */
+        @SubscribeEvent
+        public static void onEquipmentChange(net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent event) {
+            if (!(event.getEntity() instanceof net.minecraft.world.entity.player.Player player)) {
+                return;
+            }
+            
+            // Only care about main hand slot
+            if (event.getSlot() != net.minecraft.world.entity.EquipmentSlot.MAINHAND) {
+                return;
+            }
+            
+            var oldItem = event.getFrom();
+            var newItem = event.getTo();
+            
+            // If switching AWAY FROM cable placement tool (to a different item)
+            if (oldItem.getItem() == ME_CABLE_PLACEMENT_TOOL.get() && 
+                newItem.getItem() != ME_CABLE_PLACEMENT_TOOL.get()) {
+                // Reset all points on the old tool
+                ItemMECablePlacementTool.clearAllPoints(oldItem);
+            }
+        }
     }
 }

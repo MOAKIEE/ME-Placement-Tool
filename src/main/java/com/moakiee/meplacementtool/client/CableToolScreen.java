@@ -328,28 +328,14 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            // Handle upgrade slot click at real position
+            // Handle upgrade slot click at real position - use slotClicked for proper behavior
             if (isInBounds((int)mouseX, (int)mouseY, upgradeSlotRealX, upgradeSlotRealY, 16, 16)) {
                 List<Slot> upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
                 if (!upgradeSlots.isEmpty()) {
                     Slot upgradeSlot = upgradeSlots.get(0);
-                    ItemStack carried = menu.getCarried();
-                    
-                    if (!carried.isEmpty()) {
-                        // Try to place item in upgrade slot
-                        if (upgradeSlot.mayPlace(carried)) {
-                            ItemStack toPlace = carried.split(1);
-                            upgradeSlot.set(toPlace);
-                            playButtonClickSound();
-                            return true;
-                        }
-                    } else if (!upgradeSlot.getItem().isEmpty()) {
-                        // Take item from upgrade slot
-                        menu.setCarried(upgradeSlot.getItem().copy());
-                        upgradeSlot.set(ItemStack.EMPTY);
-                        playButtonClickSound();
-                        return true;
-                    }
+                    // Use slotClicked to handle the click properly (allows pick up to cursor)
+                    this.slotClicked(upgradeSlot, upgradeSlot.index, button, net.minecraft.world.inventory.ClickType.PICKUP);
+                    return true;
                 }
             }
             

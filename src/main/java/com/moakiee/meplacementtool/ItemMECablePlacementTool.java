@@ -691,13 +691,18 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         List<LineCriteria> criteriaList = new ArrayList<>(3);
 
-        Vec3 xBound = findXBound(firstPos.getX(), start, look);
+        // Use block center (add 0.5) for accurate line calculation
+        double centerX = firstPos.getX() + 0.5;
+        double centerY = firstPos.getY() + 0.5;
+        double centerZ = firstPos.getZ() + 0.5;
+
+        Vec3 xBound = findXBound(centerX, start, look);
         criteriaList.add(new LineCriteria(xBound, firstPos, start));
 
-        Vec3 yBound = findYBound(firstPos.getY(), start, look);
+        Vec3 yBound = findYBound(centerY, start, look);
         criteriaList.add(new LineCriteria(yBound, firstPos, start));
 
-        Vec3 zBound = findZBound(firstPos.getZ(), start, look);
+        Vec3 zBound = findZBound(centerZ, start, look);
         criteriaList.add(new LineCriteria(zBound, firstPos, start));
 
         int reach = 64;

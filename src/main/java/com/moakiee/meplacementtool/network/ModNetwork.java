@@ -60,5 +60,11 @@ public class ModNetwork {
                 OpenCableToolGuiPayload.STREAM_CODEC,
                 OpenCableToolGuiPayload::handle
         );
+
+        registrar.playToServer(
+                ClearCableToolPointsPayload.TYPE,
+                ClearCableToolPointsPayload.STREAM_CODEC,
+                ClearCableToolPointsPayload::handle
+        );
     }
 }
