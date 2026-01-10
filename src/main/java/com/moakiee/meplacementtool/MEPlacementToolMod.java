@@ -60,6 +60,9 @@ public class MEPlacementToolMod {
     public static final DeferredHolder<Item, ItemPrismCore> PRISM_CORE = 
             ITEMS.register("prism_core", () -> new ItemPrismCore(new Item.Properties().stacksTo(64)));
 
+    public static final DeferredHolder<Item, ItemMECablePlacementTool> ME_CABLE_PLACEMENT_TOOL = 
+            ITEMS.register("me_cable_placement_tool", () -> new ItemMECablePlacementTool(new Item.Properties().stacksTo(1)));
+
     // Creative Tab
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> ME_PLACEMENT_TOOL_TAB = 
             CREATIVE_MODE_TABS.register("me_placement_tool_tab", () -> CreativeModeTab.builder()
@@ -74,15 +77,16 @@ public class MEPlacementToolMod {
                         return iconStack;
                     })
                     .displayItems((parameters, output) -> {
-                        // Uncharged versions
                         output.accept(ME_PLACEMENT_TOOL.get());
                         output.accept(MULTIBLOCK_PLACEMENT_TOOL.get());
+                        output.accept(ME_CABLE_PLACEMENT_TOOL.get());
                         output.accept(KEY_OF_SPECTRUM.get());
                         output.accept(PRISM_CORE.get());
 
                         // Charged versions
                         var chargedMETool = new ItemStack(ME_PLACEMENT_TOOL.get(), 1);
                         var chargedMultiblockTool = new ItemStack(MULTIBLOCK_PLACEMENT_TOOL.get(), 1);
+                        var chargedCableTool = new ItemStack(ME_CABLE_PLACEMENT_TOOL.get(), 1);
 
                         if (chargedMETool.getItem() instanceof appeng.api.implementations.items.IAEItemPowerStorage mePowerStorage) {
                             mePowerStorage.injectAEPower(chargedMETool, mePowerStorage.getAEMaxPower(chargedMETool), 
@@ -92,9 +96,14 @@ public class MEPlacementToolMod {
                             multiPowerStorage.injectAEPower(chargedMultiblockTool, multiPowerStorage.getAEMaxPower(chargedMultiblockTool), 
                                     appeng.api.config.Actionable.MODULATE);
                         }
+                        if (chargedCableTool.getItem() instanceof appeng.api.implementations.items.IAEItemPowerStorage cablePowerStorage) {
+                            cablePowerStorage.injectAEPower(chargedCableTool, cablePowerStorage.getAEMaxPower(chargedCableTool), 
+                                    appeng.api.config.Actionable.MODULATE);
+                        }
 
                         output.accept(chargedMETool);
                         output.accept(chargedMultiblockTool);
+                        output.accept(chargedCableTool);
                     })
                     .build());
 
@@ -136,6 +145,7 @@ public class MEPlacementToolMod {
             try {
                 GridLinkables.register(ME_PLACEMENT_TOOL.get(), BasePlacementToolItem.LINKABLE_HANDLER);
                 GridLinkables.register(MULTIBLOCK_PLACEMENT_TOOL.get(), BasePlacementToolItem.LINKABLE_HANDLER);
+                GridLinkables.register(ME_CABLE_PLACEMENT_TOOL.get(), BasePlacementToolItem.LINKABLE_HANDLER);
                 LOGGER.info("Registered GridLinkable handlers for placement tools");
             } catch (Exception e) {
                 LOGGER.error("Failed to register GridLinkable handler: {}", e.getMessage());

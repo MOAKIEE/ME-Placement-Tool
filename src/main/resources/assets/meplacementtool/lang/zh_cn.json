@@ -2,6 +2,7 @@
   "itemGroup.meplacementtool": "ME 放置工具",
   "item.meplacementtool.me_placement_tool": "ME 放置工具",
   "item.meplacementtool.multiblock_placement_tool": "ME 多方块放置工具",
+  "item.meplacementtool.me_cable_placement_tool": "ME 线缆放置工具",
   "item.meplacementtool.key_of_spectrum": "§c光§6谱§a的§b钥§d匙",
   "tooltip.meplacementtool.key_of_spectrum": "§7——§b凝光为彩，§e触之即染",
   "item.meplacementtool.prism_core": "棱镜原体",

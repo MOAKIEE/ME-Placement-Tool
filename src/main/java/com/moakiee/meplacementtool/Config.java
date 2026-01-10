@@ -31,6 +31,8 @@ public class Config {
     public static final ModConfigSpec.DoubleValue ME_PLACEMENT_TOOL_ENERGY_COST;
     public static final ModConfigSpec.DoubleValue MULTIBLOCK_PLACEMENT_TOOL_ENERGY_CAPACITY;
     public static final ModConfigSpec.DoubleValue MULTIBLOCK_PLACEMENT_TOOL_BASE_ENERGY_COST;
+    public static final ModConfigSpec.DoubleValue CABLE_PLACEMENT_TOOL_ENERGY_CAPACITY;
+    public static final ModConfigSpec.DoubleValue CABLE_PLACEMENT_TOOL_ENERGY_COST;
 
     // NBT whitelist settings
     public static final ModConfigSpec.ConfigValue<List<? extends String>> NBT_WHITELIST_MODS;
@@ -54,6 +56,14 @@ public class Config {
         BUILDER.comment("Base energy cost per placement for Multiblock Placement Tool (in AE)");
         MULTIBLOCK_PLACEMENT_TOOL_BASE_ENERGY_COST = BUILDER
                 .defineInRange("multiblockPlacementToolBaseEnergyCost", 200.0d, 0, Double.MAX_VALUE);
+
+        BUILDER.comment("Energy capacity for Cable Placement Tool (in AE)");
+        CABLE_PLACEMENT_TOOL_ENERGY_CAPACITY = BUILDER
+                .defineInRange("cablePlacementToolEnergyCapacity", 1_600_000.0d, 0, Double.MAX_VALUE);
+
+        BUILDER.comment("Energy cost per cable for Cable Placement Tool (in AE)");
+        CABLE_PLACEMENT_TOOL_ENERGY_COST = BUILDER
+                .defineInRange("cablePlacementToolEnergyCost", 10.0d, 0, Double.MAX_VALUE);
 
         BUILDER.pop();
 
@@ -80,11 +90,12 @@ public class Config {
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
-    // Cached config values
     public static double mePlacementToolEnergyCapacity;
     public static double mePlacementToolEnergyCost;
     public static double multiblockPlacementToolEnergyCapacity;
     public static double multiblockPlacementToolBaseEnergyCost;
+    public static double cablePlacementToolEnergyCapacity;
+    public static double cablePlacementToolEnergyCost;
     public static Set<String> nbtWhitelistMods;
     public static Set<String> nbtWhitelistItems;
 
@@ -94,6 +105,8 @@ public class Config {
         mePlacementToolEnergyCost = ME_PLACEMENT_TOOL_ENERGY_COST.get();
         multiblockPlacementToolEnergyCapacity = MULTIBLOCK_PLACEMENT_TOOL_ENERGY_CAPACITY.get();
         multiblockPlacementToolBaseEnergyCost = MULTIBLOCK_PLACEMENT_TOOL_BASE_ENERGY_COST.get();
+        cablePlacementToolEnergyCapacity = CABLE_PLACEMENT_TOOL_ENERGY_CAPACITY.get();
+        cablePlacementToolEnergyCost = CABLE_PLACEMENT_TOOL_ENERGY_COST.get();
 
         nbtWhitelistMods = NBT_WHITELIST_MODS.get().stream()
                 .map(String::toLowerCase)

@@ -62,6 +62,63 @@ public class ModDataComponents {
                             .build()
             );
 
+    // ==================== Cable Tool Data Components ====================
+
+    /**
+     * Stores the placement mode for cable tool (LINE, PLANE_FILL, PLANE_BRANCHING).
+     */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> CABLE_TOOL_MODE =
+            DATA_COMPONENTS.register("cable_tool_mode", () ->
+                    DataComponentType.<Integer>builder()
+                            .persistent(Codec.INT)
+                            .networkSynchronized(ByteBufCodecs.INT)
+                            .build()
+            );
+
+    /**
+     * Stores the cable type for cable tool (GLASS, COVERED, SMART, DENSE_COVERED, DENSE_SMART).
+     */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> CABLE_TYPE =
+            DATA_COMPONENTS.register("cable_type", () ->
+                    DataComponentType.<Integer>builder()
+                            .persistent(Codec.INT)
+                            .networkSynchronized(ByteBufCodecs.INT)
+                            .build()
+            );
+
+    /**
+     * Stores the cable color for cable tool (AEColor ordinal).
+     */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> CABLE_COLOR =
+            DATA_COMPONENTS.register("cable_color", () ->
+                    DataComponentType.<Integer>builder()
+                            .persistent(Codec.INT)
+                            .networkSynchronized(ByteBufCodecs.INT)
+                            .build()
+            );
+
+    /**
+     * Stores the selected points for cable tool (up to 3 points encoded as CompoundTag).
+     */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<CompoundTag>> CABLE_POINTS =
+            DATA_COMPONENTS.register("cable_points", () ->
+                    DataComponentType.<CompoundTag>builder()
+                            .persistent(CompoundTag.CODEC)
+                            .networkSynchronized(ByteBufCodecs.COMPOUND_TAG)
+                            .build()
+            );
+
+    /**
+     * Stores whether the cable tool has the Key of Spectrum upgrade.
+     */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> HAS_UPGRADE =
+            DATA_COMPONENTS.register("has_upgrade", () ->
+                    DataComponentType.<Boolean>builder()
+                            .persistent(Codec.BOOL)
+                            .networkSynchronized(ByteBufCodecs.BOOL)
+                            .build()
+            );
+
     public static void register(IEventBus modEventBus) {
         DATA_COMPONENTS.register(modEventBus);
     }
