@@ -95,6 +95,8 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                     executePlacement(serverPlayer, stack, level, p1, endpoint);
                     setPoint1(stack, null);
                     setPoint2(stack, null);
+                    // Sync cleared points to client
+                    syncPointsToClient(serverPlayer, player.getInventory().selected);
                     return InteractionResultHolder.success(stack);
                 }
             }
@@ -133,9 +135,11 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             if (p1 == null) {
                 setPoint1(stack, targetPos);
                 player.displayClientMessage(Component.translatable("message.meplacementtool.branch_point1_set", targetPos.toShortString()), true);
+                syncPointsToClient((ServerPlayer) player, player.getInventory().selected);
             } else if (p2 == null) {
                 setPoint2(stack, targetPos);
                 player.displayClientMessage(Component.translatable("message.meplacementtool.branch_point2_set", targetPos.toShortString()), true);
+                syncPointsToClient((ServerPlayer) player, player.getInventory().selected);
             } else {
                 setPoint3(stack, targetPos);
                 player.displayClientMessage(Component.translatable("message.meplacementtool.branch_point3_set", targetPos.toShortString()), true);
@@ -143,12 +147,15 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                 setPoint1(stack, null);
                 setPoint2(stack, null);
                 setPoint3(stack, null);
+                // Sync cleared points to client
+                syncPointsToClient((ServerPlayer) player, player.getInventory().selected);
             }
         } else if (mode == PlacementMode.LINE) {
             // LINE mode: first click sets start, second click uses player look direction
             if (p1 == null) {
                 setPoint1(stack, targetPos);
                 player.displayClientMessage(Component.translatable("message.meplacementtool.point1_set", targetPos.toShortString()), true);
+                syncPointsToClient((ServerPlayer) player, player.getInventory().selected);
             } else {
                 // Use player look direction to determine endpoint
                 BlockPos endpoint = findLine(player, p1);
@@ -164,18 +171,23 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                 }
                 setPoint1(stack, null);
                 setPoint2(stack, null);
+                // Sync cleared points to client
+                syncPointsToClient((ServerPlayer) player, player.getInventory().selected);
             }
         } else {
             // PLANE_FILL uses 2 points
             if (p1 == null) {
                 setPoint1(stack, targetPos);
                 player.displayClientMessage(Component.translatable("message.meplacementtool.point1_set", targetPos.toShortString()), true);
+                syncPointsToClient((ServerPlayer) player, player.getInventory().selected);
             } else {
                 setPoint2(stack, targetPos);
                 player.displayClientMessage(Component.translatable("message.meplacementtool.point2_set", targetPos.toShortString()), true);
                 executePlacement((ServerPlayer) player, stack, level, p1, targetPos);
                 setPoint1(stack, null);
                 setPoint2(stack, null);
+                // Sync cleared points to client
+                syncPointsToClient((ServerPlayer) player, player.getInventory().selected);
             }
         }
 
@@ -500,6 +512,28 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         return list;
     }
 
+    // ==================== Network Sync ====================
+
+    /**
+     * Sync current points state to client after placement completes.
+     * This ensures client has correct state even if Data Components sync is delayed.
+     */
+    public static void syncPointsToClient(ServerPlayer player, int slot) {
+        ItemStack stack = player.getInventory().getItem(slot);
+        if (stack.getItem() != MEPlacementToolMod.ME_CABLE_PLACEMENT_TOOL.get()) {
+            return;
+        }
+        
+        BlockPos p1 = getPoint1(stack);
+        BlockPos p2 = getPoint2(stack);
+        BlockPos p3 = getPoint3(stack);
+        
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
+            player,
+            com.moakiee.meplacementtool.network.SyncCableToolPointsPayload.create(slot, p1, p2, p3)
+        );
+    }
+
     // ==================== Data Component Accessors ====================
 
     public static void setPoint1(ItemStack stack, @Nullable BlockPos pos) {
@@ -708,7 +742,10 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         int reach = 64;
         criteriaList.removeIf(c -> !c.isValid(start, look, reach));
 
-        if (criteriaList.isEmpty()) return null;
+        if (criteriaList.isEmpty()) {
+            // Fallback: return a point along player's look direction from firstPos
+            return findLineFallback(player, firstPos);
+        }
 
         LineCriteria selected = criteriaList.get(0);
         if (criteriaList.size() > 1) {
@@ -766,6 +803,33 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         return new Vec3(x, y, z);
     }
 
+    /**
+     * Fallback method when normal line finding fails.
+     * Uses player's dominant look direction to find a line endpoint.
+     */
+    private static BlockPos findLineFallback(Player player, BlockPos firstPos) {
+        Vec3 look = player.getLookAngle();
+        double ax = Math.abs(look.x);
+        double ay = Math.abs(look.y);
+        double az = Math.abs(look.z);
+        
+        // Find dominant axis
+        int distance = 8; // Default preview distance
+        if (ax >= ay && ax >= az) {
+            // X is dominant
+            int dir = look.x > 0 ? 1 : -1;
+            return new BlockPos(firstPos.getX() + dir * distance, firstPos.getY(), firstPos.getZ());
+        } else if (ay >= ax && ay >= az) {
+            // Y is dominant
+            int dir = look.y > 0 ? 1 : -1;
+            return new BlockPos(firstPos.getX(), firstPos.getY() + dir * distance, firstPos.getZ());
+        } else {
+            // Z is dominant
+            int dir = look.z > 0 ? 1 : -1;
+            return new BlockPos(firstPos.getX(), firstPos.getY(), firstPos.getZ() + dir * distance);
+        }
+    }
+
     private static Vec3 findXBound(double x, Vec3 start, Vec3 look) {
         double y = (x - start.x) / look.x * look.y + start.y;
         double z = (x - start.x) / look.x * look.z + start.z;
@@ -820,8 +884,10 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         }
 
         boolean isValid(Vec3 start, Vec3 look, int reach) {
+            // Check if the point is in front of the player (positive dot product means in view direction)
             if (planeBound.subtract(start).dot(look) <= 0) return false;
-            if (distToPlayerSq < 1 || distToPlayerSq > reach * reach) return false;
+            // Allow close range (removed distToPlayerSq < 1 check) but limit max reach
+            if (distToPlayerSq > reach * reach) return false;
             return true;
         }
     }

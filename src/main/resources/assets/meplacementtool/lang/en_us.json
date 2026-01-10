@@ -15,6 +15,7 @@
   "gui.meplacementtool.mode": "Mode",
   "gui.meplacementtool.color": "Color",
   "gui.meplacementtool.compatible_upgrades": "Compatible Upgrades:",
+  "gui.meplacementtool.upgrade_hint": "  - %s",
   "key.meplacementtool.category": "ME Placement Tool",
   "key.meplacementtool.radial_menu": "Open Radial Menu",
   "key.meplacementtool.open_cable_tool_gui": "Open Cable Tool GUI",
@@ -79,5 +80,6 @@
   "meplacementtool.hud.mode": "Mode: %s",
   "meplacementtool.hud.upgrade": "Upgrade: %s",
   "meplacementtool.hud.upgrade.yes": "Installed",
-  "meplacementtool.hud.upgrade.no": "None"
+  "meplacementtool.hud.upgrade.no": "None",
+  "tooltip.meplacementtool.supported_by": "Supported by:"
 }

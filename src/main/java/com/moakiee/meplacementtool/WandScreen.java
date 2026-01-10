@@ -15,15 +15,28 @@ import com.moakiee.meplacementtool.network.SyncPagePayload;
  * Screen for the ME Placement Tool configuration menu
  */
 public class WandScreen extends AbstractContainerScreen<WandMenu> {
-    private static final ResourceLocation BG = ResourceLocation.withDefaultNamespace("textures/gui/container/dispenser.png");
+    // Custom toolbox background texture
+    private static final ResourceLocation BG = ResourceLocation.fromNamespaceAndPath("meplacementtool", "textures/gui/toolbox.png");
+    // Page button textures
+    private static final ResourceLocation PREV_PAGE = ResourceLocation.fromNamespaceAndPath("meplacementtool", "textures/gui/prev_page.png");
+    private static final ResourceLocation NEXT_PAGE = ResourceLocation.fromNamespaceAndPath("meplacementtool", "textures/gui/next_page.png");
+    
     private Button prevButton;
     private Button nextButton;
+    
+    // Button dimensions (should match the actual texture size)
+    private static final int BTN_WIDTH = 16;
+    private static final int BTN_HEIGHT = 16;
 
     public WandScreen(WandMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
-        this.imageWidth = 176;
-        this.imageHeight = 166;
+        // New GUI dimensions: 175x167
+        this.imageWidth = 175;
+        this.imageHeight = 167;
         this.titleLabelX = 8;
+        this.titleLabelY = 6;
+        // Inventory label position - just above player inventory at y=84
+        this.inventoryLabelY = 73;
     }
 
     @Override
@@ -32,25 +45,25 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
         int relX = (this.width - this.imageWidth) / 2;
         int relY = (this.height - this.imageHeight) / 2;
 
-        // Previous page button
-        this.prevButton = Button.builder(Component.literal("<"), button -> {
+        // Previous page button - positioned to the left of the 3x3 grid
+        this.prevButton = Button.builder(Component.empty(), button -> {
             int currentPage = this.menu.getCurrentPage();
             if (currentPage > 0) {
                 this.menu.setCurrentPage(currentPage - 1);
                 PacketDistributor.sendToServer(new SyncPagePayload(currentPage - 1));
                 updateButtonVisibility();
             }
-        }).bounds(relX + 44, relY + 35, 12, 20).build();
+        }).bounds(relX + 44, relY + 35, BTN_WIDTH, BTN_HEIGHT).build();
 
-        // Next page button
-        this.nextButton = Button.builder(Component.literal(">"), button -> {
+        // Next page button - positioned to the right of the 3x3 grid
+        this.nextButton = Button.builder(Component.empty(), button -> {
             int currentPage = this.menu.getCurrentPage();
             if (currentPage < WandMenu.MAX_PAGES - 1) {
                 this.menu.setCurrentPage(currentPage + 1);
                 PacketDistributor.sendToServer(new SyncPagePayload(currentPage + 1));
                 updateButtonVisibility();
             }
-        }).bounds(relX + 116, relY + 35, 12, 20).build();
+        }).bounds(relX + 117, relY + 35, BTN_WIDTH, BTN_HEIGHT).build();
 
         this.addRenderableWidget(prevButton);
         this.addRenderableWidget(nextButton);
@@ -68,18 +81,34 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
         this.renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
         super.render(guiGraphics, mouseX, mouseY, partialTicks);
         
+        // Render custom button textures (override default button rendering)
+        renderPageButtons(guiGraphics);
+        
         // Render items in ghost slots based on current page
         renderGhostSlotItems(guiGraphics, mouseX, mouseY);
         
         this.renderTooltip(guiGraphics, mouseX, mouseY);
 
-        // Draw page indicator
+        // Draw page indicator above the 3x3 grid area
         int relX = (this.width - this.imageWidth) / 2;
         int relY = (this.height - this.imageHeight) / 2;
         int currentPage = this.menu.getCurrentPage();
         String pageText = (currentPage + 1) + "/" + WandMenu.MAX_PAGES;
         int textWidth = this.font.width(pageText);
-        guiGraphics.drawString(this.font, pageText, relX + 89 - textWidth / 2, relY + 6, 0x404040, false);
+        // Position centered above the 3x3 grid
+        guiGraphics.drawString(this.font, pageText, relX + 88 - textWidth / 2, relY + 8, 0x404040, false);
+    }
+    
+    /**
+     * Render custom page button textures over the invisible buttons.
+     */
+    private void renderPageButtons(GuiGraphics guiGraphics) {
+        if (prevButton.visible) {
+            guiGraphics.blit(PREV_PAGE, prevButton.getX(), prevButton.getY(), 0, 0, BTN_WIDTH, BTN_HEIGHT, BTN_WIDTH, BTN_HEIGHT);
+        }
+        if (nextButton.visible) {
+            guiGraphics.blit(NEXT_PAGE, nextButton.getX(), nextButton.getY(), 0, 0, BTN_WIDTH, BTN_HEIGHT, BTN_WIDTH, BTN_HEIGHT);
+        }
     }
 
     private void renderGhostSlotItems(GuiGraphics guiGraphics, int mouseX, int mouseY) {

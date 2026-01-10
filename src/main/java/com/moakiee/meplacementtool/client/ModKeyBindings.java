@@ -28,7 +28,7 @@ public class ModKeyBindings {
 
     public static final KeyMapping OPEN_CABLE_TOOL_GUI = new KeyMapping(
             "key.meplacementtool.open_cable_tool_gui",
-            KeyConflictContext.IN_GAME,
+            KeyConflictContext.UNIVERSAL,  // Allow in both IN_GAME and GUI contexts
             InputConstants.Type.KEYSYM,
             InputConstants.KEY_G,
             CATEGORY

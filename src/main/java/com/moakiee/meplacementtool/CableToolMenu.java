@@ -1,43 +1,44 @@
 package com.moakiee.meplacementtool;
 
+import appeng.api.inventories.InternalInventory;
+import appeng.client.gui.Icon;
+import appeng.menu.AEBaseMenu;
 import appeng.menu.SlotSemantics;
+import appeng.menu.guisync.GuiSync;
+import appeng.menu.slot.AppEngSlot;
+import appeng.util.inv.AppEngInternalInventory;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.world.Container;
-import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import appeng.api.util.AEColor;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Menu for the Cable Placement Tool GUI.
  * Provides cable type, color, and placement mode selection with an upgrade slot for Key of Spectrum.
  */
-public class CableToolMenu extends AbstractContainerMenu {
+public class CableToolMenu extends AEBaseMenu {
 
-    // Sync fields - these are synced manually via packets
+    private static final String ACTION_SET_MODE = "setMode";
+    private static final String ACTION_SET_CABLE_TYPE = "setCableType";
+    private static final String ACTION_SET_COLOR = "setColor";
+
+    // Sync fields
+    @GuiSync(0)
     public int currentMode;
+    @GuiSync(1)
     public int currentCableType;
+    @GuiSync(2)
     public int currentColor;
+    @GuiSync(3)
     public boolean hasUpgrade;
 
-    private final Container upgradeContainer;
+    private final InternalInventory upgradeInv;
     private final ItemStack toolStack;
     private final Player player;
-    private final int toolSlot;
-    
-    // Track slots by semantic for compatibility with AE2-style slot semantics
-    private final Map<String, List<Slot>> slotsBySemantic = new HashMap<>();
 
     public CableToolMenu(int id, Inventory playerInventory, FriendlyByteBuf buf) {
-        this(id, playerInventory, getToolStackFromSlot(playerInventory, buf.readInt()), buf.readInt());
+        this(id, playerInventory, getToolStackFromSlot(playerInventory, buf.readInt()), playerInventory.selected);
     }
 
     private static ItemStack getToolStackFromSlot(Inventory inv, int slot) {
@@ -47,71 +48,55 @@ public class CableToolMenu extends AbstractContainerMenu {
         return inv.getItem(slot);
     }
 
+    public CableToolMenu(int id, Inventory playerInventory, ItemStack toolStack) {
+        this(id, playerInventory, toolStack, playerInventory.selected);
+    }
+
     public CableToolMenu(int id, Inventory playerInventory, ItemStack toolStack, int slot) {
-        super(ModMenus.CABLE_TOOL_MENU.get(), id);
+        super(ModMenus.CABLE_TOOL_MENU.get(), id, playerInventory, null);
 
         this.player = playerInventory.player;
         this.toolStack = toolStack;
-        this.toolSlot = slot;
 
-        // Initialize upgrade container - a simple 1-slot container
-        this.upgradeContainer = new SimpleContainer(1) {
+        // Initialize upgrade inventory with callback when contents change
+        this.upgradeInv = new AppEngInternalInventory(new appeng.util.inv.InternalInventoryHost() {
             @Override
-            public void setChanged() {
-                super.setChanged();
+            public void saveChangedInventory(AppEngInternalInventory inv) {
                 onUpgradeChanged();
             }
             
             @Override
-            public boolean canPlaceItem(int slot, ItemStack stack) {
-                return stack.getItem() == MEPlacementToolMod.KEY_OF_SPECTRUM.get();
+            public boolean isClientSide() {
+                return player.level().isClientSide;
             }
-            
-            @Override
-            public int getMaxStackSize() {
-                return 1;
-            }
-        };
+        }, 1, 1);
 
         // Load existing upgrade from tool
         loadUpgradeFromTool();
 
         // Add upgrade slot - only accepts Key of Spectrum
-        // Position is set off-screen as we render it manually in the Screen
-        Slot upgradeSlot = new Slot(upgradeContainer, 0, -9999, -9999) {
-            @Override
-            public boolean mayPlace(ItemStack stack) {
-                return stack.getItem() == MEPlacementToolMod.KEY_OF_SPECTRUM.get();
-            }
-            
-            @Override
-            public int getMaxStackSize() {
-                return 1;
-            }
-        };
-        this.addSlot(upgradeSlot);
-        addSlotToSemantic(upgradeSlot, SlotSemantics.UPGRADE.id());
+        // Position: GUI_WIDTH(175) + AE2_PADDING(5) + 1 = 181, Y = AE2_PADDING(5) + 1 = 6
+        var upgradeSlot = new KeyOfSpectrumSlot(this.upgradeInv, 0, 181, 6);
+        upgradeSlot.setIcon(Icon.BACKGROUND_UPGRADE);
+        this.addSlot(upgradeSlot, SlotSemantics.UPGRADE);
 
         // Create player inventory slots with custom positions
         createCustomPlayerInventorySlots(playerInventory);
 
         // Load current settings from tool
         loadSettings();
-    }
 
-    private void addSlotToSemantic(Slot slot, String semantic) {
-        slotsBySemantic.computeIfAbsent(semantic, k -> new ArrayList<>()).add(slot);
-    }
-    
-    public List<Slot> getSlots(appeng.menu.SlotSemantic semantic) {
-        return slotsBySemantic.getOrDefault(semantic.id(), new ArrayList<>());
+        // Register client actions
+        registerClientAction(ACTION_SET_MODE, Integer.class, this::setMode);
+        registerClientAction(ACTION_SET_CABLE_TYPE, Integer.class, this::setCableType);
+        registerClientAction(ACTION_SET_COLOR, Integer.class, this::setColor);
     }
 
     private void loadUpgradeFromTool() {
         if (ItemMECablePlacementTool.hasUpgrade(toolStack)) {
-            this.upgradeContainer.setItem(0, new ItemStack(MEPlacementToolMod.KEY_OF_SPECTRUM.get()));
+            this.upgradeInv.setItemDirect(0, new ItemStack(MEPlacementToolMod.KEY_OF_SPECTRUM.get()));
         }
-        this.hasUpgrade = !this.upgradeContainer.getItem(0).isEmpty();
+        this.hasUpgrade = !this.upgradeInv.getStackInSlot(0).isEmpty();
     }
 
     private void loadSettings() {
@@ -123,11 +108,9 @@ public class CableToolMenu extends AbstractContainerMenu {
 
     /**
      * Create player inventory slots at custom positions matching the GUI texture.
-     * Main inventory: (8,172), 9 columns x 3 rows, slot size 16px, spacing 2px (total 18px per cell)
-     * Hotbar: (8,230), 9 slots, same spacing
      */
     private void createCustomPlayerInventorySlots(Inventory playerInventory) {
-        final int SLOT_SIZE = 18; // 16px slot + 2px spacing
+        final int SLOT_SIZE = 18;
         final int INV_X = 8;
         final int INV_Y = 172;
         final int HOTBAR_Y = 230;
@@ -138,26 +121,21 @@ public class CableToolMenu extends AbstractContainerMenu {
                 int index = col + row * 9 + 9;
                 int x = INV_X + col * SLOT_SIZE;
                 int y = INV_Y + row * SLOT_SIZE;
-                Slot slot = new Slot(playerInventory, index, x, y);
-                this.addSlot(slot);
-                addSlotToSemantic(slot, SlotSemantics.PLAYER_INVENTORY.id());
+                this.addSlot(new net.minecraft.world.inventory.Slot(playerInventory, index, x, y), SlotSemantics.PLAYER_INVENTORY);
             }
         }
         
         // Hotbar (slots 0-8)
         for (int col = 0; col < 9; col++) {
             int x = INV_X + col * SLOT_SIZE;
-            Slot slot = new Slot(playerInventory, col, x, HOTBAR_Y);
-            this.addSlot(slot);
-            addSlotToSemantic(slot, SlotSemantics.PLAYER_HOTBAR.id());
+            this.addSlot(new net.minecraft.world.inventory.Slot(playerInventory, col, x, HOTBAR_Y), SlotSemantics.PLAYER_HOTBAR);
         }
     }
 
     private void onUpgradeChanged() {
-        boolean newHasUpgrade = !this.upgradeContainer.getItem(0).isEmpty();
+        boolean newHasUpgrade = !this.upgradeInv.getStackInSlot(0).isEmpty();
         if (this.hasUpgrade != newHasUpgrade) {
             this.hasUpgrade = newHasUpgrade;
-            // Save to tool data component
             ItemMECablePlacementTool.setUpgrade(toolStack, newHasUpgrade);
         }
     }
@@ -166,6 +144,9 @@ public class CableToolMenu extends AbstractContainerMenu {
         if (mode >= 0 && mode < ItemMECablePlacementTool.PlacementMode.values().length) {
             this.currentMode = mode;
             ItemMECablePlacementTool.setMode(toolStack, ItemMECablePlacementTool.PlacementMode.values()[mode]);
+            if (isClientSide()) {
+                sendClientAction(ACTION_SET_MODE, mode);
+            }
         }
     }
 
@@ -173,6 +154,9 @@ public class CableToolMenu extends AbstractContainerMenu {
         if (type >= 0 && type < ItemMECablePlacementTool.CableType.values().length) {
             this.currentCableType = type;
             ItemMECablePlacementTool.setCableType(toolStack, ItemMECablePlacementTool.CableType.values()[type]);
+            if (isClientSide()) {
+                sendClientAction(ACTION_SET_CABLE_TYPE, type);
+            }
         }
     }
 
@@ -180,6 +164,9 @@ public class CableToolMenu extends AbstractContainerMenu {
         if (color >= 0 && color < AEColor.values().length) {
             this.currentColor = color;
             ItemMECablePlacementTool.setColor(toolStack, AEColor.values()[color]);
+            if (isClientSide()) {
+                sendClientAction(ACTION_SET_COLOR, color);
+            }
         }
     }
 
@@ -204,56 +191,36 @@ public class CableToolMenu extends AbstractContainerMenu {
         super.removed(player);
 
         if (!player.level().isClientSide) {
-            // Save upgrade state
-            ItemStack upgradeStack = this.upgradeContainer.getItem(0);
+            ItemStack upgradeStack = this.upgradeInv.getStackInSlot(0);
             ItemMECablePlacementTool.setUpgrade(toolStack, !upgradeStack.isEmpty());
         }
-    }
-    
-    @Override
-    public ItemStack quickMoveStack(Player player, int index) {
-        ItemStack result = ItemStack.EMPTY;
-        Slot slot = this.slots.get(index);
-        
-        if (slot != null && slot.hasItem()) {
-            ItemStack stackInSlot = slot.getItem();
-            result = stackInSlot.copy();
-            
-            // If from upgrade slot, move to player inventory
-            if (index == 0) {
-                if (!this.moveItemStackTo(stackInSlot, 1, this.slots.size(), true)) {
-                    return ItemStack.EMPTY;
-                }
-            } 
-            // If from player inventory and it's a Key of Spectrum, move to upgrade slot
-            else if (stackInSlot.getItem() == MEPlacementToolMod.KEY_OF_SPECTRUM.get()) {
-                if (!this.moveItemStackTo(stackInSlot, 0, 1, false)) {
-                    return ItemStack.EMPTY;
-                }
-            }
-            // Standard player inventory <-> hotbar logic
-            else if (index < 28) { // Main inventory
-                if (!this.moveItemStackTo(stackInSlot, 28, 37, false)) {
-                    return ItemStack.EMPTY;
-                }
-            } else { // Hotbar
-                if (!this.moveItemStackTo(stackInSlot, 1, 28, false)) {
-                    return ItemStack.EMPTY;
-                }
-            }
-
-            if (stackInSlot.isEmpty()) {
-                slot.set(ItemStack.EMPTY);
-            } else {
-                slot.setChanged();
-            }
-        }
-        
-        return result;
     }
 
     @Override
     public boolean stillValid(Player player) {
         return player.getMainHandItem() == this.toolStack || player.getOffhandItem() == this.toolStack;
+    }
+
+    /**
+     * Custom slot that only accepts Key of Spectrum items.
+     */
+    public static class KeyOfSpectrumSlot extends AppEngSlot {
+
+        public KeyOfSpectrumSlot(InternalInventory inv, int invSlot, int x, int y) {
+            super(inv, invSlot);
+            // Set slot position (relative to GUI left-top)
+            this.x = x;
+            this.y = y;
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return stack.getItem() == MEPlacementToolMod.KEY_OF_SPECTRUM.get();
+        }
+
+        @Override
+        public int getMaxStackSize() {
+            return 1;
+        }
     }
 }

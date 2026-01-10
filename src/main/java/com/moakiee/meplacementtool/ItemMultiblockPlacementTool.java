@@ -301,7 +301,15 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         // Consume power proportionally
         double actualEnergy = ENERGY_COST * placedCount / placementCount;
         this.usePower(player, actualEnergy, wand);
-        level.playSound(null, clickedPos.relative(clickedFace), SoundEvents.STONE_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
+        
+        // Play the block's own placement sound (use first placed position)
+        if (!placedSnapshots.isEmpty()) {
+            BlockPos soundPos = placedSnapshots.get(0).pos;
+            var placedState = level.getBlockState(soundPos);
+            var soundType = placedState.getSoundType(level, soundPos, player);
+            level.playSound(null, soundPos, soundType.getPlaceSound(), SoundSource.BLOCKS, 
+                (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
+        }
 
         return InteractionResult.sidedSuccess(false);
     }

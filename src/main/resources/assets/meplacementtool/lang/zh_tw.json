@@ -20,5 +20,6 @@
     "message.meplacementtool.missing_resources": "缺少資源: %s",
     "message.meplacementtool.unsupported_target": "不支持的目標類型",
     "message.meplacementtool.mek_config_incompatible": "Mekanism 配置卡與此方塊不兼容",
-    "message.meplacementtool.mek_config_loaded": "已應用 Mekanism 配置"
+    "message.meplacementtool.mek_config_loaded": "已應用 Mekanism 配置",
+    "tooltip.meplacementtool.supported_by": "可用於:"
 }

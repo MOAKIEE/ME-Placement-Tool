@@ -15,6 +15,7 @@
   "gui.meplacementtool.mode": "模式",
   "gui.meplacementtool.color": "颜色",
   "gui.meplacementtool.compatible_upgrades": "兼容的升级:",
+  "gui.meplacementtool.upgrade_hint": "  - %s",
   "key.categories.meplacementtool": "ME 放置工具",
   "key.meplacementtool.category": "ME 放置工具",
   "key.meplacementtool.open_radial_menu": "打开轮盘菜单",
@@ -85,5 +86,6 @@
   "meplacementtool.hud.mode": "模式: %s",
   "meplacementtool.hud.upgrade": "升级: %s",
   "meplacementtool.hud.upgrade.yes": "已安装",
-  "meplacementtool.hud.upgrade.no": "无"
+  "meplacementtool.hud.upgrade.no": "无",
+  "tooltip.meplacementtool.supported_by": "可用于:"
 }

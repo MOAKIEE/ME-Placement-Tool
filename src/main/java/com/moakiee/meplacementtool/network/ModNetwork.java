@@ -66,5 +66,12 @@ public class ModNetwork {
                 ClearCableToolPointsPayload.STREAM_CODEC,
                 ClearCableToolPointsPayload::handle
         );
+
+        // Server -> Client packets
+        registrar.playToClient(
+                SyncCableToolPointsPayload.TYPE,
+                SyncCableToolPointsPayload.STREAM_CODEC,
+                SyncCableToolPointsPayload::handle
+        );
     }
 }

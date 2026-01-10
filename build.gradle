@@ -48,6 +48,11 @@ neoForge {
     // Specify the version of NeoForge to use.
     version = project.neo_version
 
+    // Access Transformer for modifying Slot.x/y to be non-final
+    accessTransformers {
+        file("src/main/resources/META-INF/accesstransformer.cfg")
+    }
+
     parchment {
         mappingsVersion = project.parchment_mappings_version
         minecraftVersion = project.parchment_minecraft_version

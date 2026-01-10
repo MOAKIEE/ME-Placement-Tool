@@ -252,8 +252,12 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             ItemStack actualWand = player.getItemInHand(context.getHand());
             this.usePower(player, ENERGY_COST, actualWand);
             
+            // Play the block's own placement sound
             BlockPos soundPos = lastPlacementPos != null ? lastPlacementPos : blockPlacePos;
-            level.playSound(null, soundPos, SoundEvents.STONE_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
+            var placedState = level.getBlockState(soundPos);
+            var soundType = placedState.getSoundType(level, soundPos, player);
+            level.playSound(null, soundPos, soundType.getPlaceSound(), SoundSource.BLOCKS, 
+                (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
 
             // Apply memory card / config card
             if (MemoryCardHelper.hasConfiguredMemoryCard(player)) {

@@ -74,8 +74,9 @@ public class WandMenu extends AbstractContainerMenu {
         }
 
         // Add 9 ghost slots for the 3x3 grid
+        // 3x3 grid: starts at (62,19), 16px slots with 2px spacing = 18px per cell
         int startX = 62;
-        int startY = 17;
+        int startY = 19;  // Updated to match toolbox.png layout
         for (int i = 0; i < SLOTS_PER_PAGE; i++) {
             int row = i / 3;
             int col = i % 3;
@@ -95,6 +96,7 @@ public class WandMenu extends AbstractContainerMenu {
         }
 
         // Add player inventory slots
+        // Main inventory: starts at (8,84), 9 columns x 3 rows, 18px spacing
         int playerInvX = 8;
         int playerInvY = 84;
         for (int row = 0; row < 3; ++row) {
@@ -104,11 +106,11 @@ public class WandMenu extends AbstractContainerMenu {
                 this.addSlot(new Slot(playerInventory, col + row * 9 + 9, x, y));
             }
         }
-        // Hotbar
+        // Hotbar: starts at (8,142)
+        int hotbarY = 142;
         for (int hb = 0; hb < 9; ++hb) {
             int x = playerInvX + hb * 18;
-            int y = playerInvY + 58;
-            this.addSlot(new Slot(playerInventory, hb, x, y));
+            this.addSlot(new Slot(playerInventory, hb, x, hotbarY));
         }
     }
 

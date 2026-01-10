@@ -135,11 +135,23 @@ public class CablePreviewRenderer {
             return;
         }
         
+        // Update lastTargetPos from block hit result even if point1 is not set yet
+        // This ensures we have a valid target for the next point1 selection
+        var hitResult = mc.hitResult;
+        if (hitResult != null && hitResult.getType() == HitResult.Type.BLOCK && hitResult instanceof BlockHitResult blockHit) {
+            BlockPos clickedPos = blockHit.getBlockPos();
+            Direction face = blockHit.getDirection();
+            BlockPos targetPos = clickedPos.relative(face);
+            if (!level.getBlockState(targetPos).isAir()) {
+                targetPos = clickedPos;
+            }
+            lastTargetPos = targetPos;
+        }
+        
         // Render air preview for all modes when point1 is set and looking at air
         BlockPos point1 = ItemMECablePlacementTool.getPoint1(wand);
         
         if (point1 != null) {
-            var hitResult = mc.hitResult;
             // Only render if NOT looking at a block (air preview)
             if (hitResult == null || hitResult.getType() != HitResult.Type.BLOCK) {
                 var poseStack = evt.getPoseStack();
@@ -183,6 +195,10 @@ public class CablePreviewRenderer {
             if (mode == ItemMECablePlacementTool.PlacementMode.LINE) {
                 // LINE mode: use player look direction
                 BlockPos lineEnd = ItemMECablePlacementTool.findLine(player, point1);
+                // Fallback to lastTargetPos if findLine returns null (e.g., player too close)
+                if (lineEnd == null && lastTargetPos != null) {
+                    lineEnd = lastTargetPos;
+                }
                 if (lineEnd != null) {
                     List<BlockPos> positions = ItemMECablePlacementTool.calculatePositions(point1, lineEnd, mode);
                     // Render bounding box with rainbow gradient
@@ -289,6 +305,10 @@ public class CablePreviewRenderer {
         return false;
     }
 
+    /**
+     * Render branching preview - renders trunk and each branch separately.
+     * Uses the same algorithm as calculateBranchPositions for consistency.
+     */
     private static void renderBranchingSegments(PoseStack poseStack, MultiBufferSource buffers, Camera camera, ClientLevel level, BlockPos p1, BlockPos p2, BlockPos p3) {
         int x1 = p1.getX(), y1 = p1.getY(), z1 = p1.getZ();
         int x2 = p2.getX(), y2 = p2.getY(), z2 = p2.getZ();
@@ -390,7 +410,7 @@ public class CablePreviewRenderer {
                 else tz = z1 + t * trunkDir;
 
                 List<BlockPos> branchPositions = new ArrayList<>();
-                for (int b = 0; b <= branchLength; b++) {
+                for (int b = 0; b <= branchLength; b++) {  // Start from 0 to include trunk connection point
                     int bx = tx, by = ty, bz = tz;
                     if (branchAxis == 0) bx = tx + b * branchDir;
                     else if (branchAxis == 1) by = ty + b * branchDir;
@@ -424,14 +444,13 @@ public class CablePreviewRenderer {
         int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
 
         for (BlockPos pos : positions) {
-            if (level.getBlockState(pos).isAir()) {  // Only include air blocks
-                minX = Math.min(minX, pos.getX());
-                minY = Math.min(minY, pos.getY());
-                minZ = Math.min(minZ, pos.getZ());
-                maxX = Math.max(maxX, pos.getX());
-                maxY = Math.max(maxY, pos.getY());
-                maxZ = Math.max(maxZ, pos.getZ());
-            }
+            // Include all positions for preview (removed air-only check)
+            minX = Math.min(minX, pos.getX());
+            minY = Math.min(minY, pos.getY());
+            minZ = Math.min(minZ, pos.getZ());
+            maxX = Math.max(maxX, pos.getX());
+            maxY = Math.max(maxY, pos.getY());
+            maxZ = Math.max(maxZ, pos.getZ());
         }
 
         if (minX == Integer.MAX_VALUE) return;  // No valid positions
@@ -548,7 +567,7 @@ public class CablePreviewRenderer {
             dz /= length;
         }
 
-        buffer.addVertex(pose, x1, y1, z1).setColor(red, green, blue, alpha).setNormal(pose, dx, dy, dz);
-        buffer.addVertex(pose, x2, y2, z2).setColor(red, green, blue, alpha).setNormal(pose, dx, dy, dz);
+        buffer.addVertex(pose, x1, y1, z1).setColor(red, green, blue, alpha).setNormal(dx, dy, dz);
+        buffer.addVertex(pose, x2, y2, z2).setColor(red, green, blue, alpha).setNormal(dx, dy, dz);
     }
 }
