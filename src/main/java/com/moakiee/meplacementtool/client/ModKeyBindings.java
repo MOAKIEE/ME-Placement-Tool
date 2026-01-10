@@ -25,4 +25,12 @@ public class ModKeyBindings {
             InputConstants.KEY_LCONTROL,
             CATEGORY
     );
+
+    public static final KeyMapping OPEN_CABLE_TOOL_GUI = new KeyMapping(
+            "key.meplacementtool.open_cable_tool_gui",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            InputConstants.KEY_G,
+            CATEGORY
+    );
 }

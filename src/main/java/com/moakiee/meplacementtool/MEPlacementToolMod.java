@@ -172,12 +172,14 @@ public class MEPlacementToolMod {
         @SubscribeEvent
         public static void onRegisterMenuScreens(net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) {
             event.register(ModMenus.WAND_MENU.get(), WandScreen::new);
+            event.register(ModMenus.CABLE_TOOL_MENU.get(), com.moakiee.meplacementtool.client.CableToolScreen::new);
         }
 
         @SubscribeEvent
         public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
             event.register(ModKeyBindings.OPEN_RADIAL_MENU);
             event.register(ModKeyBindings.UNDO_MODIFIER);
+            event.register(ModKeyBindings.OPEN_CABLE_TOOL_GUI);
         }
 
         @SubscribeEvent

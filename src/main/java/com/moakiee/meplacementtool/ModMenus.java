@@ -19,6 +19,11 @@ public class ModMenus {
                     IMenuTypeExtension.create((id, inv, buf) -> new WandMenu(id, inv, buf))
             );
 
+    public static final DeferredHolder<MenuType<?>, MenuType<CableToolMenu>> CABLE_TOOL_MENU = 
+            MENUS.register("cable_tool_menu", () -> 
+                    IMenuTypeExtension.create((id, inv, buf) -> new CableToolMenu(id, inv, buf))
+            );
+
     public static void register(IEventBus bus) {
         MENUS.register(bus);
     }

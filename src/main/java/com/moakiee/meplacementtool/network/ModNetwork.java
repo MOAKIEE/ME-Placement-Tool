@@ -48,5 +48,17 @@ public class ModNetwork {
                 UpdateWandSlotPayload.STREAM_CODEC,
                 UpdateWandSlotPayload::handle
         );
+
+        registrar.playToServer(
+                UpdateCableToolPayload.TYPE,
+                UpdateCableToolPayload.STREAM_CODEC,
+                UpdateCableToolPayload::handle
+        );
+
+        registrar.playToServer(
+                OpenCableToolGuiPayload.TYPE,
+                OpenCableToolGuiPayload.STREAM_CODEC,
+                OpenCableToolGuiPayload::handle
+        );
     }
 }
