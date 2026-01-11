@@ -17,9 +17,7 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.material.MapColor;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -32,6 +30,14 @@ public class BlockFumo extends Block {
 
     public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
     public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+
+    // Actual model bounds (in 1/16 block units):
+    // X: ~3.9 to ~12.2, Y: ~0 to ~13.6, Z: ~4 to ~14.7
+    // These shapes are for when the model faces NORTH (default model orientation)
+    private static final VoxelShape SHAPE_NORTH = Block.box(3.9, 0, 4, 12.2, 13.6, 14.7);
+    private static final VoxelShape SHAPE_SOUTH = Block.box(3.8, 0, 1.3, 12.1, 13.6, 12);
+    private static final VoxelShape SHAPE_WEST = Block.box(4, 0, 3.8, 14.7, 13.6, 12.2);
+    private static final VoxelShape SHAPE_EAST = Block.box(1.3, 0, 3.8, 12, 13.6, 12.2);
 
     public BlockFumo() {
         super(BlockBehaviour.Properties.of()
@@ -100,7 +106,25 @@ public class BlockFumo extends Block {
 
     @SuppressWarnings("deprecation")
     @Override
+    public @NotNull VoxelShape getShape(@NotNull BlockState state, @NotNull BlockGetter level, @NotNull BlockPos pos, @NotNull CollisionContext context) {
+        return getShapeForFacing(state.getValue(FACING));
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override
     public @NotNull VoxelShape getCollisionShape(@NotNull BlockState state, @NotNull BlockGetter level, @NotNull BlockPos pos, @NotNull CollisionContext context) {
-        return Shapes.create(new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0));
+        return getShapeForFacing(state.getValue(FACING));
+    }
+
+    /**
+     * Returns the VoxelShape for the given facing direction.
+     */
+    private VoxelShape getShapeForFacing(Direction facing) {
+        return switch (facing) {
+            case SOUTH -> SHAPE_SOUTH;
+            case WEST -> SHAPE_WEST;
+            case EAST -> SHAPE_EAST;
+            default -> SHAPE_NORTH; // NORTH is the default model orientation
+        };
     }
 }
