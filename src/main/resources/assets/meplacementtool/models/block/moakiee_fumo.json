@@ -3,7 +3,8 @@
     "credit": "Made with Blockbench",
     "render_type": "cutout",
     "textures": {
-        "1": "meplacementtool:block/moakiee_fumo"
+        "1": "meplacementtool:block/moakiee_fumo",
+        "particle": "meplacementtool:block/moakiee_fumo"
     },
     "elements": [
         {
