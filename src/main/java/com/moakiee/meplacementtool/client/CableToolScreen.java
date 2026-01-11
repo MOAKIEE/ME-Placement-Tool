@@ -1,9 +1,10 @@
 package com.moakiee.meplacementtool.client;
 
 import appeng.api.util.AEColor;
-import appeng.client.gui.Icon;
-import appeng.client.gui.style.Blitter;
+import appeng.client.Point;
+import appeng.client.gui.widgets.UpgradesPanel;
 import appeng.menu.SlotSemantics;
+import appeng.menu.slot.AppEngSlot;
 import com.moakiee.meplacementtool.CableToolMenu;
 import com.moakiee.meplacementtool.ItemMECablePlacementTool;
 import com.moakiee.meplacementtool.MEPlacementToolMod;
@@ -13,6 +14,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -61,9 +63,10 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     private static final int NO_UPGRADE_CONTENT_START_Y = 30;
     
     // AE2 Upgrade Panel constants (matching UpgradesPanel)
-    private static final int AE2_SLOT_SIZE = 18;
     private static final int AE2_PADDING = 5;
-    private static final Blitter AE2_PANEL_BACKGROUND = Blitter.texture("guis/extra_panels.png", 128, 128);
+    
+    // UpgradesPanel for rendering upgrade slots in AE2 style
+    private final UpgradesPanel upgradesPanel;
 
     private int hoveredColorIndex = -1;
     private int hoveredCableIndex = -1;
@@ -81,6 +84,23 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         this.titleLabelY = -9999;
         this.inventoryLabelX = -9999;
         this.inventoryLabelY = -9999;
+        
+        // Create the upgrades panel with upgrade slots from menu
+        this.upgradesPanel = new UpgradesPanel(menu.getSlots(SlotSemantics.UPGRADE));
+    }
+    
+    @Override
+    protected void init() {
+        super.init();
+        // Set up the upgrades panel position (right side of GUI)
+        // The panel position is relative to screen origin
+        this.upgradesPanel.setPosition(new Point(GUI_WIDTH - 1, AE2_PADDING));
+        // Initialize the screen origin for the panel
+        this.upgradesPanel.populateScreen(this::addRenderableWidget, getBounds(), null);
+    }
+    
+    private Rect2i getBounds() {
+        return new Rect2i(leftPos, topPos, imageWidth, imageHeight);
     }
 
     @Override
@@ -115,8 +135,30 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             guiGraphics.drawCenteredString(font, hintText, x + GUI_WIDTH / 2, hintY, hintColor);
         }
         
-        // Draw upgrade panel on the right side of the GUI
-        drawUpgradePanel(guiGraphics, x + GUI_WIDTH, y + AE2_PADDING);
+        // Update slot positions and draw upgrade panel using AE2's UpgradesPanel
+        upgradesPanel.updateBeforeRender();
+        upgradesPanel.drawBackgroundLayer(guiGraphics, getBounds(), new Point(mouseX - leftPos, mouseY - topPos));
+        
+        // Draw ghost icon for empty upgrade slot
+        drawUpgradeSlotIcon(guiGraphics);
+    }
+    
+    /**
+     * Draw ghost icon for upgrade slot when empty (AE2 style).
+     */
+    private void drawUpgradeSlotIcon(GuiGraphics guiGraphics) {
+        List<Slot> upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
+        if (!upgradeSlots.isEmpty()) {
+            Slot upgradeSlot = upgradeSlots.get(0);
+            if (upgradeSlot.getItem().isEmpty() && upgradeSlot instanceof AppEngSlot appEngSlot) {
+                if (appEngSlot.isSlotEnabled() && appEngSlot.getIcon() != null) {
+                    appEngSlot.getIcon().getBlitter()
+                        .dest(leftPos + upgradeSlot.x, topPos + upgradeSlot.y)
+                        .opacity(0.7f)
+                        .blit(guiGraphics);
+                }
+            }
+        }
     }
     
     private void drawSectionHeadersWithUpgrade(GuiGraphics guiGraphics, int x, int y) {
@@ -246,77 +288,6 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             int textColor = selected ? 0xFFFFFF : 0x404040;
             guiGraphics.drawString(font, modeName, bx + BTN_SIZE + 3, by + 4, textColor, false);
         }
-    }
-    
-    /**
-     * Draw external upgrade panel using AE2's extra_panels.png texture.
-     * This replicates the visual style of AE2's UpgradesPanel.
-     */
-    private void drawUpgradePanel(GuiGraphics guiGraphics, int panelX, int panelY) {
-        List<Slot> upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
-        if (upgradeSlots.isEmpty()) {
-            return;
-        }
-        
-        // Calculate slot position (matching AE2 UpgradesPanel layout)
-        int slotOriginX = panelX + AE2_PADDING;
-        int slotOriginY = panelY + AE2_PADDING;
-        
-        // Update the slot's position to match our panel
-        Slot upgradeSlot = upgradeSlots.get(0);
-        upgradeSlot.x = slotOriginX + 1 - leftPos;
-        upgradeSlot.y = slotOriginY + 1 - topPos;
-        
-        // Draw slot background using AE2's extra_panels.png texture
-        drawAE2SlotBackground(guiGraphics, slotOriginX, slotOriginY, true, true, true, true);
-        
-        // Draw AE2-style border lines around the panel
-        int borderColor = 0xFFf2f2f2;
-        guiGraphics.hLine(slotOriginX - 4, slotOriginX + 11, slotOriginY, borderColor);
-        guiGraphics.hLine(slotOriginX - 4, slotOriginX + 11, slotOriginY + AE2_SLOT_SIZE - 1, borderColor);
-        guiGraphics.vLine(slotOriginX - 5, slotOriginY - 1, slotOriginY + AE2_SLOT_SIZE, borderColor);
-        guiGraphics.vLine(slotOriginX + 12, slotOriginY - 1, slotOriginY + AE2_SLOT_SIZE, borderColor);
-        
-        // Draw ghost icon when slot is empty (AE2 style)
-        if (upgradeSlot.getItem().isEmpty()) {
-            Icon.BACKGROUND_UPGRADE.getBlitter()
-                .dest(slotOriginX, slotOriginY)
-                .opacity(0.7f)
-                .blit(guiGraphics);
-        }
-    }
-    
-    /**
-     * Draw a single slot background using AE2's extra_panels.png texture.
-     * This method replicates the drawSlot logic from AE2's UpgradesPanel.
-     */
-    private void drawAE2SlotBackground(GuiGraphics guiGraphics, int x, int y,
-            boolean borderLeft, boolean borderTop, boolean borderRight, boolean borderBottom) {
-        int srcX = AE2_PADDING;
-        int srcY = AE2_PADDING;
-        int srcWidth = AE2_SLOT_SIZE;
-        int srcHeight = AE2_SLOT_SIZE;
-        
-        if (borderLeft) {
-            x -= AE2_PADDING;
-            srcX = 0;
-            srcWidth += AE2_PADDING;
-        }
-        if (borderRight) {
-            srcWidth += AE2_PADDING;
-        }
-        if (borderTop) {
-            y -= AE2_PADDING;
-            srcY = 0;
-            srcHeight += AE2_PADDING;
-        }
-        if (borderBottom) {
-            srcHeight += AE2_PADDING + 2;
-        }
-        
-        AE2_PANEL_BACKGROUND.src(srcX, srcY, srcWidth, srcHeight)
-                .dest(x, y)
-                .blit(guiGraphics);
     }
     
     @Override
