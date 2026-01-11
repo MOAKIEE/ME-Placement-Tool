@@ -401,9 +401,8 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // Check if the key matches the keybind for opening/closing the GUI
-        // Use getKey() to get the actual bound key, regardless of conflict context
-        if (ModKeyBindings.OPEN_CABLE_TOOL_GUI.getKey().getValue() == keyCode) {
+        // Allow the same key to close this menu (toggle behavior)
+        if (ModKeyBindings.OPEN_CABLE_TOOL_GUI.matches(keyCode, scanCode)) {
             this.onClose();
             return true;
         }
