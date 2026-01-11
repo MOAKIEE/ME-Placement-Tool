@@ -3,9 +3,11 @@ package com.moakiee.meplacementtool;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -43,6 +45,7 @@ public class MEPlacementToolMod {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     // Deferred Registers
+    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MODID);
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = 
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
@@ -63,6 +66,14 @@ public class MEPlacementToolMod {
     public static final DeferredHolder<Item, ItemMECablePlacementTool> ME_CABLE_PLACEMENT_TOOL = 
             ITEMS.register("me_cable_placement_tool", () -> new ItemMECablePlacementTool(new Item.Properties().stacksTo(1)));
 
+    // Fumo decorative blocks - author tribute plushies
+    public static final DeferredHolder<Block, BlockFumo> MOAKIEE_FUMO = BLOCKS.register("moakiee_fumo", BlockFumo::new);
+    public static final DeferredHolder<Block, BlockFumo> CYSTRYSU_FUMO = BLOCKS.register("cystrysu_fumo", BlockFumo::new);
+    public static final DeferredHolder<Item, BlockItem> MOAKIEE_FUMO_ITEM = 
+            ITEMS.register("moakiee_fumo", () -> new BlockItem(MOAKIEE_FUMO.get(), new Item.Properties()));
+    public static final DeferredHolder<Item, BlockItem> CYSTRYSU_FUMO_ITEM = 
+            ITEMS.register("cystrysu_fumo", () -> new BlockItem(CYSTRYSU_FUMO.get(), new Item.Properties()));
+
     // Creative Tab
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> ME_PLACEMENT_TOOL_TAB = 
             CREATIVE_MODE_TABS.register("me_placement_tool_tab", () -> CreativeModeTab.builder()
@@ -82,6 +93,8 @@ public class MEPlacementToolMod {
                         output.accept(ME_CABLE_PLACEMENT_TOOL.get());
                         output.accept(KEY_OF_SPECTRUM.get());
                         output.accept(PRISM_CORE.get());
+                        output.accept(MOAKIEE_FUMO_ITEM.get());
+                        output.accept(CYSTRYSU_FUMO_ITEM.get());
 
                         // Charged versions
                         var chargedMETool = new ItemStack(ME_PLACEMENT_TOOL.get(), 1);
@@ -117,6 +130,7 @@ public class MEPlacementToolMod {
         undoHistory = new UndoHistory();
 
         // Register Deferred Registers
+        BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
         ModDataComponents.register(modEventBus);

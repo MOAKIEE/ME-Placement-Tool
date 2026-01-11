@@ -1,0 +1,19 @@
+{
+    "variants": {
+        "facing=north": {
+            "model": "meplacementtool:block/cystrysu_fumo"
+        },
+        "facing=south": {
+            "model": "meplacementtool:block/cystrysu_fumo",
+            "y": 180
+        },
+        "facing=west": {
+            "model": "meplacementtool:block/cystrysu_fumo",
+            "y": 270
+        },
+        "facing=east": {
+            "model": "meplacementtool:block/cystrysu_fumo",
+            "y": 90
+        }
+    }
+}

@@ -87,5 +87,7 @@
   "meplacementtool.hud.upgrade": "升级: %s",
   "meplacementtool.hud.upgrade.yes": "已安装",
   "meplacementtool.hud.upgrade.no": "无",
-  "tooltip.meplacementtool.supported_by": "可用于:"
+  "tooltip.meplacementtool.supported_by": "可用于:",
+  "block.meplacementtool.moakiee_fumo": "Moakiee Fumo",
+  "block.meplacementtool.cystrysu_fumo": "Cystrysu Fumo"
 }

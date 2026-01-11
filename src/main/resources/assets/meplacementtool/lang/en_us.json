@@ -81,5 +81,7 @@
   "meplacementtool.hud.upgrade": "Upgrade: %s",
   "meplacementtool.hud.upgrade.yes": "Installed",
   "meplacementtool.hud.upgrade.no": "None",
-  "tooltip.meplacementtool.supported_by": "Supported by:"
+  "tooltip.meplacementtool.supported_by": "Supported by:",
+  "block.meplacementtool.moakiee_fumo": "Moakiee Fumo",
+  "block.meplacementtool.cystrysu_fumo": "Cystrysu Fumo"
 }
