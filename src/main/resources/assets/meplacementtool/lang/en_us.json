@@ -80,5 +80,7 @@
   "message.meplacementtool.placed_count": "Placed %d cables",
   "message.meplacementtool.missing_cable": "Missing cable: %s",
   "message.meplacementtool.missing_dye": "Missing %d dye: %s",
-  "gui.meplacementtool.compatible_upgrades": "Compatible Upgrades:"
+  "gui.meplacementtool.compatible_upgrades": "Compatible Upgrades:",
+  "block.meplacementtool.moakiee_fumo": "Moakiee Fumo",
+  "block.meplacementtool.cystrysu_fumo": "Cystrysu Fumo"
 }

@@ -9,6 +9,7 @@ import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.item.BlockItem;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
@@ -55,6 +56,14 @@ public class MEPlacementToolMod
     public static final RegistryObject<Item> ME_CABLE_PLACEMENT_TOOL = ITEMS.register("me_cable_placement_tool",
             () -> new ItemMECablePlacementTool(new Item.Properties().stacksTo(1)));
 
+    // Fumo decorative blocks - author tribute plushies
+    public static final RegistryObject<Block> MOAKIEE_FUMO = BLOCKS.register("moakiee_fumo", BlockFumo::new);
+    public static final RegistryObject<Block> CYSTRYSU_FUMO = BLOCKS.register("cystrysu_fumo", BlockFumo::new);
+    public static final RegistryObject<Item> MOAKIEE_FUMO_ITEM = ITEMS.register("moakiee_fumo",
+            () -> new BlockItem(MOAKIEE_FUMO.get(), new Item.Properties()));
+    public static final RegistryObject<Item> CYSTRYSU_FUMO_ITEM = ITEMS.register("cystrysu_fumo",
+            () -> new BlockItem(CYSTRYSU_FUMO.get(), new Item.Properties()));
+
     public static final RegistryObject<CreativeModeTab> ME_PLACEMENT_TOOL_TAB = CREATIVE_MODE_TABS.register("me_placement_tool_tab",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.meplacementtool"))
@@ -71,6 +80,8 @@ public class MEPlacementToolMod
                         output.accept(KEY_OF_SPECTRUM.get());
                         output.accept(PRISM_CORE.get());
                         output.accept(ME_CABLE_PLACEMENT_TOOL.get());
+                        output.accept(MOAKIEE_FUMO_ITEM.get());
+                        output.accept(CYSTRYSU_FUMO_ITEM.get());
                         
                         var chargedMETool = new ItemStack(ME_PLACEMENT_TOOL.get(), 1);
                         var chargedMultiblockTool = new ItemStack(MULTIBLOCK_PLACEMENT_TOOL.get(), 1);

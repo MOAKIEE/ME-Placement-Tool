@@ -83,5 +83,7 @@
   "gui.meplacementtool.cable_type": "线缆",
   "gui.meplacementtool.mode": "模式",
   "gui.meplacementtool.color": "颜色",
-  "gui.meplacementtool.compatible_upgrades": "兼容的升级:"
+  "gui.meplacementtool.compatible_upgrades": "兼容的升级:",
+  "block.meplacementtool.moakiee_fumo": "Moakiee Fumo",
+  "block.meplacementtool.cystrysu_fumo": "Cystrysu Fumo"
 }
