@@ -263,7 +263,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         int placedCount = 0;
         int dyeConsumed = 0;
-        List<CablePlacementSnapshot> placedSnapshots = new ArrayList<>();
+        List<UndoHistory.CablePlacementSnapshot> placedSnapshots = new ArrayList<>();
 
         for (BlockPos pos : positions) {
             if (!level.getBlockState(pos).isAir()) continue;
@@ -290,7 +290,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             if (placeCable(player, (ServerLevel) level, pos, placeCableStack)) {
                 storage.extract(keyToExtract, 1, Actionable.MODULATE, src);
                 placedCount++;
-                placedSnapshots.add(new CablePlacementSnapshot(pos, cableType, keyToExtract));
+                placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, keyToExtract));
             }
         }
 
@@ -306,7 +306,8 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                     (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
             }
             
-            // TODO: Add to undo history when CablePlacementSnapshot is added to UndoHistory
+            // Add to undo history
+            MEPlacementToolMod.instance.undoHistory.addCablePlacement(player, level, placedSnapshots);
         }
     }
 
@@ -349,7 +350,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         int placedCount = 0;
         int dyeConsumed = 0;
-        List<CablePlacementSnapshot> placedSnapshots = new ArrayList<>();
+        List<UndoHistory.CablePlacementSnapshot> placedSnapshots = new ArrayList<>();
         
         for (BlockPos pos : positions) {
             if (!level.getBlockState(pos).isAir()) continue;
@@ -376,7 +377,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             if (placeCable(player, (ServerLevel) level, pos, placeCableStack)) {
                 storage.extract(keyToExtract, 1, Actionable.MODULATE, src);
                 placedCount++;
-                placedSnapshots.add(new CablePlacementSnapshot(pos, cableType, keyToExtract));
+                placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, keyToExtract));
             }
         }
 
@@ -391,6 +392,9 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                 level.playSound(null, soundPos, soundType.getPlaceSound(), SoundSource.BLOCKS, 
                     (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
             }
+            
+            // Add to undo history
+            MEPlacementToolMod.instance.undoHistory.addCablePlacement(player, level, placedSnapshots);
         }
     }
 
@@ -889,21 +893,6 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             // Allow close range (removed distToPlayerSq < 1 check) but limit max reach
             if (distToPlayerSq > reach * reach) return false;
             return true;
-        }
-    }
-
-    /**
-     * Snapshot of a cable placement for undo.
-     */
-    public static class CablePlacementSnapshot {
-        public final BlockPos pos;
-        public final CableType cableType;
-        public final AEItemKey extractedKey;
-
-        public CablePlacementSnapshot(BlockPos pos, CableType cableType, AEItemKey extractedKey) {
-            this.pos = pos;
-            this.cableType = cableType;
-            this.extractedKey = extractedKey;
         }
     }
 }

@@ -24,9 +24,11 @@ public class UndoKeyHandler {
             return;
         }
 
-        // Check if holding a multiblock placement tool
+        // Check if holding an undoable placement tool (multiblock or cable)
         var mainHandItem = mc.player.getMainHandItem();
-        if (mainHandItem.isEmpty() || mainHandItem.getItem() != MEPlacementToolMod.MULTIBLOCK_PLACEMENT_TOOL.get()) {
+        boolean holdingUndoableTool = mainHandItem.getItem() == MEPlacementToolMod.MULTIBLOCK_PLACEMENT_TOOL.get() ||
+                                      mainHandItem.getItem() == MEPlacementToolMod.ME_CABLE_PLACEMENT_TOOL.get();
+        if (mainHandItem.isEmpty() || !holdingUndoableTool) {
             return;
         }
 

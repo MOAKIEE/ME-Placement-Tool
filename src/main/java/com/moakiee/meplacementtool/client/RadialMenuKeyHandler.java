@@ -45,7 +45,9 @@ public class RadialMenuKeyHandler {
         }
 
         // Handle other placement tools - open radial menu
-        if (!(mainHandItem.getItem() instanceof BasePlacementToolItem)) {
+        // Exclude cable tool - it has its own GUI and should not trigger radial menu
+        if (!(mainHandItem.getItem() instanceof BasePlacementToolItem)
+            || mainHandItem.getItem() instanceof ItemMECablePlacementTool) {
             return;
         }
 
