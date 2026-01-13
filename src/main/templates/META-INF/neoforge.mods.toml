@@ -65,3 +65,12 @@ reason="Enables JEI integration for easy slot configuration"
 versionRange="[19.0.0,)"
 ordering="AFTER"
 side="CLIENT"
+
+# Optional: REI (for ghost ingredient drag & drop)
+[[dependencies.${mod_id}]]
+modId="roughlyenoughitems"
+type="optional"
+reason="Enables REI integration for easy slot configuration"
+versionRange="[16.0.0,)"
+ordering="AFTER"
+side="CLIENT"

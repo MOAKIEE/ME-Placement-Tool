@@ -91,6 +91,9 @@ public class WandMenu extends AbstractContainerMenu {
                     PacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, stackToSet));
                 }
             });
+            // Set up display supplier so vanilla's slot rendering shows the correct item
+            // This ensures proper Z-ordering with JEI/REI overlays
+            s.setDisplayStackSupplier(() -> getItemAtVisualSlot(visualIndex));
             this.addSlot(s);
             this.ghostSlots.add(s);
         }

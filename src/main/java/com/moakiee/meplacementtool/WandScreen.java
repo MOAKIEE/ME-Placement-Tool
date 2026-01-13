@@ -6,7 +6,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import com.moakiee.meplacementtool.network.SyncPagePayload;
@@ -84,8 +83,9 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
         // Render custom button textures (override default button rendering)
         renderPageButtons(guiGraphics);
         
-        // Render items in ghost slots based on current page
-        renderGhostSlotItems(guiGraphics, mouseX, mouseY);
+        // Ghost slot items are now rendered by vanilla's slot rendering system
+        // via GhostSlot.getItem() -> displayStackSupplier, ensuring proper Z-ordering
+        // with JEI/REI drag overlays
         
         this.renderTooltip(guiGraphics, mouseX, mouseY);
 
@@ -111,35 +111,19 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
         }
     }
 
-    private void renderGhostSlotItems(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        int relX = (this.width - this.imageWidth) / 2;
-        int relY = (this.height - this.imageHeight) / 2;
-
-        for (int i = 0; i < WandMenu.SLOTS_PER_PAGE; i++) {
-            GhostSlot slot = this.menu.getGhostSlots().get(i);
-            ItemStack stack = this.menu.getItemAtVisualSlot(i);
-
-            if (!stack.isEmpty()) {
-                int x = relX + slot.x;
-                int y = relY + slot.y;
-                guiGraphics.renderItem(stack, x, y);
-                guiGraphics.renderItemDecorations(this.font, stack, x, y);
-            }
-        }
-    }
-
     @Override
     protected void renderTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        // Push pose and translate Z to render tooltip above REI's drag highlight overlay
+        // REI's overlay typically renders at Z around 300-400, so we use 500 to ensure
+        // our tooltip appears above it
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0, 0, 500);
+        
+        // Vanilla's renderTooltip will now correctly handle ghost slots
+        // since GhostSlot.getItem() returns the actual display item
         super.renderTooltip(guiGraphics, mouseX, mouseY);
-
-        // Custom tooltip for ghost slots
-        if (this.hoveredSlot instanceof GhostSlot ghostSlot) {
-            int visualIndex = ghostSlot.getVisualIndex();
-            ItemStack stack = this.menu.getItemAtVisualSlot(visualIndex);
-            if (!stack.isEmpty()) {
-                guiGraphics.renderTooltip(this.font, stack, mouseX, mouseY);
-            }
-        }
+        
+        guiGraphics.pose().popPose();
     }
 
     @Override

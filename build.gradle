@@ -35,6 +35,17 @@ repositories {
         name = "ModMaven"
         url = "https://modmaven.dev"
     }
+    
+    // Shedaniel Maven for REI and Architectury
+    maven {
+        name = "Shedaniel"
+        url = "https://maven.shedaniel.me/"
+        content {
+            includeGroup "me.shedaniel"
+            includeGroup "me.shedaniel.cloth"
+            includeGroup "dev.architectury"
+        }
+    }
 }
 
 base {
@@ -115,6 +126,9 @@ dependencies {
     // JEI 19.27.0.336 for NeoForge 1.21.1
     compileOnly "curse.maven:jei-238222:7391682"
     localRuntime "curse.maven:jei-238222:7391682"
+    
+    // REI (Roughly Enough Items) for NeoForge 1.21.1 - using same approach as AE2
+    compileOnly "me.shedaniel:RoughlyEnoughItems-neoforge:16.0.729"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

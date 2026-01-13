@@ -20,7 +20,7 @@ The **Key of Spectrum** is a vital upgrade component for the ME Cable Placement 
 
 Insert the Key of Spectrum into the upgrade slot of the **ME Cable Placement Tool** to unlock the following features:
 
-- **Unlock Color Selection**: You can freely select any of the 16 AE2 cable colors in the tool's configuration interface.
+- **Unlock Color Selection**: You can freely select any of the 17 AE2 cable colors in the tool's configuration interface.
 - **Automatic Dyeing**: When placing cables, the tool will automatically convert them to the selected color without consuming extra dye items. This makes building organized, color-coded networks extremely convenient.
 
 ## Acquisition
