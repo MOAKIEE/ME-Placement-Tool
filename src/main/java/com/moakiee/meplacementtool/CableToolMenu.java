@@ -108,12 +108,14 @@ public class CableToolMenu extends AEBaseMenu {
 
     /**
      * Create player inventory slots at custom positions matching the GUI texture.
+     * Inventory area: (8,111)-(167,162), 16x16 slots with 2px spacing (18px total)
+     * Hotbar area: (8,169)-(167,184), same slot size
      */
     private void createCustomPlayerInventorySlots(Inventory playerInventory) {
-        final int SLOT_SIZE = 18;
+        final int SLOT_SIZE = 18; // 16px slot + 2px spacing
         final int INV_X = 8;
-        final int INV_Y = 172;
-        final int HOTBAR_Y = 230;
+        final int INV_Y = 111;
+        final int HOTBAR_Y = 169;
         
         // Main inventory (slots 9-35)
         for (int row = 0; row < 3; row++) {
