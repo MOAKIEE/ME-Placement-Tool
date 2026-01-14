@@ -21,5 +21,6 @@
     "message.meplacementtool.unsupported_target": "不支持的目標類型",
     "message.meplacementtool.mek_config_incompatible": "Mekanism 配置卡與此方塊不兼容",
     "message.meplacementtool.mek_config_loaded": "已應用 Mekanism 配置",
-    "tooltip.meplacementtool.supported_by": "可用於:"
+    "tooltip.meplacementtool.supported_by": "可用於:",
+    "gui.meplacementtool.need_spectrum_key": "需插入光譜的鑰匙"
 }

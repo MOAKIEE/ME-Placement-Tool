@@ -94,5 +94,6 @@
   "gui.meplacementtool.empty_slot": "空槽位",
   "gui.meplacementtool.expand_colors": "展开颜色菜单",
   "gui.meplacementtool.collapse_colors": "收起颜色菜单",
-  "gui.meplacementtool.mark_hint": "按 [%s] 标记"
+  "gui.meplacementtool.mark_hint": "按 [%s] 标记",
+  "gui.meplacementtool.need_spectrum_key": "需插入光谱的钥匙"
 }

@@ -253,8 +253,13 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         hoveredExpandButton = isInBounds(mouseX, mouseY, expandX, expandY, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE);
 
         if (hoveredExpandButton) {
-            hintText = Component.translatable(colorMenuExpanded ? "gui.meplacementtool.collapse_colors" : "gui.meplacementtool.expand_colors");
-            hintColor = 0xFFFFFF;
+            if (menu.hasUpgrade) {
+                hintText = Component.translatable(colorMenuExpanded ? "gui.meplacementtool.collapse_colors" : "gui.meplacementtool.expand_colors");
+                hintColor = 0xFFFFFF;
+            } else {
+                hintText = Component.translatable("gui.meplacementtool.need_spectrum_key");
+                hintColor = 0xFF5555; // Red color to indicate requirement
+            }
         }
 
         guiGraphics.blit(EXPAND_BUTTON, expandX, expandY, 0, 0, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE);
@@ -384,7 +389,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             if (isHovered) {
                 hoveredModeIndex = i;
                 hintText = Component.translatable("meplacementtool.mode." + modeKeys[i]);
-                hintColor = 0xFFFFFF;
+                hintColor = 0x000000; // Black color for mode hints
             }
 
             ResourceLocation btnTex = isSelected ? BUTTON_PRESSED : BUTTON_NORMAL;
@@ -453,8 +458,11 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
             if (hoveredExpandButton) {
-                colorMenuExpanded = !colorMenuExpanded;
-                playButtonClickSound();
+                // Only allow expanding if upgrade is installed
+                if (menu.hasUpgrade) {
+                    colorMenuExpanded = !colorMenuExpanded;
+                    playButtonClickSound();
+                }
                 return true;
             }
 
