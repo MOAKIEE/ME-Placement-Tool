@@ -83,5 +83,10 @@
   "meplacementtool.hud.upgrade.no": "None",
   "tooltip.meplacementtool.supported_by": "Supported by:",
   "block.meplacementtool.moakiee_fumo": "Moakiee Fumo",
-  "block.meplacementtool.cystrysu_fumo": "Cystrysu Fumo"
+  "block.meplacementtool.cystrysu_fumo": "Cystrysu Fumo",
+  "key.meplacementtool.mark_color": "Mark Color Shortcut",
+  "gui.meplacementtool.empty_slot": "Empty Slot",
+  "gui.meplacementtool.expand_colors": "Expand Color Menu",
+  "gui.meplacementtool.collapse_colors": "Collapse Color Menu",
+  "gui.meplacementtool.mark_hint": "Press [%s] to mark"
 }

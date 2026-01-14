@@ -75,9 +75,9 @@ public class CableToolMenu extends AEBaseMenu {
         loadUpgradeFromTool();
 
         // Add upgrade slot - only accepts Key of Spectrum
-        // Position: GUI_WIDTH(175) + AE2_PADDING(5) + 1 = 181, Y = AE2_PADDING(5) + 1 = 6
-        var upgradeSlot = new KeyOfSpectrumSlot(this.upgradeInv, 0, 181, 6);
-        upgradeSlot.setIcon(Icon.BACKGROUND_UPGRADE);
+        // Position: (152,8) to (167,23) in GUI - 16x16 slot area, slot needs +1 offset
+        var upgradeSlot = new KeyOfSpectrumSlot(this.upgradeInv, 0, 153, 9);
+        // Don't set icon - the GUI texture already has the slot background drawn
         this.addSlot(upgradeSlot, SlotSemantics.UPGRADE);
 
         // Create player inventory slots with custom positions

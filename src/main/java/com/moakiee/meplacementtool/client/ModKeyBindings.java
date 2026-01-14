@@ -33,4 +33,12 @@ public class ModKeyBindings {
             InputConstants.KEY_G,
             CATEGORY
     );
+
+    public static final KeyMapping MARK_COLOR_SHORTCUT = new KeyMapping(
+            "key.meplacementtool.mark_color",
+            KeyConflictContext.GUI,  // Only works in GUI
+            InputConstants.Type.KEYSYM,
+            InputConstants.KEY_A,
+            CATEGORY
+    );
 }

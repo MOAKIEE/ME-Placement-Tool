@@ -194,6 +194,7 @@ public class MEPlacementToolMod {
             event.register(ModKeyBindings.OPEN_RADIAL_MENU);
             event.register(ModKeyBindings.UNDO_MODIFIER);
             event.register(ModKeyBindings.OPEN_CABLE_TOOL_GUI);
+            event.register(ModKeyBindings.MARK_COLOR_SHORTCUT);
         }
 
         @SubscribeEvent
