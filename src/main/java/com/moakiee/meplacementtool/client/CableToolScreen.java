@@ -1,7 +1,10 @@
 package com.moakiee.meplacementtool.client;
 
 import appeng.api.util.AEColor;
+import appeng.client.Point;
+import appeng.client.gui.widgets.UpgradesPanel;
 import appeng.menu.SlotSemantics;
+import appeng.menu.slot.AppEngSlot;
 import com.moakiee.meplacementtool.CableToolMenu;
 import com.moakiee.meplacementtool.ItemMECablePlacementTool;
 import com.moakiee.meplacementtool.MEPlacementToolMod;
@@ -10,6 +13,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -31,7 +35,7 @@ import java.util.List;
  * - Color shortcut bar with marking capability (works without upgrade too)
  * - First slot always shows currently selected color (no green frame)
  * - Green frame only on marked slots (2-6) and expanded menu when that color is selected
- * - Upgrade slot at (152,8)-(167,23) inside GUI
+ * - AE2-style upgrade panel on the right side of GUI
  */
 public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
 
@@ -55,7 +59,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     private static final int COLOR_BAR_BOTTOM = 32;
     private static final int COLOR_CELL_SIZE = 11;
     private static final int COLOR_CELL_COUNT = 6;
-    private static final int COLOR_CELL_SPACING = 5;
+    private static final int COLOR_CELL_SPACING = 4; // Match expanded menu spacing
     private static final int EXPAND_BTN_SIZE = 12;
 
     // === Expanded color menu: at (7,33), 112x49px ===
@@ -65,15 +69,16 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     private static final int COLOR_MENU_HEIGHT = 49;
     private static final int COLOR_MENU_COLS = 6;
     private static final int COLOR_MENU_CELL_SIZE = 11;
-    private static final int COLOR_MENU_CELL_SPACING = 2;
-    private static final int COLOR_MENU_PADDING = 5;
+    private static final int COLOR_MENU_CELL_SPACING = 4;
+    private static final int COLOR_MENU_PADDING = 2; // Reduced from 5 to move colors up 3px
 
     // === Cable selection: (7,49) to (118,102) - TWO COLUMNS ===
     private static final int CABLE_AREA_LEFT = 7;
     private static final int CABLE_AREA_TOP = 49;
     private static final int CABLE_AREA_RIGHT = 118;
     private static final int CABLE_AREA_BOTTOM = 102;
-    private static final int CABLE_BTN_SIZE = 12;
+    private static final int CABLE_BTN_WIDTH = 12;
+    private static final int CABLE_BTN_HEIGHT = 11;
     private static final int CABLE_BTN_SPACING = 3;
 
     // === Mode selection: (124,49) to (168,102) ===
@@ -81,8 +86,13 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     private static final int MODE_AREA_TOP = 49;
     private static final int MODE_AREA_RIGHT = 168;
     private static final int MODE_AREA_BOTTOM = 102;
-    private static final int MODE_BTN_SIZE = 12;
+    private static final int MODE_BTN_WIDTH = 12;
+    private static final int MODE_BTN_HEIGHT = 11;
     private static final int MODE_BTN_SPACING = 3;
+
+    // AE2 Upgrade Panel - positioned to the right of GUI
+    private static final int AE2_PADDING = 5;
+    private final UpgradesPanel upgradesPanel;
 
     // UI state
     private boolean colorMenuExpanded = false;
@@ -97,8 +107,6 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     private int hintColor = 0xFFFFFF;
 
     // Color shortcut bar - stores color indices (-1 = empty slot)
-    // Slot 0: always shows current selected color (Fluix = 0 by default)
-    // Slots 1-5: user-marked colors
     private int[] colorShortcuts = new int[]{0, -1, -1, -1, -1, -1};
 
     public CableToolScreen(CableToolMenu menu, Inventory playerInventory, Component title) {
@@ -110,14 +118,22 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         this.inventoryLabelX = -9999;
         this.inventoryLabelY = -9999;
 
-        // First slot always reflects current selection
+        // Create AE2 UpgradesPanel for the upgrade slot
+        this.upgradesPanel = new UpgradesPanel(menu.getSlots(SlotSemantics.UPGRADE));
+
         colorShortcuts[0] = menu.currentColor;
     }
 
     @Override
     protected void init() {
         super.init();
-        // No AE2 UpgradesPanel - upgrade slot is now integrated in GUI at (152,8)
+        // Position the AE2 upgrade panel to the right side of GUI (left-shifted by 1px)
+        this.upgradesPanel.setPosition(new Point(GUI_WIDTH - 2, AE2_PADDING));
+        this.upgradesPanel.populateScreen(this::addRenderableWidget, getBounds(), null);
+    }
+
+    private Rect2i getBounds() {
+        return new Rect2i(leftPos, topPos, imageWidth, imageHeight);
     }
 
     @Override
@@ -149,32 +165,54 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         if (colorMenuExpanded) {
             drawColorMenu(guiGraphics, x, y, mouseX, mouseY);
         }
+
+        // Update and draw AE2 upgrade panel
+        upgradesPanel.updateBeforeRender();
+        upgradesPanel.drawBackgroundLayer(guiGraphics, getBounds(), new Point(mouseX - leftPos, mouseY - topPos));
+        
+        // Draw upgrade slot icon if empty
+        drawUpgradeSlotIcon(guiGraphics);
     }
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        // Draw hint text ABOVE the mode area (around Y=38, between color bar and selection areas)
+        // Draw hint text in the area to the right of color bar
+        // Position: starts at COLOR_BAR_RIGHT + 5px gap, centered in available width
         if (hintText != null) {
-            int hintY = 38;
-            guiGraphics.drawCenteredString(font, hintText, GUI_WIDTH / 2, hintY, hintColor);
+            int hintAreaLeft = COLOR_BAR_RIGHT + 5; // 5px gap from color bar
+            int hintAreaRight = GUI_WIDTH - 5;       // 5px from right edge
+            int hintAreaWidth = hintAreaRight - hintAreaLeft;
+            int hintY = 18;  // Same Y as color bar
+            
+            // Use font.split for auto word-wrap
+            List<net.minecraft.util.FormattedCharSequence> lines = font.split(hintText, hintAreaWidth);
+            for (int i = 0; i < lines.size() && i < 3; i++) { // Max 3 lines
+                // Center each line in the available area
+                int lineWidth = font.width(lines.get(i));
+                int lineX = hintAreaLeft + (hintAreaWidth - lineWidth) / 2;
+                guiGraphics.drawString(font, lines.get(i), lineX, hintY + i * 10, hintColor, false);
+            }
         }
     }
 
     /**
      * Draw color shortcut bar at (9,18)-(116,32)
-     * Slot 0: current selected color (no green frame)
-     * Slots 1-5: marked colors (green frame if that color is currently selected)
      */
     private void drawColorBar(GuiGraphics guiGraphics, int baseX, int baseY, int mouseX, int mouseY) {
         int areaWidth = COLOR_BAR_RIGHT - COLOR_BAR_LEFT + 1;
         int areaHeight = COLOR_BAR_BOTTOM - COLOR_BAR_TOP + 1;
         
-        int totalCellsWidth = COLOR_CELL_COUNT * COLOR_CELL_SIZE + (COLOR_CELL_COUNT - 1) * COLOR_CELL_SPACING;
-        int startX = baseX + COLOR_BAR_LEFT + (areaWidth - totalCellsWidth - EXPAND_BTN_SIZE - COLOR_CELL_SPACING) / 2;
+        // Calculate centered position for color cells
+        int totalCellsWidth = COLOR_CELL_COUNT * COLOR_CELL_SIZE + (COLOR_CELL_COUNT - 1) * COLOR_CELL_SPACING + EXPAND_BTN_SIZE + COLOR_CELL_SPACING;
+        int startX = baseX + COLOR_BAR_LEFT + (areaWidth - totalCellsWidth) / 2;
         int startY = baseY + COLOR_BAR_TOP + (areaHeight - COLOR_CELL_SIZE) / 2;
 
-        // Always update slot 0 to reflect current selection
-        colorShortcuts[0] = menu.currentColor;
+        // Slot 0: shows current color only if upgrade is installed, otherwise stays Fluix
+        if (menu.hasUpgrade) {
+            colorShortcuts[0] = menu.currentColor;
+        } else {
+            colorShortcuts[0] = AEColor.TRANSPARENT.ordinal(); // Fluix = 16
+        }
 
         for (int i = 0; i < COLOR_CELL_COUNT; i++) {
             int cellX = startX + i * (COLOR_CELL_SIZE + COLOR_CELL_SPACING);
@@ -182,8 +220,6 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
 
             int colorIndex = colorShortcuts[i];
             boolean isHovered = isInBounds(mouseX, mouseY, cellX, cellY, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
-            
-            // Green frame logic: only show on slots 1-5 when that color matches current selection
             boolean showGreenFrame = (i > 0) && (colorIndex >= 0) && (colorIndex == menu.currentColor);
 
             if (isHovered) {
@@ -199,23 +235,19 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             }
 
             if (colorIndex < 0) {
-                // Empty slot
                 guiGraphics.blit(COLOR_UNSELECTED, cellX, cellY, 0, 0, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
             } else {
-                // Draw frame and fill
                 guiGraphics.blit(COLOR_FRAME, cellX, cellY, 0, 0, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
                 AEColor color = AEColor.values()[colorIndex];
                 int fillColor = getDisplayColor(color);
                 guiGraphics.fill(cellX + 1, cellY + 1, cellX + COLOR_CELL_SIZE - 1, cellY + COLOR_CELL_SIZE - 1, 0xFF000000 | fillColor);
             }
 
-            // Green frame for marked slots (not slot 0) when selected
             if (showGreenFrame) {
                 guiGraphics.renderOutline(cellX - 1, cellY - 1, COLOR_CELL_SIZE + 2, COLOR_CELL_SIZE + 2, 0xFF00FF00);
             }
         }
 
-        // Draw expand button
         int expandX = startX + COLOR_CELL_COUNT * (COLOR_CELL_SIZE + COLOR_CELL_SPACING);
         int expandY = startY + (COLOR_CELL_SIZE - EXPAND_BTN_SIZE) / 2;
         hoveredExpandButton = isInBounds(mouseX, mouseY, expandX, expandY, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE);
@@ -230,17 +262,19 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
 
     /**
      * Draw expanded color menu at (7,33).
-     * Green frame shows on currently selected color.
      */
     private void drawColorMenu(GuiGraphics guiGraphics, int baseX, int baseY, int mouseX, int mouseY) {
         int menuX = baseX + COLOR_MENU_X;
         int menuY = baseY + COLOR_MENU_Y;
 
-        // Draw menu background
         guiGraphics.blit(COLOR_MENU, menuX, menuY, 0, 0, COLOR_MENU_WIDTH, COLOR_MENU_HEIGHT, COLOR_MENU_WIDTH, COLOR_MENU_HEIGHT);
 
         AEColor[] colors = AEColor.values();
-        int cellStartX = menuX + COLOR_MENU_PADDING;
+        
+        // Align with shortcut bar: use same startX calculation
+        int areaWidth = COLOR_BAR_RIGHT - COLOR_BAR_LEFT + 1;
+        int totalCellsWidth = COLOR_CELL_COUNT * COLOR_CELL_SIZE + (COLOR_CELL_COUNT - 1) * COLOR_CELL_SPACING + EXPAND_BTN_SIZE + COLOR_CELL_SPACING;
+        int cellStartX = baseX + COLOR_BAR_LEFT + (areaWidth - totalCellsWidth) / 2;
         int cellStartY = menuY + COLOR_MENU_PADDING;
 
         for (int i = 0; i < colors.length; i++) {
@@ -259,19 +293,16 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
                 hintColor = getDisplayColor(color);
             }
 
-            // Draw cell
             guiGraphics.blit(COLOR_FRAME, cellX, cellY, 0, 0, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE);
             AEColor color = colors[i];
             int fillColor = getDisplayColor(color);
             guiGraphics.fill(cellX + 1, cellY + 1, cellX + COLOR_MENU_CELL_SIZE - 1, cellY + COLOR_MENU_CELL_SIZE - 1, 0xFF000000 | fillColor);
 
-            // Green frame for selected color
             if (isSelected) {
                 guiGraphics.renderOutline(cellX - 1, cellY - 1, COLOR_MENU_CELL_SIZE + 2, COLOR_MENU_CELL_SIZE + 2, 0xFF00FF00);
             }
         }
 
-        // Show key hint for marking
         Component markHint = Component.translatable("gui.meplacementtool.mark_hint", 
             ModKeyBindings.MARK_COLOR_SHORTCUT.getTranslatedKeyMessage());
         guiGraphics.drawString(font, markHint, menuX + 2, menuY + COLOR_MENU_HEIGHT + 2, 0xAAAAAA, false);
@@ -282,14 +313,13 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
      */
     private void drawCableSection(GuiGraphics guiGraphics, int baseX, int baseY, int mouseX, int mouseY) {
         int areaWidth = CABLE_AREA_RIGHT - CABLE_AREA_LEFT + 1;
-        int areaHeight = CABLE_AREA_BOTTOM - CABLE_AREA_TOP + 1;
         
         int selectedCable = menu.currentCableType;
         ItemMECablePlacementTool.CableType[] types = ItemMECablePlacementTool.CableType.values();
         String[] cableKeys = {"glass", "covered", "smart", "dense_covered", "dense_smart"};
 
         int colWidth = areaWidth / 2;
-        int rowHeight = CABLE_BTN_SIZE + CABLE_BTN_SPACING;
+        int rowHeight = CABLE_BTN_HEIGHT + CABLE_BTN_SPACING;
         
         int leftColX = baseX + CABLE_AREA_LEFT + 5;
         int rightColX = baseX + CABLE_AREA_LEFT + colWidth + 5;
@@ -302,7 +332,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             int btnX = (col == 0) ? leftColX : rightColX;
             int btnY = startY + row * rowHeight;
 
-            boolean isHovered = isInBounds(mouseX, mouseY, btnX, btnY, CABLE_BTN_SIZE, CABLE_BTN_SIZE);
+            boolean isHovered = isInBounds(mouseX, mouseY, btnX, btnY, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT);
             boolean isSelected = (i == selectedCable);
 
             if (isHovered) {
@@ -312,19 +342,19 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             }
 
             ResourceLocation btnTex = isSelected ? BUTTON_PRESSED : BUTTON_NORMAL;
-            guiGraphics.blit(btnTex, btnX, btnY, 0, 0, CABLE_BTN_SIZE, CABLE_BTN_SIZE, CABLE_BTN_SIZE, CABLE_BTN_SIZE);
+            guiGraphics.blit(btnTex, btnX, btnY, 0, 0, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT);
 
             ItemStack cableStack = types[i].getStack(AEColor.TRANSPARENT);
             guiGraphics.pose().pushPose();
-            float scale = 0.6f;
-            guiGraphics.pose().translate(btnX + (CABLE_BTN_SIZE - 16 * scale) / 2, btnY + (CABLE_BTN_SIZE - 16 * scale) / 2, 0);
+            float scale = 0.55f;
+            guiGraphics.pose().translate(btnX + (CABLE_BTN_WIDTH - 16 * scale) / 2, btnY + (CABLE_BTN_HEIGHT - 16 * scale) / 2, 0);
             guiGraphics.pose().scale(scale, scale, 1.0f);
             guiGraphics.renderItem(cableStack, 0, 0);
             guiGraphics.pose().popPose();
 
             String label = Component.translatable("meplacementtool.cable." + cableKeys[i] + ".short").getString();
             int textColor = isSelected ? 0xFFFFFF : 0x404040;
-            guiGraphics.drawString(font, label, btnX + CABLE_BTN_SIZE + 2, btnY + 2, textColor, false);
+            guiGraphics.drawString(font, label, btnX + CABLE_BTN_WIDTH + 2, btnY + 1, textColor, false);
         }
     }
 
@@ -339,8 +369,8 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         String[] modeIcons = {"L", "F", "B"};
         String[] modeKeys = {"line", "plane_fill", "plane_branching"};
 
-        int rowHeight = MODE_BTN_SIZE + MODE_BTN_SPACING;
-        int totalHeight = modes.length * MODE_BTN_SIZE + (modes.length - 1) * MODE_BTN_SPACING;
+        int rowHeight = MODE_BTN_HEIGHT + MODE_BTN_SPACING;
+        int totalHeight = modes.length * MODE_BTN_HEIGHT + (modes.length - 1) * MODE_BTN_SPACING;
         int startX = baseX + MODE_AREA_LEFT + 5;
         int startY = baseY + MODE_AREA_TOP + (areaHeight - totalHeight) / 2;
 
@@ -348,7 +378,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             int btnX = startX;
             int btnY = startY + i * rowHeight;
 
-            boolean isHovered = isInBounds(mouseX, mouseY, btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE);
+            boolean isHovered = isInBounds(mouseX, mouseY, btnX, btnY, MODE_BTN_WIDTH, MODE_BTN_HEIGHT);
             boolean isSelected = (i == selectedMode);
 
             if (isHovered) {
@@ -358,13 +388,31 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             }
 
             ResourceLocation btnTex = isSelected ? BUTTON_PRESSED : BUTTON_NORMAL;
-            guiGraphics.blit(btnTex, btnX, btnY, 0, 0, MODE_BTN_SIZE, MODE_BTN_SIZE, MODE_BTN_SIZE, MODE_BTN_SIZE);
+            guiGraphics.blit(btnTex, btnX, btnY, 0, 0, MODE_BTN_WIDTH, MODE_BTN_HEIGHT, MODE_BTN_WIDTH, MODE_BTN_HEIGHT);
 
-            guiGraphics.drawCenteredString(font, modeIcons[i], btnX + MODE_BTN_SIZE / 2, btnY + 2, isSelected ? 0xFFFFFF : 0xE0E0E0);
+            guiGraphics.drawCenteredString(font, modeIcons[i], btnX + MODE_BTN_WIDTH / 2, btnY + 1, isSelected ? 0xFFFFFF : 0xE0E0E0);
 
             String label = Component.translatable("meplacementtool.mode." + modeKeys[i] + ".short").getString();
             int textColor = isSelected ? 0xFFFFFF : 0x404040;
-            guiGraphics.drawString(font, label, btnX + MODE_BTN_SIZE + 2, btnY + 2, textColor, false);
+            guiGraphics.drawString(font, label, btnX + MODE_BTN_WIDTH + 2, btnY + 1, textColor, false);
+        }
+    }
+
+    /**
+     * Draw upgrade slot icon when slot is empty
+     */
+    private void drawUpgradeSlotIcon(GuiGraphics guiGraphics) {
+        List<Slot> upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
+        if (!upgradeSlots.isEmpty()) {
+            Slot upgradeSlot = upgradeSlots.get(0);
+            if (upgradeSlot.getItem().isEmpty() && upgradeSlot instanceof AppEngSlot appEngSlot) {
+                if (appEngSlot.isSlotEnabled() && appEngSlot.getIcon() != null) {
+                    appEngSlot.getIcon().getBlitter()
+                        .dest(leftPos + upgradeSlot.x, topPos + upgradeSlot.y)
+                        .opacity(0.7f)
+                        .blit(guiGraphics);
+                }
+            }
         }
     }
 
@@ -378,7 +426,6 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
 
     @Override
     protected void renderTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        // Upgrade slot tooltip - now at (152,8) inside GUI
         List<Slot> upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
         if (!upgradeSlots.isEmpty()) {
             Slot upgradeSlot = upgradeSlots.get(0);
@@ -411,7 +458,6 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
                 return true;
             }
 
-            // Color menu click - directly select color (only works with upgrade for actual coloring)
             if (colorMenuExpanded && hoveredExpandedColorIndex >= 0) {
                 menu.setColor(hoveredExpandedColorIndex);
                 syncToServer();
@@ -420,7 +466,6 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
                 return true;
             }
 
-            // Color shortcut bar click - select that color
             if (!colorMenuExpanded && hoveredColorIndex >= 0 && colorShortcuts[hoveredColorIndex] >= 0) {
                 menu.setColor(colorShortcuts[hoveredColorIndex]);
                 syncToServer();
@@ -443,7 +488,6 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             }
         }
 
-        // Close menu if clicking outside
         if (colorMenuExpanded && button == 0) {
             int menuX = leftPos + COLOR_MENU_X;
             int menuY = topPos + COLOR_MENU_Y;
@@ -462,15 +506,18 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             return true;
         }
 
-        // Mark color to shortcut bar (A key) - works even without upgrade
         if (ModKeyBindings.MARK_COLOR_SHORTCUT.matches(keyCode, scanCode)) {
+            // When expanded menu is open, check both expanded menu hover and shortcut bar hover
             if (colorMenuExpanded && hoveredExpandedColorIndex >= 0) {
+                // Toggle mark/unmark in expanded menu
                 markColorToShortcut(hoveredExpandedColorIndex);
                 playButtonClickSound();
                 return true;
-            } else if (!colorMenuExpanded && hoveredColorIndex > 0) {
-                // Unmark from slots 1-5 (not slot 0)
-                colorShortcuts[hoveredColorIndex] = -1;
+            }
+            // Also allow unmark from shortcut bar even when menu is expanded
+            if (hoveredColorIndex > 0 && colorShortcuts[hoveredColorIndex] >= 0) {
+                // Toggle mark/unmark in shortcut bar (slots 1-5 only)
+                markColorToShortcut(colorShortcuts[hoveredColorIndex]);
                 playButtonClickSound();
                 return true;
             }
@@ -479,8 +526,21 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
+    /**
+     * Mark or unmark a color in the shortcut bar.
+     * If the color is already in shortcuts (slots 1-5), remove it.
+     * Otherwise, add it to the first empty slot.
+     */
     private void markColorToShortcut(int colorIndex) {
-        // Find first empty slot (slots 1-5, skip slot 0)
+        // Check if this color is already in shortcuts (slots 1-5) - if so, remove it
+        for (int i = 1; i < colorShortcuts.length; i++) {
+            if (colorShortcuts[i] == colorIndex) {
+                colorShortcuts[i] = -1; // Unmark
+                return;
+            }
+        }
+        
+        // Not found, add to first empty slot
         for (int i = 1; i < colorShortcuts.length; i++) {
             if (colorShortcuts[i] < 0) {
                 colorShortcuts[i] = colorIndex;
