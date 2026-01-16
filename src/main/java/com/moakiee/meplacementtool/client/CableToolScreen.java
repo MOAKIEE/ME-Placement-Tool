@@ -250,7 +250,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         if (hoveredExpandButton) {
             if (menu.hasUpgrade) {
                 hintText = Component.translatable(colorMenuExpanded ? "gui.meplacementtool.collapse_colors" : "gui.meplacementtool.expand_colors");
-                hintColor = 0xFFFFFF;
+                hintColor = 0x000000;
             } else {
                 hintText = Component.translatable("gui.meplacementtool.need_spectrum_key");
                 hintColor = 0xFF5555; // Red color to indicate requirement
