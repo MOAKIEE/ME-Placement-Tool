@@ -81,6 +81,13 @@
   "message.meplacementtool.missing_cable": "Missing cable: %s",
   "message.meplacementtool.missing_dye": "Missing %d dye: %s",
   "gui.meplacementtool.compatible_upgrades": "Compatible Upgrades:",
+  "gui.meplacementtool.upgrade_hint": "Accepts: %s",
+  "gui.meplacementtool.empty_slot": "Empty Slot",
+  "gui.meplacementtool.expand_colors": "Expand Color Menu",
+  "gui.meplacementtool.collapse_colors": "Collapse Color Menu",
+  "gui.meplacementtool.mark_hint": "Press [%s] to mark",
+  "gui.meplacementtool.need_spectrum_key": "Requires Key of Spectrum",
+  "key.meplacementtool.mark_color": "Mark Color Shortcut",
   "block.meplacementtool.moakiee_fumo": "Moakiee Fumo",
   "block.meplacementtool.cystrysu_fumo": "Cystrysu Fumo"
 }

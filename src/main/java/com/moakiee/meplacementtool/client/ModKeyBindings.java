@@ -34,4 +34,12 @@ public class ModKeyBindings {
             GLFW.GLFW_KEY_LEFT_CONTROL,
             CATEGORY
         );
+
+    public static final KeyMapping MARK_COLOR_SHORTCUT = new KeyMapping(
+            "key.meplacementtool.mark_color",
+            KeyConflictContext.GUI,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_A,
+            CATEGORY
+    );
 }

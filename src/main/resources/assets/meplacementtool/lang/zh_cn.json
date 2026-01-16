@@ -84,6 +84,13 @@
   "gui.meplacementtool.mode": "模式",
   "gui.meplacementtool.color": "颜色",
   "gui.meplacementtool.compatible_upgrades": "兼容的升级:",
+  "gui.meplacementtool.upgrade_hint": "接受: %s",
+  "gui.meplacementtool.empty_slot": "空槽位",
+  "gui.meplacementtool.expand_colors": "展开颜色菜单",
+  "gui.meplacementtool.collapse_colors": "收起颜色菜单",
+  "gui.meplacementtool.mark_hint": "按 [%s] 标记",
+  "gui.meplacementtool.need_spectrum_key": "需要光谱的钥匙",
+  "key.meplacementtool.mark_color": "标记颜色快捷方式",
   "block.meplacementtool.moakiee_fumo": "Moakiee Fumo",
   "block.meplacementtool.cystrysu_fumo": "Cystrysu Fumo"
 }

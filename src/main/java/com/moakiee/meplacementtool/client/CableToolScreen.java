@@ -1,12 +1,15 @@
 package com.moakiee.meplacementtool.client;
 
 import appeng.api.util.AEColor;
-import appeng.client.gui.Icon;
+import appeng.client.Point;
+import appeng.client.gui.widgets.UpgradesPanel;
 import appeng.menu.SlotSemantics;
+import appeng.menu.slot.AppEngSlot;
 import com.moakiee.meplacementtool.CableToolMenu;
 import com.moakiee.meplacementtool.ItemMECablePlacementTool;
-import com.moakiee.meplacementtool.network.ModNetwork;
+import com.moakiee.meplacementtool.MEPlacementToolMod;
 import com.moakiee.meplacementtool.network.UpdateCableToolPacket;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -25,406 +28,454 @@ import java.util.List;
 
 /**
  * Screen for the Cable Placement Tool GUI.
- * Uses custom texture-based controls matching the provided GUI design.
- * Upgrade slot is rendered outside the main GUI on the right side, like AE2.
+ * Layout based on exact pixel coordinates from GUI design.
+ * 
+ * Features:
+ * - Color shortcut bar with marking capability (works without upgrade too)
+ * - First slot always shows currently selected color (no green frame)
+ * - Green frame only in expanded menu when that color is selected
+ * - AE2-style upgrade panel on the right side of GUI
  */
 public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
 
-    // Background texture (256x256 with 175-wide GUI body on left)
+    // Textures
     private static final ResourceLocation BACKGROUND = new ResourceLocation("meplacementtool", "textures/gui/cable_tool.png");
-    
-    // GUI dimensions
-    private static final int GUI_WIDTH = 175;
-    private static final int GUI_HEIGHT = 256;
-    
-    // Texture UV coordinates for controls
-    // Button: normal (177,0)-(192,15), pressed (194,0)-(209,15)
-    private static final int BTN_U_NORMAL = 177;
-    private static final int BTN_V_NORMAL = 0;
-    private static final int BTN_U_PRESSED = 194;
-    private static final int BTN_V_PRESSED = 0;
-    private static final int BTN_SIZE = 16;
-    
-    // Slot background: (177,17)-(200,40), size 24x24
-    private static final int SLOT_U = 177;
-    private static final int SLOT_V = 17;
-    private static final int SLOT_BG_SIZE = 24;
-    
-    // Title text position: (7,161)
-    private static final int TITLE_X = 7;
-    private static final int TITLE_Y = 161;
-    
-    // Visible area: (8,8) to (167,159), width=159, height=151
-    private static final int VISIBLE_X = 8;
-    private static final int VISIBLE_Y = 8;
-    private static final int VISIBLE_WIDTH = 159;
-    private static final int VISIBLE_HEIGHT = 151;
-    
-    // Section header height
-    private static final int HEADER_HEIGHT = 12;
-    
-    // Color selection: button style with small color block inside (17 colors, 3 cols x 6 rows)
-    // Only shown when upgrade is installed
-    private static final int COLOR_COLS = 3;
-    private static final int COLOR_BTN_SPACING = 2;
-    
-    // With upgrade layout: 3 columns (Color, Cable, Mode)
-    // Further adjusted: more padding and spacing
-    private static final int UPGRADE_COLOR_START_X = 14;      // More padding from edge
-    private static final int UPGRADE_CABLE_START_X = 74;      // More gap from color
-    private static final int UPGRADE_MODE_START_X = 122;      // Adjusted accordingly
-    private static final int UPGRADE_CONTENT_START_Y = 30;    // More padding from top
-    
-    // Without upgrade layout: 2 columns (Cable, Mode), centered in visible area
-    private static final int NO_UPGRADE_CABLE_START_X = 32;   // More padding from left
-    private static final int NO_UPGRADE_MODE_START_X = 100;   // Adjusted for balance
-    private static final int NO_UPGRADE_CONTENT_START_Y = 30; // More padding from top
-    
-    // External Upgrade panel (right side of GUI, like AE2)
-    private static final int UPGRADE_PANEL_PADDING = 7;
-    private static final int UPGRADE_SLOT_SIZE = 18;
+    private static final ResourceLocation COLOR_UNSELECTED = new ResourceLocation("meplacementtool", "textures/gui/color_unselected.png");
+    private static final ResourceLocation COLOR_FRAME = new ResourceLocation("meplacementtool", "textures/gui/color_frame.png");
+    private static final ResourceLocation EXPAND_BUTTON = new ResourceLocation("meplacementtool", "textures/gui/expand_button.png");
+    private static final ResourceLocation COLOR_MENU = new ResourceLocation("meplacementtool", "textures/gui/color_menu.png");
+    private static final ResourceLocation BUTTON_NORMAL = new ResourceLocation("meplacementtool", "textures/gui/button_normal.png");
+    private static final ResourceLocation BUTTON_PRESSED = new ResourceLocation("meplacementtool", "textures/gui/button_pressed.png");
 
-    // Hover state
+    // GUI dimensions
+    private static final int GUI_WIDTH = 176;
+    private static final int GUI_HEIGHT = 195;
+
+    // === Color selection bar: (9,18) to (116,32) ===
+    private static final int COLOR_BAR_LEFT = 9;
+    private static final int COLOR_BAR_TOP = 18;
+    private static final int COLOR_BAR_RIGHT = 116;
+    private static final int COLOR_BAR_BOTTOM = 32;
+    private static final int COLOR_CELL_SIZE = 11;
+    private static final int COLOR_CELL_COUNT = 6;
+    private static final int COLOR_CELL_SPACING = 4;
+    private static final int EXPAND_BTN_SIZE = 12;
+
+    // === Expanded color menu: at (7,33), 112x49px ===
+    private static final int COLOR_MENU_X = 7;
+    private static final int COLOR_MENU_Y = 33;
+    private static final int COLOR_MENU_WIDTH = 112;
+    private static final int COLOR_MENU_HEIGHT = 49;
+    private static final int COLOR_MENU_COLS = 6;
+    private static final int COLOR_MENU_CELL_SIZE = 11;
+    private static final int COLOR_MENU_CELL_SPACING = 4;
+    private static final int COLOR_MENU_PADDING = 2;
+
+    // === Cable selection: (7,49) to (118,102) - TWO COLUMNS ===
+    private static final int CABLE_AREA_LEFT = 7;
+    private static final int CABLE_AREA_TOP = 49;
+    private static final int CABLE_AREA_RIGHT = 118;
+    private static final int CABLE_AREA_BOTTOM = 102;
+    private static final int CABLE_BTN_WIDTH = 12;
+    private static final int CABLE_BTN_HEIGHT = 11;
+    private static final int CABLE_BTN_SPACING = 3;
+
+    // === Mode selection: (124,49) to (168,102) ===
+    private static final int MODE_AREA_LEFT = 124;
+    private static final int MODE_AREA_TOP = 49;
+    private static final int MODE_AREA_RIGHT = 168;
+    private static final int MODE_AREA_BOTTOM = 102;
+    private static final int MODE_BTN_WIDTH = 12;
+    private static final int MODE_BTN_HEIGHT = 11;
+    private static final int MODE_BTN_SPACING = 3;
+
+    // AE2 Upgrade Panel - positioned to the right of GUI
+    private static final int AE2_PADDING = 5;
+    private final UpgradesPanel upgradesPanel;
+
+    // UI state
+    private boolean colorMenuExpanded = false;
     private int hoveredColorIndex = -1;
+    private int hoveredExpandedColorIndex = -1;
     private int hoveredCableIndex = -1;
     private int hoveredModeIndex = -1;
-    
-    // Hint text
+    private boolean hoveredExpandButton = false;
+
     @Nullable
     private Component hintText = null;
     private int hintColor = 0xFFFFFF;
+
+    // Color shortcut bar - stores color indices (-1 = empty slot)
+    private int[] colorShortcuts = new int[]{0, -1, -1, -1, -1, -1};
 
     public CableToolScreen(CableToolMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         this.imageWidth = GUI_WIDTH;
         this.imageHeight = GUI_HEIGHT;
-        // Hide default title and inventory labels
         this.titleLabelX = -9999;
         this.titleLabelY = -9999;
         this.inventoryLabelX = -9999;
         this.inventoryLabelY = -9999;
+
+        // Create AE2 UpgradesPanel for the upgrade slot
+        this.upgradesPanel = new UpgradesPanel(menu.getSlots(SlotSemantics.UPGRADE));
+
+        colorShortcuts[0] = menu.currentColor;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        // Position the AE2 upgrade panel to the right side of GUI
+        this.upgradesPanel.setPosition(new Point(GUI_WIDTH - 2, AE2_PADDING));
+        this.upgradesPanel.populateScreen(this::addRenderableWidget, getBounds(), null);
+    }
+
+    private Rect2i getBounds() {
+        return new Rect2i(leftPos, topPos, imageWidth, imageHeight);
     }
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTicks, int mouseX, int mouseY) {
         int x = this.leftPos;
         int y = this.topPos;
-        
-        // Draw main background
+
+        // Draw main GUI background
         guiGraphics.blit(BACKGROUND, x, y, 0, 0, GUI_WIDTH, GUI_HEIGHT);
-        
-        // Reset hover state
+
+        // Reset hover states
         hoveredColorIndex = -1;
+        hoveredExpandedColorIndex = -1;
         hoveredCableIndex = -1;
         hoveredModeIndex = -1;
+        hoveredExpandButton = false;
         hintText = null;
-        
-        // Draw "物品栏" title at (7,161)
-        guiGraphics.drawString(font, Component.translatable("container.inventory"), x + TITLE_X, y + TITLE_Y, 0x404040, false);
-        
-        // Determine positions based on upgrade status
-        boolean hasUpgrade = menu.hasUpgradeInstalled();
-        
-        if (hasUpgrade) {
-            // With upgrade: 3 columns layout
-            // Draw section headers
-            drawSectionHeadersWithUpgrade(guiGraphics, x, y);
-            // Draw color selection
-            drawColorSection(guiGraphics, x + UPGRADE_COLOR_START_X, y + UPGRADE_CONTENT_START_Y, mouseX, mouseY);
-            // Draw cable type buttons
-            drawCableSection(guiGraphics, x + UPGRADE_CABLE_START_X, y + UPGRADE_CONTENT_START_Y, mouseX, mouseY);
-            // Draw mode buttons
-            drawModeSection(guiGraphics, x + UPGRADE_MODE_START_X, y + UPGRADE_CONTENT_START_Y, mouseX, mouseY);
-        } else {
-            // Without upgrade: 2 columns layout, centered
-            // Draw section headers
-            drawSectionHeadersNoUpgrade(guiGraphics, x, y);
-            // Draw cable type buttons
-            drawCableSection(guiGraphics, x + NO_UPGRADE_CABLE_START_X, y + NO_UPGRADE_CONTENT_START_Y, mouseX, mouseY);
-            // Draw mode buttons
-            drawModeSection(guiGraphics, x + NO_UPGRADE_MODE_START_X, y + NO_UPGRADE_CONTENT_START_Y, mouseX, mouseY);
+
+        // Draw color shortcut bar
+        drawColorBar(guiGraphics, x, y, mouseX, mouseY);
+
+        // Draw cable and mode selection areas (unless color menu is covering them)
+        if (!colorMenuExpanded) {
+            drawCableSection(guiGraphics, x, y, mouseX, mouseY);
+            drawModeSection(guiGraphics, x, y, mouseX, mouseY);
         }
+
+        // Draw expanded color menu ON TOP
+        if (colorMenuExpanded) {
+            drawColorMenu(guiGraphics, x, y, mouseX, mouseY);
+        }
+
+        // Update and draw AE2 upgrade panel
+        upgradesPanel.updateBeforeRender();
+        upgradesPanel.drawBackgroundLayer(guiGraphics, getBounds(), new Point(mouseX - leftPos, mouseY - topPos));
         
-        // Draw external upgrade panel (right side of GUI, like AE2)
-        drawUpgradePanel(guiGraphics, x + GUI_WIDTH, y);
-        
-        // Draw hint text
+        // Draw upgrade slot icon if empty
+        drawUpgradeSlotIcon(guiGraphics);
+    }
+
+    @Override
+    protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        // Draw hint text in the area to the right of color bar
         if (hintText != null) {
-            int hintY = y + 145;
-            guiGraphics.drawCenteredString(font, hintText, x + GUI_WIDTH / 2, hintY, hintColor);
+            int hintAreaLeft = COLOR_BAR_RIGHT + 5;
+            int hintAreaRight = GUI_WIDTH - 5;
+            int hintAreaWidth = hintAreaRight - hintAreaLeft;
+            int hintY = 18;
+            
+            List<net.minecraft.util.FormattedCharSequence> lines = font.split(hintText, hintAreaWidth);
+            for (int i = 0; i < lines.size() && i < 3; i++) {
+                int lineWidth = font.width(lines.get(i));
+                int lineX = hintAreaLeft + (hintAreaWidth - lineWidth) / 2;
+                guiGraphics.drawString(font, lines.get(i), lineX, hintY + i * 10, hintColor, false);
+            }
         }
     }
-    
+
     /**
-     * Draw section headers when upgrade is installed (3 columns).
+     * Draw color shortcut bar at (9,18)-(116,32)
      */
-    private void drawSectionHeadersWithUpgrade(GuiGraphics guiGraphics, int x, int y) {
-        int headerY = y + VISIBLE_Y + 8;  // More padding from top edge
+    private void drawColorBar(GuiGraphics guiGraphics, int baseX, int baseY, int mouseX, int mouseY) {
+        int areaWidth = COLOR_BAR_RIGHT - COLOR_BAR_LEFT + 1;
+        int areaHeight = COLOR_BAR_BOTTOM - COLOR_BAR_TOP + 1;
         
-        // Color section header
-        String colorHeader = Component.translatable("gui.meplacementtool.color").getString();
-        guiGraphics.drawString(font, colorHeader, x + UPGRADE_COLOR_START_X, headerY, 0x404040, false);
-        
-        // Cable section header
-        String cableHeader = Component.translatable("gui.meplacementtool.cable_type").getString();
-        guiGraphics.drawString(font, cableHeader, x + UPGRADE_CABLE_START_X, headerY, 0x404040, false);
-        
-        // Mode section header
-        String modeHeader = Component.translatable("gui.meplacementtool.mode").getString();
-        guiGraphics.drawString(font, modeHeader, x + UPGRADE_MODE_START_X, headerY, 0x404040, false);
+        int totalCellsWidth = COLOR_CELL_COUNT * COLOR_CELL_SIZE + (COLOR_CELL_COUNT - 1) * COLOR_CELL_SPACING + EXPAND_BTN_SIZE + COLOR_CELL_SPACING;
+        int startX = baseX + COLOR_BAR_LEFT + (areaWidth - totalCellsWidth) / 2;
+        int startY = baseY + COLOR_BAR_TOP + (areaHeight - COLOR_CELL_SIZE) / 2;
+
+        // Slot 0: shows current color only if upgrade is installed, otherwise stays Fluix
+        if (menu.hasUpgrade) {
+            colorShortcuts[0] = menu.currentColor;
+        } else {
+            colorShortcuts[0] = AEColor.TRANSPARENT.ordinal(); // Fluix = 16
+        }
+
+        for (int i = 0; i < COLOR_CELL_COUNT; i++) {
+            int cellX = startX + i * (COLOR_CELL_SIZE + COLOR_CELL_SPACING);
+            int cellY = startY;
+
+            int colorIndex = colorShortcuts[i];
+            boolean isHovered = isInBounds(mouseX, mouseY, cellX, cellY, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
+
+            if (isHovered) {
+                hoveredColorIndex = i;
+                if (colorIndex >= 0) {
+                    AEColor color = AEColor.values()[colorIndex];
+                    hintText = Component.translatable("meplacementtool.color." + color.name().toLowerCase());
+                    hintColor = getDisplayColor(color);
+                } else {
+                    hintText = Component.translatable("gui.meplacementtool.empty_slot");
+                    hintColor = 0x808080;
+                }
+            }
+
+            if (colorIndex < 0) {
+                guiGraphics.blit(COLOR_UNSELECTED, cellX, cellY, 0, 0, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
+            } else {
+                guiGraphics.blit(COLOR_FRAME, cellX, cellY, 0, 0, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
+                AEColor color = AEColor.values()[colorIndex];
+                int fillColor = getDisplayColor(color);
+                guiGraphics.fill(cellX + 1, cellY + 1, cellX + COLOR_CELL_SIZE - 1, cellY + COLOR_CELL_SIZE - 1, 0xFF000000 | fillColor);
+            }
+        }
+
+        int expandX = startX + COLOR_CELL_COUNT * (COLOR_CELL_SIZE + COLOR_CELL_SPACING);
+        int expandY = startY + (COLOR_CELL_SIZE - EXPAND_BTN_SIZE) / 2;
+        hoveredExpandButton = isInBounds(mouseX, mouseY, expandX, expandY, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE);
+
+        if (hoveredExpandButton) {
+            if (menu.hasUpgrade) {
+                hintText = Component.translatable(colorMenuExpanded ? "gui.meplacementtool.collapse_colors" : "gui.meplacementtool.expand_colors");
+                hintColor = 0xFFFFFF;
+            } else {
+                hintText = Component.translatable("gui.meplacementtool.need_spectrum_key");
+                hintColor = 0xFF5555;
+            }
+        }
+
+        guiGraphics.blit(EXPAND_BUTTON, expandX, expandY, 0, 0, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE);
     }
-    
+
     /**
-     * Draw section headers when no upgrade is installed (2 columns, centered).
+     * Draw expanded color menu at (7,33).
      */
-    private void drawSectionHeadersNoUpgrade(GuiGraphics guiGraphics, int x, int y) {
-        int headerY = y + VISIBLE_Y + 8;  // More padding from top edge
-        
-        // Cable section header
-        String cableHeader = Component.translatable("gui.meplacementtool.cable_type").getString();
-        guiGraphics.drawString(font, cableHeader, x + NO_UPGRADE_CABLE_START_X, headerY, 0x404040, false);
-        
-        // Mode section header
-        String modeHeader = Component.translatable("gui.meplacementtool.mode").getString();
-        guiGraphics.drawString(font, modeHeader, x + NO_UPGRADE_MODE_START_X, headerY, 0x404040, false);
-    }
-    
-    /**
-     * Draw color section as buttons with small color blocks inside.
-     * Labels show on right side of each button row.
-     */
-    private void drawColorSection(GuiGraphics guiGraphics, int baseX, int baseY, int mouseX, int mouseY) {
-        int selectedColor = menu.currentColor;
+    private void drawColorMenu(GuiGraphics guiGraphics, int baseX, int baseY, int mouseX, int mouseY) {
+        int menuX = baseX + COLOR_MENU_X;
+        int menuY = baseY + COLOR_MENU_Y;
+
+        guiGraphics.blit(COLOR_MENU, menuX, menuY, 0, 0, COLOR_MENU_WIDTH, COLOR_MENU_HEIGHT, COLOR_MENU_WIDTH, COLOR_MENU_HEIGHT);
+
         AEColor[] colors = AEColor.values();
         
+        int areaWidth = COLOR_BAR_RIGHT - COLOR_BAR_LEFT + 1;
+        int totalCellsWidth = COLOR_CELL_COUNT * COLOR_CELL_SIZE + (COLOR_CELL_COUNT - 1) * COLOR_CELL_SPACING + EXPAND_BTN_SIZE + COLOR_CELL_SPACING;
+        int cellStartX = baseX + COLOR_BAR_LEFT + (areaWidth - totalCellsWidth) / 2;
+        int cellStartY = menuY + COLOR_MENU_PADDING;
+
         for (int i = 0; i < colors.length; i++) {
-            AEColor color = colors[i];
-            int col = i % COLOR_COLS;
-            int row = i / COLOR_COLS;
-            
-            int bx = baseX + col * (BTN_SIZE + COLOR_BTN_SPACING);
-            int by = baseY + row * (BTN_SIZE + COLOR_BTN_SPACING);
-            
-            boolean hovered = isInBounds(mouseX, mouseY, bx, by, BTN_SIZE, BTN_SIZE);
-            boolean selected = (i == selectedColor);
-            
-            if (hovered) {
-                hoveredColorIndex = i;
+            int col = i % COLOR_MENU_COLS;
+            int row = i / COLOR_MENU_COLS;
+            int cellX = cellStartX + col * (COLOR_MENU_CELL_SIZE + COLOR_MENU_CELL_SPACING);
+            int cellY = cellStartY + row * (COLOR_MENU_CELL_SIZE + COLOR_MENU_CELL_SPACING);
+
+            boolean isHovered = isInBounds(mouseX, mouseY, cellX, cellY, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE);
+            boolean isSelected = (i == menu.currentColor);
+
+            if (isHovered) {
+                hoveredExpandedColorIndex = i;
+                AEColor color = colors[i];
                 hintText = Component.translatable("meplacementtool.color." + color.name().toLowerCase());
-                hintColor = color == AEColor.TRANSPARENT ? 0x8B479B : (color.mediumVariant & 0xFFFFFF);
+                hintColor = getDisplayColor(color);
             }
-            
-            // Draw button background from texture
-            int btnU = selected ? BTN_U_PRESSED : BTN_U_NORMAL;
-            int btnV = selected ? BTN_V_PRESSED : BTN_V_NORMAL;
-            guiGraphics.blit(BACKGROUND, bx, by, btnU, btnV, BTN_SIZE, BTN_SIZE);
-            
-            // Draw small color block inside button (centered, ~8x8)
-            // Default: move up 1px; When pressed: move down 1px from default position
-            int colorBlockSize = 8;
-            int cbx = bx + (BTN_SIZE - colorBlockSize) / 2;
-            int cby = by + (BTN_SIZE - colorBlockSize) / 2 - 1;  // Default: up 1px
-            if (selected) {
-                cby += 1;  // Pressed: down 1px from adjusted position
+
+            guiGraphics.blit(COLOR_FRAME, cellX, cellY, 0, 0, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE);
+            AEColor color = colors[i];
+            int fillColor = getDisplayColor(color);
+            guiGraphics.fill(cellX + 1, cellY + 1, cellX + COLOR_MENU_CELL_SIZE - 1, cellY + COLOR_MENU_CELL_SIZE - 1, 0xFF000000 | fillColor);
+
+            if (isSelected) {
+                guiGraphics.renderOutline(cellX - 1, cellY - 1, COLOR_MENU_CELL_SIZE + 2, COLOR_MENU_CELL_SIZE + 2, 0xFF00FF00);
             }
-            int colorValue = color == AEColor.TRANSPARENT ? 0x8B479B : color.mediumVariant;
-            guiGraphics.fill(cbx, cby, cbx + colorBlockSize, cby + colorBlockSize, 0xFF000000 | colorValue);
         }
+
+        Component markHint = Component.translatable("gui.meplacementtool.mark_hint", 
+            ModKeyBindings.MARK_COLOR_SHORTCUT.getTranslatedKeyMessage());
+        guiGraphics.drawString(font, markHint, menuX + 2, menuY + COLOR_MENU_HEIGHT + 2, 0xAAAAAA, false);
     }
-    
+
     /**
-     * Draw cable type section: button with scaled cable icon inside, name on right.
+     * Draw cable type selection at (7,49)-(118,102) - TWO COLUMNS
      */
     private void drawCableSection(GuiGraphics guiGraphics, int baseX, int baseY, int mouseX, int mouseY) {
+        int areaWidth = CABLE_AREA_RIGHT - CABLE_AREA_LEFT + 1;
+        
         int selectedCable = menu.currentCableType;
         ItemMECablePlacementTool.CableType[] types = ItemMECablePlacementTool.CableType.values();
         String[] cableKeys = {"glass", "covered", "smart", "dense_covered", "dense_smart"};
+
+        int colWidth = areaWidth / 2;
+        int rowHeight = CABLE_BTN_HEIGHT + CABLE_BTN_SPACING;
         
+        int leftColX = baseX + CABLE_AREA_LEFT + 5;
+        int rightColX = baseX + CABLE_AREA_LEFT + colWidth + 5;
+        int startY = baseY + CABLE_AREA_TOP + 5;
+
         for (int i = 0; i < types.length; i++) {
-            int bx = baseX;
-            int by = baseY + i * (BTN_SIZE + 2);
+            int col = i / 3;
+            int row = i % 3;
             
-            boolean hovered = isInBounds(mouseX, mouseY, bx, by, BTN_SIZE, BTN_SIZE);
-            boolean selected = (i == selectedCable);
-            
-            if (hovered) {
+            int btnX = (col == 0) ? leftColX : rightColX;
+            int btnY = startY + row * rowHeight;
+
+            boolean isHovered = isInBounds(mouseX, mouseY, btnX, btnY, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT);
+            boolean isSelected = (i == selectedCable);
+
+            if (isHovered) {
                 hoveredCableIndex = i;
                 hintText = Component.translatable("meplacementtool.cable." + cableKeys[i]);
                 hintColor = 0x8B479B;
             }
-            
-            // Draw button background from texture
-            int btnU = selected ? BTN_U_PRESSED : BTN_U_NORMAL;
-            int btnV = selected ? BTN_V_PRESSED : BTN_V_NORMAL;
-            guiGraphics.blit(BACKGROUND, bx, by, btnU, btnV, BTN_SIZE, BTN_SIZE);
-            
-            // Draw scaled cable item icon INSIDE the button (centered)
+
+            ResourceLocation btnTex = isSelected ? BUTTON_PRESSED : BUTTON_NORMAL;
+            guiGraphics.blit(btnTex, btnX, btnY, 0, 0, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT);
+
             ItemStack cableStack = types[i].getStack(AEColor.TRANSPARENT);
             guiGraphics.pose().pushPose();
-            // Scale down to fit in button (0.75x scale, centered)
-            float scale = 0.75f;
-            float offsetX = bx + (BTN_SIZE - 16 * scale) / 2;
-            float offsetY = by + (BTN_SIZE - 16 * scale) / 2;
-            guiGraphics.pose().translate(offsetX, offsetY, 0);
+            float scale = 0.55f;
+            guiGraphics.pose().translate(btnX + (CABLE_BTN_WIDTH - 16 * scale) / 2, btnY + (CABLE_BTN_HEIGHT - 16 * scale) / 2, 0);
             guiGraphics.pose().scale(scale, scale, 1.0f);
             guiGraphics.renderItem(cableStack, 0, 0);
             guiGraphics.pose().popPose();
-            
-            // Draw cable short name to the RIGHT of the button
-            String cableName = Component.translatable("meplacementtool.cable." + cableKeys[i] + ".short").getString();
-            int textColor = selected ? 0xFFFFFF : 0x404040;
-            guiGraphics.drawString(font, cableName, bx + BTN_SIZE + 3, by + 4, textColor, false);
+
+            String label = Component.translatable("meplacementtool.cable." + cableKeys[i] + ".short").getString();
+            int textColor = isSelected ? 0xFFFFFF : 0x404040;
+            guiGraphics.drawString(font, label, btnX + CABLE_BTN_WIDTH + 2, btnY + 1, textColor, false);
         }
     }
-    
+
     /**
-     * Draw mode section: button with icon on left, full name on right.
+     * Draw placement mode selection at (124,49)-(168,102)
      */
     private void drawModeSection(GuiGraphics guiGraphics, int baseX, int baseY, int mouseX, int mouseY) {
+        int areaHeight = MODE_AREA_BOTTOM - MODE_AREA_TOP + 1;
+
         int selectedMode = menu.currentMode;
         ItemMECablePlacementTool.PlacementMode[] modes = ItemMECablePlacementTool.PlacementMode.values();
         String[] modeIcons = {"L", "F", "B"};
         String[] modeKeys = {"line", "plane_fill", "plane_branching"};
-        
+
+        int rowHeight = MODE_BTN_HEIGHT + MODE_BTN_SPACING;
+        int totalHeight = modes.length * MODE_BTN_HEIGHT + (modes.length - 1) * MODE_BTN_SPACING;
+        int startX = baseX + MODE_AREA_LEFT + 5;
+        int startY = baseY + MODE_AREA_TOP + (areaHeight - totalHeight) / 2;
+
         for (int i = 0; i < modes.length; i++) {
-            int bx = baseX;
-            int by = baseY + i * (BTN_SIZE + 2);
-            
-            boolean hovered = isInBounds(mouseX, mouseY, bx, by, BTN_SIZE, BTN_SIZE);
-            boolean selected = (i == selectedMode);
-            
-            if (hovered) {
+            int btnX = startX;
+            int btnY = startY + i * rowHeight;
+
+            boolean isHovered = isInBounds(mouseX, mouseY, btnX, btnY, MODE_BTN_WIDTH, MODE_BTN_HEIGHT);
+            boolean isSelected = (i == selectedMode);
+
+            if (isHovered) {
                 hoveredModeIndex = i;
                 hintText = Component.translatable("meplacementtool.mode." + modeKeys[i]);
-                hintColor = 0xFFFFFF;
+                hintColor = 0x000000;
             }
-            
-            // Draw button background from texture
-            int btnU = selected ? BTN_U_PRESSED : BTN_U_NORMAL;
-            int btnV = selected ? BTN_V_PRESSED : BTN_V_NORMAL;
-            guiGraphics.blit(BACKGROUND, bx, by, btnU, btnV, BTN_SIZE, BTN_SIZE);
-            
-            // Draw mode icon in button
-            int iconColor = selected ? 0xFFFFFF : 0xE0E0E0;
-            guiGraphics.drawCenteredString(font, modeIcons[i], bx + BTN_SIZE / 2, by + 4, iconColor);
-            
-            // Draw mode short name to the RIGHT of the button
-            String modeName = Component.translatable("meplacementtool.mode." + modeKeys[i] + ".short").getString();
-            int textColor = selected ? 0xFFFFFF : 0x404040;
-            guiGraphics.drawString(font, modeName, bx + BTN_SIZE + 3, by + 4, textColor, false);
+
+            ResourceLocation btnTex = isSelected ? BUTTON_PRESSED : BUTTON_NORMAL;
+            guiGraphics.blit(btnTex, btnX, btnY, 0, 0, MODE_BTN_WIDTH, MODE_BTN_HEIGHT, MODE_BTN_WIDTH, MODE_BTN_HEIGHT);
+
+            guiGraphics.drawCenteredString(font, modeIcons[i], btnX + MODE_BTN_WIDTH / 2, btnY + 1, isSelected ? 0xFFFFFF : 0xE0E0E0);
+
+            String label = Component.translatable("meplacementtool.mode." + modeKeys[i] + ".short").getString();
+            int textColor = isSelected ? 0xFFFFFF : 0x404040;
+            guiGraphics.drawString(font, label, btnX + MODE_BTN_WIDTH + 2, btnY + 1, textColor, false);
         }
     }
-    
+
     /**
-     * Draw external upgrade panel on the right side of GUI (like AE2).
-     * Uses custom slot texture from our GUI image.
+     * Draw upgrade slot icon when slot is empty
      */
-    private void drawUpgradePanel(GuiGraphics guiGraphics, int panelX, int panelY) {
-        // Get upgrade slot
-        List<Slot> upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
-        if (upgradeSlots.isEmpty()) {
-            return;
-        }
-        
-        int slotCount = 1; // We only have 1 upgrade slot
-        int panelWidth = UPGRADE_PANEL_PADDING * 2 + UPGRADE_SLOT_SIZE;
-        int panelHeight = UPGRADE_PANEL_PADDING * 2 + slotCount * UPGRADE_SLOT_SIZE;
-        
-        // Draw panel background using our slot texture
-        // Draw a simple panel background
-        guiGraphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0xFFC6C6C6);
-        
-        // Draw border
-        drawBorder(guiGraphics, panelX, panelY, panelWidth, panelHeight, 0xFF555555);
-        
-        // Draw slot background from our texture
-        int slotX = panelX + UPGRADE_PANEL_PADDING;
-        int slotY = panelY + UPGRADE_PANEL_PADDING;
-        
-        // Use our custom slot texture (24x24, but we only need 18x18 for the slot)
-        guiGraphics.blit(BACKGROUND, slotX - 3, slotY - 3, SLOT_U, SLOT_V, SLOT_BG_SIZE, SLOT_BG_SIZE);
-        
-        // Dynamically update slot position (possible with Access Transformer removing final)
-        Slot upgradeSlot = upgradeSlots.get(0);
-        upgradeSlot.x = slotX - this.leftPos + 1;
-        upgradeSlot.y = slotY - this.topPos + 1;
-        
-        // Draw ghost icon when slot is empty (AE2 style)
-        if (upgradeSlot.getItem().isEmpty()) {
-            // Render AE2 upgrade background icon
-            // Use absolute screen coordinates for Blitter.dest()
-            Icon.BACKGROUND_UPGRADE.getBlitter()
-                .dest(slotX, slotY)
-                .opacity(0.4f)
-                .blit(guiGraphics);
-        }
-    }
-    
-    /**
-     * Get tooltip for upgrade slot when hovered.
-     */
-    private boolean isHoveringUpgradeSlot = false;
-    
-    @Override
-    protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        // Don't render default labels
-    }
-    
-    @Override
-    protected void renderTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        // Check if hovering over upgrade slot
+    private void drawUpgradeSlotIcon(GuiGraphics guiGraphics) {
         List<Slot> upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
         if (!upgradeSlots.isEmpty()) {
             Slot upgradeSlot = upgradeSlots.get(0);
-            int slotScreenX = this.leftPos + upgradeSlot.x;
-            int slotScreenY = this.topPos + upgradeSlot.y;
-            
-            if (upgradeSlot.getItem().isEmpty() && 
-                mouseX >= slotScreenX && mouseX < slotScreenX + 16 &&
-                mouseY >= slotScreenY && mouseY < slotScreenY + 16) {
-                // Show compatible upgrade tooltip
-                List<Component> tooltip = new ArrayList<>();
-                tooltip.add(Component.translatable("gui.meplacementtool.compatible_upgrades").withStyle(net.minecraft.ChatFormatting.GOLD));
-                tooltip.add(new ItemStack(com.moakiee.meplacementtool.MEPlacementToolMod.KEY_OF_SPECTRUM.get()).getHoverName().copy().withStyle(net.minecraft.ChatFormatting.GRAY));
-                guiGraphics.renderTooltip(font, tooltip, java.util.Optional.empty(), mouseX, mouseY);
-                return;
+            if (upgradeSlot.getItem().isEmpty() && upgradeSlot instanceof AppEngSlot appEngSlot) {
+                if (appEngSlot.isSlotEnabled() && appEngSlot.getIcon() != null) {
+                    appEngSlot.getIcon().getBlitter()
+                        .dest(leftPos + upgradeSlot.x, topPos + upgradeSlot.y)
+                        .opacity(0.7f)
+                        .blit(guiGraphics);
+                }
             }
         }
-        
-        super.renderTooltip(guiGraphics, mouseX, mouseY);
     }
-    
-    private void drawBorder(GuiGraphics g, int x, int y, int w, int h, int color) {
-        g.fill(x, y, x + w, y + 1, color);       // top
-        g.fill(x, y + h - 1, x + w, y + h, color); // bottom
-        g.fill(x, y, x + 1, y + h, color);       // left
-        g.fill(x + w - 1, y, x + w, y + h, color); // right
+
+    private int getDisplayColor(AEColor color) {
+        return color == AEColor.TRANSPARENT ? 0x8B479B : color.mediumVariant;
     }
-    
+
     private boolean isInBounds(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
     @Override
+    protected void renderTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        List<Slot> upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
+        if (!upgradeSlots.isEmpty()) {
+            Slot upgradeSlot = upgradeSlots.get(0);
+            int slotX = leftPos + upgradeSlot.x;
+            int slotY = topPos + upgradeSlot.y;
+
+            if (isInBounds(mouseX, mouseY, slotX, slotY, 16, 16)) {
+                if (upgradeSlot.getItem().isEmpty()) {
+                    List<Component> tooltip = new ArrayList<>();
+                    tooltip.add(Component.translatable("gui.meplacementtool.compatible_upgrades").withStyle(ChatFormatting.GOLD));
+                    tooltip.add(Component.translatable("gui.meplacementtool.upgrade_hint",
+                            new ItemStack(MEPlacementToolMod.KEY_OF_SPECTRUM.get()).getHoverName()).withStyle(ChatFormatting.GRAY));
+                    guiGraphics.renderTooltip(font, tooltip, java.util.Optional.empty(), mouseX, mouseY);
+                    return;
+                } else {
+                    guiGraphics.renderTooltip(font, upgradeSlot.getItem(), mouseX, mouseY);
+                    return;
+                }
+            }
+        }
+        super.renderTooltip(guiGraphics, mouseX, mouseY);
+    }
+
+    @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            // Handle color selection
-            if (hoveredColorIndex >= 0 && menu.hasUpgradeInstalled()) {
-                menu.setColor(hoveredColorIndex);
+            if (hoveredExpandButton) {
+                if (menu.hasUpgrade) {
+                    colorMenuExpanded = !colorMenuExpanded;
+                    playButtonClickSound();
+                }
+                return true;
+            }
+
+            if (colorMenuExpanded && hoveredExpandedColorIndex >= 0) {
+                menu.setColor(hoveredExpandedColorIndex);
+                syncToServer();
+                playButtonClickSound();
+                colorMenuExpanded = false;
+                return true;
+            }
+
+            if (!colorMenuExpanded && hoveredColorIndex >= 0 && colorShortcuts[hoveredColorIndex] >= 0) {
+                menu.setColor(colorShortcuts[hoveredColorIndex]);
                 syncToServer();
                 playButtonClickSound();
                 return true;
             }
-            
-            // Handle cable selection
+
             if (hoveredCableIndex >= 0) {
                 menu.setCableType(hoveredCableIndex);
                 syncToServer();
                 playButtonClickSound();
                 return true;
             }
-            
-            // Handle mode selection
+
             if (hoveredModeIndex >= 0) {
                 menu.setMode(hoveredModeIndex);
                 syncToServer();
@@ -432,35 +483,73 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
                 return true;
             }
         }
-        
+
+        if (colorMenuExpanded && button == 0) {
+            int menuX = leftPos + COLOR_MENU_X;
+            int menuY = topPos + COLOR_MENU_Y;
+            if (!isInBounds((int)mouseX, (int)mouseY, menuX, menuY, COLOR_MENU_WIDTH, COLOR_MENU_HEIGHT + 15) && !hoveredExpandButton) {
+                colorMenuExpanded = false;
+            }
+        }
+
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (ModKeyBindings.OPEN_CABLE_TOOL_GUI.matches(keyCode, scanCode)) {
+            this.onClose();
+            return true;
+        }
+
+        if (ModKeyBindings.MARK_COLOR_SHORTCUT.matches(keyCode, scanCode)) {
+            if (colorMenuExpanded && hoveredExpandedColorIndex >= 0) {
+                markColorToShortcut(hoveredExpandedColorIndex);
+                playButtonClickSound();
+                return true;
+            }
+            if (hoveredColorIndex > 0 && colorShortcuts[hoveredColorIndex] >= 0) {
+                markColorToShortcut(colorShortcuts[hoveredColorIndex]);
+                playButtonClickSound();
+                return true;
+            }
+        }
+
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
     /**
-     * Play button click sound effect (same as vanilla/AE2 buttons).
+     * Mark or unmark a color in the shortcut bar.
      */
+    private void markColorToShortcut(int colorIndex) {
+        for (int i = 1; i < colorShortcuts.length; i++) {
+            if (colorShortcuts[i] == colorIndex) {
+                colorShortcuts[i] = -1;
+                return;
+            }
+        }
+        
+        for (int i = 1; i < colorShortcuts.length; i++) {
+            if (colorShortcuts[i] < 0) {
+                colorShortcuts[i] = colorIndex;
+                return;
+            }
+        }
+        colorShortcuts[colorShortcuts.length - 1] = colorIndex;
+    }
+
     private void playButtonClickSound() {
         Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
     }
 
     private void syncToServer() {
-        ModNetwork.CHANNEL.sendToServer(new UpdateCableToolPacket(
+        com.moakiee.meplacementtool.network.ModNetwork.CHANNEL.sendToServer(new UpdateCableToolPacket(
             menu.currentMode,
             menu.currentCableType,
             menu.currentColor
         ));
     }
 
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // Allow G key to close this menu (toggle behavior)
-        if (ModKeyBindings.OPEN_CABLE_TOOL_GUI.matches(keyCode, scanCode)) {
-            this.onClose();
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-    
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
         this.renderBackground(guiGraphics);

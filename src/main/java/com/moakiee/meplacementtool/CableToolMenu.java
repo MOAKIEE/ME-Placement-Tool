@@ -83,10 +83,9 @@ public class CableToolMenu extends AEBaseMenu {
         loadUpgradeFromTool();
 
         // Add upgrade slot - only accepts Key of Spectrum
-        // Position at right side of GUI for upgrade card
-        var upgradeSlot = new KeyOfSpectrumSlot(this.upgradeInv, 0);
-        upgradeSlot.setIcon(Icon.BACKGROUND_UPGRADE);  // Show upgrade card ghost icon when empty
-        // Set slot position (will be adjusted by screen later if needed)
+        // Position: GUI_WIDTH(175) + AE2_PADDING(5) + 1 = 181, Y = 6
+        var upgradeSlot = new KeyOfSpectrumSlot(this.upgradeInv, 0, 181, 6);
+        upgradeSlot.setIcon(Icon.BACKGROUND_UPGRADE);
         this.addSlot(upgradeSlot, SlotSemantics.UPGRADE);
 
         // Create player inventory slots with custom positions
@@ -119,14 +118,14 @@ public class CableToolMenu extends AEBaseMenu {
 
     /**
      * Create player inventory slots at custom positions matching the GUI texture.
-     * Main inventory: (8,172), 9 columns x 3 rows, slot size 16px, spacing 2px (total 18px per cell)
-     * Hotbar: (8,230), 9 slots, same spacing
+     * Inventory area: (8,111)-(167,162), 16x16 slots with 2px spacing (18px total)
+     * Hotbar area: (8,169)-(167,184), same slot size
      */
     private void createCustomPlayerInventorySlots(Inventory playerInventory) {
         final int SLOT_SIZE = 18; // 16px slot + 2px spacing
         final int INV_X = 8;
-        final int INV_Y = 172;
-        final int HOTBAR_Y = 230;
+        final int INV_Y = 111;
+        final int HOTBAR_Y = 169;
         
         // Main inventory (slots 9-35)
         for (int row = 0; row < 3; row++) {
@@ -224,8 +223,10 @@ public class CableToolMenu extends AEBaseMenu {
      */
     public static class KeyOfSpectrumSlot extends AppEngSlot {
 
-        public KeyOfSpectrumSlot(InternalInventory inv, int invSlot) {
+        public KeyOfSpectrumSlot(InternalInventory inv, int invSlot, int x, int y) {
             super(inv, invSlot);
+            this.x = x;
+            this.y = y;
         }
 
         @Override
