@@ -220,7 +220,6 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
 
             int colorIndex = colorShortcuts[i];
             boolean isHovered = isInBounds(mouseX, mouseY, cellX, cellY, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
-            boolean showGreenFrame = (i > 0) && (colorIndex >= 0) && (colorIndex == menu.currentColor);
 
             if (isHovered) {
                 hoveredColorIndex = i;
@@ -241,10 +240,6 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
                 AEColor color = AEColor.values()[colorIndex];
                 int fillColor = getDisplayColor(color);
                 guiGraphics.fill(cellX + 1, cellY + 1, cellX + COLOR_CELL_SIZE - 1, cellY + COLOR_CELL_SIZE - 1, 0xFF000000 | fillColor);
-            }
-
-            if (showGreenFrame) {
-                guiGraphics.renderOutline(cellX - 1, cellY - 1, COLOR_CELL_SIZE + 2, COLOR_CELL_SIZE + 2, 0xFF00FF00);
             }
         }
 
