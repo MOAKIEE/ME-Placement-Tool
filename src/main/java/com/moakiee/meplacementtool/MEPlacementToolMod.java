@@ -23,8 +23,13 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import org.slf4j.Logger;
+
+import appeng.api.implementations.items.IAEItemPowerStorage;
+import appeng.items.tools.powered.powersink.PoweredItemCapabilities;
 
 import appeng.api.features.GridLinkables;
 import com.moakiee.meplacementtool.client.ModKeyBindings;
@@ -143,12 +148,33 @@ public class MEPlacementToolMod {
 
         // Register event listeners
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(this::registerCapabilities);
 
         // Register ourselves for server events
         NeoForge.EVENT_BUS.register(this);
 
         // Register config
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    }
+
+    /**
+     * Register FE energy capabilities for our powered items.
+     * This is required in NeoForge 1.21+ as the capability system no longer uses initCapabilities().
+     */
+    private void registerCapabilities(RegisterCapabilitiesEvent event) {
+        // Register IEnergyStorage capability for all 3 placement tools
+        registerPowerStorageItem(event, ME_PLACEMENT_TOOL.get());
+        registerPowerStorageItem(event, MULTIBLOCK_PLACEMENT_TOOL.get());
+        registerPowerStorageItem(event, ME_CABLE_PLACEMENT_TOOL.get());
+        LOGGER.info("Registered FE energy capabilities for placement tools");
+    }
+
+    private static <T extends Item & IAEItemPowerStorage> void registerPowerStorageItem(
+            RegisterCapabilitiesEvent event, T item) {
+        event.registerItem(
+                Capabilities.EnergyStorage.ITEM,
+                (stack, context) -> new PoweredItemCapabilities(stack, item),
+                item);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
