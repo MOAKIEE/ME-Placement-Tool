@@ -29,6 +29,7 @@ The ME Cable Placement Tool is designed for rapid cabling, supporting various ca
 ## Usage Guide
 
 - **Right-click**: Select coordinates
+- **Left-click**: Cancel coordinate selection
 - **Press G**: Open configuration GUI
 - **Hold Ctrl + Left-click with tool**: Undo last placement operation
 - **Place tool in ME Wireless Access Point**: Link to ME network
@@ -45,6 +46,7 @@ The ME Cable Placement Tool is designed for rapid cabling, supporting various ca
 
 - **Color Selection**: Freely select any of the 16 colors in the configuration GUI
 - **Automatic Dyeing**: Placed cables will automatically become the selected color without consuming dye
+- **Press A**: Favorite the currently selected color (can be modified in key bindings)
 
 ## Recipe
 
