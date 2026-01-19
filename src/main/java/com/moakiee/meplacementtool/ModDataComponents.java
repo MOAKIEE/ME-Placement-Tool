@@ -119,6 +119,18 @@ public class ModDataComponents {
                             .build()
             );
 
+    /**
+     * Stores the color shortcuts for the cable tool GUI (5 slots, each storing a color index or -1 for empty).
+     * Uses CompoundTag to store the array of integers.
+     */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<CompoundTag>> COLOR_SHORTCUTS =
+            DATA_COMPONENTS.register("color_shortcuts", () ->
+                    DataComponentType.<CompoundTag>builder()
+                            .persistent(CompoundTag.CODEC)
+                            .networkSynchronized(ByteBufCodecs.COMPOUND_TAG)
+                            .build()
+            );
+
     public static void register(IEventBus modEventBus) {
         DATA_COMPONENTS.register(modEventBus);
     }

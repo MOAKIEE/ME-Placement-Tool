@@ -121,7 +121,14 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         // Create AE2 UpgradesPanel for the upgrade slot
         this.upgradesPanel = new UpgradesPanel(menu.getSlots(SlotSemantics.UPGRADE));
 
+        // Load current color for slot 0
         colorShortcuts[0] = menu.currentColor;
+        
+        // Load saved color shortcuts from menu (slots 1-5)
+        int[] savedShortcuts = menu.getColorShortcuts();
+        for (int i = 0; i < 5 && i < savedShortcuts.length; i++) {
+            colorShortcuts[i + 1] = savedShortcuts[i];
+        }
     }
 
     @Override
@@ -539,6 +546,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         for (int i = 1; i < colorShortcuts.length; i++) {
             if (colorShortcuts[i] == colorIndex) {
                 colorShortcuts[i] = -1; // Unmark
+                menu.setColorShortcut(i - 1, -1); // Save to menu (0-indexed for menu)
                 return;
             }
         }
@@ -547,11 +555,13 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         for (int i = 1; i < colorShortcuts.length; i++) {
             if (colorShortcuts[i] < 0) {
                 colorShortcuts[i] = colorIndex;
+                menu.setColorShortcut(i - 1, colorIndex); // Save to menu (0-indexed for menu)
                 return;
             }
         }
         // If no empty slot, replace last slot
         colorShortcuts[colorShortcuts.length - 1] = colorIndex;
+        menu.setColorShortcut(4, colorIndex); // Save to menu
     }
 
     private void playButtonClickSound() {
