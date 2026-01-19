@@ -484,7 +484,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             player.openMenu(new net.minecraft.world.MenuProvider() {
                 @Override
                 public Component getDisplayName() {
-                    return Component.translatable("gui.meplacementtool.placement_config");
+                    return Component.empty();
                 }
 
                 @Override

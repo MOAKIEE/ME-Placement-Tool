@@ -36,9 +36,12 @@ import appeng.api.implementations.menuobjects.IMenuItem;
 import appeng.api.implementations.menuobjects.ItemMenuHost;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.me.helpers.PlayerSource;
 import appeng.menu.locator.ItemMenuHostLocator;
+import appeng.menu.locator.MenuLocators;
+import appeng.menu.me.crafting.CraftAmountMenu;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -51,6 +54,31 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
 
     public ItemMultiblockPlacementTool(Item.Properties props) {
         super(() -> Config.multiblockPlacementToolEnergyCapacity, props);
+    }
+
+    /**
+     * Open the crafting menu for an item that can be crafted.
+     * @param amount The amount to pre-fill in the crafting request
+     */
+    private void openCraftingMenu(ServerPlayer player, ItemStack wand, AEKey whatToCraft, int amount) {
+        int wandSlot = findInventorySlot(player, wand);
+        if (wandSlot >= 0) {
+            CraftAmountMenu.open(player, MenuLocators.forInventorySlot(wandSlot), whatToCraft, amount);
+        } else if (player.getMainHandItem() == wand) {
+            CraftAmountMenu.open(player, MenuLocators.forHand(player, InteractionHand.MAIN_HAND), whatToCraft, amount);
+        } else if (player.getOffhandItem() == wand) {
+            CraftAmountMenu.open(player, MenuLocators.forHand(player, InteractionHand.OFF_HAND), whatToCraft, amount);
+        }
+    }
+
+    private int findInventorySlot(Player player, ItemStack itemStack) {
+        var inv = player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            if (inv.getItem(i) == itemStack) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     public static int getPlacementCount(ItemStack stack) {
@@ -147,6 +175,14 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         // Block placement - find all matching keys (respects NBT whitelist config)
         var matchingKeys = Config.findAllMatchingKeys(storage, target);
         if (matchingKeys.isEmpty()) {
+            // Check if the item can be crafted
+            var craftKey = AEItemKey.of(target);
+            var craftingService = grid.getCraftingService();
+            if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
+                // Request crafting for the full amount needed
+                openCraftingMenu(serverPlayer, wand, craftKey, placementCount);
+                return InteractionResult.sidedSuccess(false);
+            }
             player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", 
                     target.getHoverName()), true);
             return InteractionResult.FAIL;
@@ -174,6 +210,15 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
 
         // Check if we have enough across all matching keys
         if (totalAvailable < placePositions.size()) {
+            // Check if the item can be crafted
+            var craftKey = AEItemKey.of(target);
+            var craftingService = grid.getCraftingService();
+            if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
+                // Request crafting for the missing amount
+                int missingAmount = (int) (placePositions.size() - totalAvailable);
+                openCraftingMenu(serverPlayer, wand, craftKey, missingAmount);
+                return InteractionResult.sidedSuccess(false);
+            }
             player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", 
                     target.getHoverName()), true);
             return InteractionResult.FAIL;
@@ -582,7 +627,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             player.openMenu(new net.minecraft.world.MenuProvider() {
                 @Override
                 public Component getDisplayName() {
-                    return Component.translatable("gui.meplacementtool.placement_config");
+                    return Component.empty();
                 }
 
                 @Override
