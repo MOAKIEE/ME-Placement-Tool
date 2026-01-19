@@ -292,7 +292,9 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         
         // If not enough cables, trigger crafting BEFORE placing anything
         if (totalAvailable < totalNeeded) {
-            var craftKey = AEItemKey.of(placeCableStack);
+            // Try to craft Fluix (TRANSPARENT) cable as it's the base type
+            var fluixCableStack = cableType.getStack(AEColor.TRANSPARENT);
+            var craftKey = AEItemKey.of(fluixCableStack);
             var craftingService = grid.getCraftingService();
             if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
                 // Request crafting for the missing amount
@@ -434,7 +436,9 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         
         // If not enough cables, trigger crafting BEFORE placing anything
         if (totalAvailable < totalNeeded) {
-            var craftKey = AEItemKey.of(placeCableStack);
+            // Try to craft Fluix (TRANSPARENT) cable as it's the base type
+            var fluixCableStack = cableType.getStack(AEColor.TRANSPARENT);
+            var craftKey = AEItemKey.of(fluixCableStack);
             var craftingService = grid.getCraftingService();
             if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
                 // Request crafting for the missing amount

@@ -769,7 +769,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             }
 
             NetworkHooks.openScreen(serverPlayer,
-                new SimpleMenuProvider((wnd, inv, pl) -> new WandMenu(wnd, inv, handler), Component.translatable("gui.meplacementtool.placement_config")),
+                new SimpleMenuProvider((wnd, inv, pl) -> new WandMenu(wnd, inv, handler), Component.empty()),
                     buf -> buf.writeNbt(cfg));
         }
 

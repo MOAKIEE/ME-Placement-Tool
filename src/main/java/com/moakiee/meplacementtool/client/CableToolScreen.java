@@ -46,6 +46,13 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     private static final ResourceLocation COLOR_MENU = new ResourceLocation("meplacementtool", "textures/gui/color_menu.png");
     private static final ResourceLocation BUTTON_NORMAL = new ResourceLocation("meplacementtool", "textures/gui/button_normal.png");
     private static final ResourceLocation BUTTON_PRESSED = new ResourceLocation("meplacementtool", "textures/gui/button_pressed.png");
+    // Custom upgrade slot textures
+    private static final ResourceLocation UPGRADE_SLOT_BG = new ResourceLocation("meplacementtool", "textures/gui/upgrade_slot_bg.png");
+    private static final ResourceLocation UPGRADE_SLOT_ICON = new ResourceLocation("meplacementtool", "textures/gui/upgrade_slot_icon.png");
+    private static final int UPGRADE_SLOT_BG_WIDTH = 30;  // Full background texture width (0-29)
+    private static final int UPGRADE_SLOT_BG_HEIGHT = 30; // Full background texture height (0-29)
+    private static final int UPGRADE_SLOT_OFFSET_X = 8;   // Core slot starts at x=8 in the texture
+    private static final int UPGRADE_SLOT_OFFSET_Y = 6;   // Core slot starts at y=6 in the texture
 
     // GUI dimensions
     private static final int GUI_WIDTH = 176;
@@ -165,11 +172,10 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             drawColorMenu(guiGraphics, x, y, mouseX, mouseY);
         }
 
-        // Update and draw AE2 upgrade panel
+        // Update AE2 upgrade panel (but don't draw its default background, use our custom one)
         upgradesPanel.updateBeforeRender();
-        upgradesPanel.drawBackgroundLayer(guiGraphics, getBounds(), new Point(mouseX - leftPos, mouseY - topPos));
         
-        // Draw upgrade slot icon if empty
+        // Draw custom upgrade slot background and ghost icon
         drawUpgradeSlotIcon(guiGraphics);
     }
 
@@ -393,19 +399,32 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     }
 
     /**
-     * Draw upgrade slot icon when slot is empty
+     * Draw custom upgrade slot background and icon when slot is empty.
+     * Uses custom textures instead of AE2 default style.
+     * Background texture: upgrade_slot_bg.png (26x26px, slot area at (8,6) to (23,21), 16x16)
+     * Icon texture: upgrade_slot_icon.png (Key of Spectrum ghost icon, shown when empty)
      */
     private void drawUpgradeSlotIcon(GuiGraphics guiGraphics) {
         List<Slot> upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
         if (!upgradeSlots.isEmpty()) {
             Slot upgradeSlot = upgradeSlots.get(0);
-            if (upgradeSlot.getItem().isEmpty() && upgradeSlot instanceof AppEngSlot appEngSlot) {
-                if (appEngSlot.isSlotEnabled() && appEngSlot.getIcon() != null) {
-                    appEngSlot.getIcon().getBlitter()
-                        .dest(leftPos + upgradeSlot.x, topPos + upgradeSlot.y)
-                        .opacity(0.7f)
-                        .blit(guiGraphics);
-                }
+            // Calculate position: slot position minus the offset to align the background correctly
+            int bgX = leftPos + upgradeSlot.x - UPGRADE_SLOT_OFFSET_X;
+            int bgY = topPos + upgradeSlot.y - UPGRADE_SLOT_OFFSET_Y;
+            
+            // Draw the custom background texture
+            guiGraphics.blit(UPGRADE_SLOT_BG, bgX, bgY, 0, 0, 
+                UPGRADE_SLOT_BG_WIDTH, UPGRADE_SLOT_BG_HEIGHT, 
+                UPGRADE_SLOT_BG_WIDTH, UPGRADE_SLOT_BG_HEIGHT);
+            
+            // Draw the ghost icon if slot is empty
+            if (upgradeSlot.getItem().isEmpty()) {
+                // Render ghost icon with transparency at the slot position
+                guiGraphics.setColor(1.0f, 1.0f, 1.0f, 0.7f);
+                guiGraphics.blit(UPGRADE_SLOT_ICON, 
+                    leftPos + upgradeSlot.x, topPos + upgradeSlot.y, 
+                    0, 0, 16, 16, 16, 16);
+                guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f); // Reset color
             }
         }
     }

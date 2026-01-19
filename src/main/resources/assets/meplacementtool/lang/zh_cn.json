@@ -7,7 +7,6 @@
   "item.meplacementtool.prism_core": "棱镜原体",
   "tooltip.meplacementtool.prism_core.prefix": "§7——§b八方色彩，§e汇聚于此§7，等待最后的§d仪式§7，化为§c光§6谱§a的§b钥§d匙",
   "tooltip.meplacementtool.prism_core.rainbow": "光谱的钥匙",
-  "gui.meplacementtool.placement_config": "放置配置",
   "message.meplacementtool.device_not_powered": "设备电力不足",
   "message.meplacementtool.no_configured_item": "所选格无已配置物品",
   "message.meplacementtool.unsupported_target": "不支持的目标物品",
