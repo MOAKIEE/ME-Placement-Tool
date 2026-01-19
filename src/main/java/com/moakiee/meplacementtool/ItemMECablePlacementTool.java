@@ -90,9 +90,12 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                 if (endpoint != null) {
                     setPoint2(stack, endpoint);
                     player.displayClientMessage(Component.translatable("message.meplacementtool.point2_set", endpoint.toShortString()), true);
-                    executePlacement(serverPlayer, stack, level, p1, endpoint);
-                    setPoint1(stack, null);
-                    setPoint2(stack, null);
+                    boolean craftingTriggered = executePlacement(serverPlayer, stack, level, p1, endpoint);
+                    // Only clear points if crafting was NOT triggered
+                    if (!craftingTriggered) {
+                        setPoint1(stack, null);
+                        setPoint2(stack, null);
+                    }
                     return InteractionResultHolder.success(stack);
                 }
             }
@@ -767,6 +770,26 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
     public static void setUpgrade(ItemStack stack, boolean has) {
         stack.getOrCreateTag().putBoolean("HasUpgrade", has);
+    }
+
+    /**
+     * Get the color shortcuts array from the tool stack.
+     * @return Array of 5 color indices (-1 = empty slot)
+     */
+    public static int[] getColorShortcuts(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag != null && tag.contains("ColorShortcuts")) {
+            return tag.getIntArray("ColorShortcuts");
+        }
+        return new int[]{-1, -1, -1, -1, -1}; // Default: all empty
+    }
+
+    /**
+     * Set the color shortcuts array to the tool stack.
+     * @param shortcuts Array of 5 color indices (-1 = empty slot)
+     */
+    public static void setColorShortcuts(ItemStack stack, int[] shortcuts) {
+        stack.getOrCreateTag().putIntArray("ColorShortcuts", shortcuts);
     }
 
     private static class ColorLogicResult {
