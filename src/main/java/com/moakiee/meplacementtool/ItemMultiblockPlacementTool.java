@@ -87,16 +87,17 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
     /**
      * Open the crafting menu for an item that can be crafted.
      * Uses the placement tool itself as the menu host, so we can control the close behavior.
+     * @param amount The amount to pre-fill in the crafting request
      */
-    private void openCraftingMenu(ServerPlayer player, ItemStack wand, AEKey whatToCraft) {
+    private void openCraftingMenu(ServerPlayer player, ItemStack wand, AEKey whatToCraft, int amount) {
         // Find the slot containing the placement tool
         int wandSlot = findInventorySlot(player, wand);
         if (wandSlot >= 0) {
-            CraftAmountMenu.open(player, MenuLocators.forInventorySlot(wandSlot), whatToCraft, 1);
+            CraftAmountMenu.open(player, MenuLocators.forInventorySlot(wandSlot), whatToCraft, amount);
         } else if (player.getMainHandItem() == wand) {
-            CraftAmountMenu.open(player, MenuLocators.forHand(player, net.minecraft.world.InteractionHand.MAIN_HAND), whatToCraft, 1);
+            CraftAmountMenu.open(player, MenuLocators.forHand(player, net.minecraft.world.InteractionHand.MAIN_HAND), whatToCraft, amount);
         } else if (player.getOffhandItem() == wand) {
-            CraftAmountMenu.open(player, MenuLocators.forHand(player, net.minecraft.world.InteractionHand.OFF_HAND), whatToCraft, 1);
+            CraftAmountMenu.open(player, MenuLocators.forHand(player, net.minecraft.world.InteractionHand.OFF_HAND), whatToCraft, amount);
         }
     }
 
@@ -496,6 +497,15 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         // Find all matching items in the AE network (respects NBT whitelist config)
         var matchingKeys = Config.findAllMatchingKeys(storage, target);
         if (matchingKeys.isEmpty()) {
+            // Check if the item can be crafted
+            var craftKey = appeng.api.stacks.AEItemKey.of(target);
+            var craftingService = grid.getCraftingService();
+            if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
+                // Request crafting for the full amount needed
+                long totalNeeded = (long) placementCount * target.getCount();
+                openCraftingMenu(serverPlayer, wand, craftKey, (int) totalNeeded);
+                return InteractionResult.sidedSuccess(false);
+            }
             player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", target.getHoverName()), true);
             return InteractionResult.FAIL;
         }
@@ -505,6 +515,15 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         long totalNeeded = (long) placementCount * target.getCount();
 
         if (totalAvailable < totalNeeded) {
+            // Check if the item can be crafted
+            var craftKey = appeng.api.stacks.AEItemKey.of(target);
+            var craftingService = grid.getCraftingService();
+            if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
+                // Request crafting for the missing amount
+                long missingAmount = totalNeeded - totalAvailable;
+                openCraftingMenu(serverPlayer, wand, craftKey, (int) missingAmount);
+                return InteractionResult.sidedSuccess(false);
+            }
             player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", target.getHoverName()), true);
             return InteractionResult.FAIL;
         }
