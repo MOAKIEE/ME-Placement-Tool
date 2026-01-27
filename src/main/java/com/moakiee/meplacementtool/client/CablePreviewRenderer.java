@@ -112,13 +112,10 @@ public class CablePreviewRenderer {
             return;
         }
 
-        // Update cached target position
+        // Update cached target position using smart logic
         BlockPos clickedPos = blockHitResult.getBlockPos();
         Direction face = blockHitResult.getDirection();
-        BlockPos targetPos = clickedPos.relative(face);
-        if (!level.getBlockState(targetPos).isAir()) {
-            targetPos = clickedPos;
-        }
+        BlockPos targetPos = ItemMECablePlacementTool.getSmartTargetPos(level, clickedPos, face);
         lastTargetPos = targetPos;
 
         if (renderCablePreview(level, poseStack, buffers, camera, blockHitResult, false)) {
@@ -229,12 +226,7 @@ public class CablePreviewRenderer {
         // Calculate target position (same logic as useOn)
         BlockPos clickedPos = hitResult.getBlockPos();
         Direction face = hitResult.getDirection();
-        BlockPos targetPos = clickedPos.relative(face);
-        
-        // If the target position is not air, use clicked position instead
-        if (!level.getBlockState(targetPos).isAir()) {
-            targetPos = clickedPos;
-        }
+        BlockPos targetPos = ItemMECablePlacementTool.getSmartTargetPos(level, clickedPos, face);
 
         if (mode == ItemMECablePlacementTool.PlacementMode.PLANE_BRANCHING) {
             // Branching mode uses 3 points
@@ -279,7 +271,7 @@ public class CablePreviewRenderer {
         }
         
         // Show preview of current target position (next click will set point1)
-        if (level.getBlockState(targetPos).isAir()) {
+        if (ItemMECablePlacementTool.canPlaceCableAt(level, targetPos)) {
             renderSingleBlockOutline(poseStack, buffers, camera, targetPos, POINT1_RED, POINT1_GREEN, POINT1_BLUE, 0.3f, false);
         }
 
@@ -421,7 +413,7 @@ public class CablePreviewRenderer {
         int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
 
         for (BlockPos pos : positions) {
-            if (level.getBlockState(pos).isAir()) {  // Only include air blocks
+            if (ItemMECablePlacementTool.canPlaceCableAt(level, pos)) {  // Only include valid placement positions
                 minX = Math.min(minX, pos.getX());
                 minY = Math.min(minY, pos.getY());
                 minZ = Math.min(minZ, pos.getZ());

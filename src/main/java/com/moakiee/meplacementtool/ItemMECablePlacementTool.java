@@ -5,7 +5,9 @@ import appeng.api.implementations.menuobjects.IMenuItem;
 import appeng.api.implementations.menuobjects.ItemMenuHost;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingService;
+import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartItem;
+import appeng.api.parts.PartHelper;
 import appeng.api.stacks.AEKey;
 import appeng.menu.locator.MenuLocators;
 import appeng.menu.me.crafting.CraftAmountMenu;
@@ -41,6 +43,81 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ItemMECablePlacementTool extends BasePlacementToolItem implements IMenuItem {
+
+    /**
+     * Check if a cable can be placed at the given position.
+     * A cable can be placed if:
+     * - The position is air, OR
+     * - The position is an AE2 IPartHost without a center cable (only has side parts like panels, anchors, quartz fiber)
+     */
+    public static boolean canPlaceCableAt(Level level, BlockPos pos) {
+        var state = level.getBlockState(pos);
+        
+        // Air blocks are always valid
+        if (state.isAir()) {
+            return true;
+        }
+        
+        // Check for AE2 cable bus with no center cable
+        IPartHost host = PartHelper.getPartHost(level, pos);
+        if (host != null) {
+            // If there's no center cable, we can place one
+            // This allows placing cables where only panels/anchors/quartz fiber exist
+            return host.getPart(null) == null;
+        }
+        
+        // Any other block - cannot place
+        return false;
+    }
+
+    /**
+     * Get the smart target position for cable placement.
+     * When clicking on an IPartHost (cable bus with parts but no cable):
+     * - If clicking on a face that HAS a part (panel front) -> use adjacent position
+     * - If clicking on a face whose OPPOSITE has a part (panel back) -> use clicked position
+     * - If clicking on a side face (neither has part) -> use adjacent position
+     * For other blocks: use standard logic (try adjacent first, then clicked)
+     */
+    public static BlockPos getSmartTargetPos(Level level, BlockPos clickedPos, Direction clickedFace) {
+        BlockPos adjacentPos = clickedPos.relative(clickedFace);
+        
+        // Check if clicked position is an AE2 part host without center cable
+        IPartHost host = PartHelper.getPartHost(level, clickedPos);
+        if (host != null && host.getPart(null) == null) {
+            // This is a valid cable placement position (has parts but no center cable)
+            
+            // Check if the clicked face itself has a part (panel front)
+            if (host.getPart(clickedFace) != null) {
+                // Clicking on panel front face -> use adjacent position
+                if (canPlaceCableAt(level, adjacentPos)) {
+                    return adjacentPos;
+                }
+                return clickedPos;
+            }
+            
+            // Check if the opposite face has a part (we're clicking on panel backside)
+            if (host.getPart(clickedFace.getOpposite()) != null) {
+                // Clicking on panel backside -> place cable in this block
+                return clickedPos;
+            }
+            
+            // Side face (no part on clicked face or opposite) -> use adjacent position
+            if (canPlaceCableAt(level, adjacentPos)) {
+                return adjacentPos;
+            }
+            return clickedPos;
+        }
+        
+        // Standard logic for non-part-host blocks
+        if (canPlaceCableAt(level, adjacentPos)) {
+            return adjacentPos;
+        }
+        if (canPlaceCableAt(level, clickedPos)) {
+            return clickedPos;
+        }
+        // Neither is valid, return adjacent (will be filtered later)
+        return adjacentPos;
+    }
 
     public enum PlacementMode {
         LINE,
@@ -118,12 +195,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         // Get the position next to the clicked face (like vanilla block placement)
         BlockPos clickedPos = context.getClickedPos();
         Direction face = context.getClickedFace();
-        BlockPos targetPos = clickedPos.relative(face);
-        
-        // If the target position is not air, use clicked position instead
-        if (!level.getBlockState(targetPos).isAir()) {
-            targetPos = clickedPos;
-        }
+        BlockPos targetPos = getSmartTargetPos(level, clickedPos, face);
         
         PlacementMode mode = getMode(stack);
         BlockPos p1 = getPoint1(stack);
@@ -269,7 +341,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         // Pre-check: Count how many positions actually need cables (filter out non-air)
         List<BlockPos> validPositions = new java.util.ArrayList<>();
         for (BlockPos pos : positions) {
-            if (level.getBlockState(pos).isAir()) {
+            if (canPlaceCableAt(level, pos)) {
                 validPositions.add(pos);
             }
         }
@@ -413,7 +485,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         // Pre-check: Count how many positions actually need cables (filter out non-air)
         List<BlockPos> validPositions = new java.util.ArrayList<>();
         for (BlockPos pos : positions) {
-            if (level.getBlockState(pos).isAir()) {
+            if (canPlaceCableAt(level, pos)) {
                 validPositions.add(pos);
             }
         }
