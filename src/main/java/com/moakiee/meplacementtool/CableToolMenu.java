@@ -24,6 +24,7 @@ public class CableToolMenu extends AEBaseMenu {
     private static final String ACTION_SET_MODE = "setMode";
     private static final String ACTION_SET_CABLE_TYPE = "setCableType";
     private static final String ACTION_SET_COLOR = "setColor";
+    private static final String ACTION_SET_COLOR_SHORTCUT = "setColorShortcut";
 
     // Sync fields
     @GuiSync(0)
@@ -34,6 +35,18 @@ public class CableToolMenu extends AEBaseMenu {
     public int currentColor;
     @GuiSync(3)
     public boolean hasUpgrade;
+    
+    // Color shortcuts (slots 1-5, slot 0 is always current color)
+    @GuiSync(4)
+    public int colorShortcut1 = -1;
+    @GuiSync(5)
+    public int colorShortcut2 = -1;
+    @GuiSync(6)
+    public int colorShortcut3 = -1;
+    @GuiSync(7)
+    public int colorShortcut4 = -1;
+    @GuiSync(8)
+    public int colorShortcut5 = -1;
 
     private final InternalInventory upgradeInv;
     private final ItemStack toolStack;
@@ -100,6 +113,7 @@ public class CableToolMenu extends AEBaseMenu {
         registerClientAction(ACTION_SET_MODE, Integer.class, this::setMode);
         registerClientAction(ACTION_SET_CABLE_TYPE, Integer.class, this::setCableType);
         registerClientAction(ACTION_SET_COLOR, Integer.class, this::setColor);
+        registerClientAction(ACTION_SET_COLOR_SHORTCUT, int[].class, this::setColorShortcutFromClient);
     }
 
     private void loadUpgradeFromTool() {
@@ -114,6 +128,16 @@ public class CableToolMenu extends AEBaseMenu {
         this.currentCableType = ItemMECablePlacementTool.getCableType(toolStack).ordinal();
         this.currentColor = ItemMECablePlacementTool.getColor(toolStack).ordinal();
         this.hasUpgrade = ItemMECablePlacementTool.hasUpgrade(toolStack);
+        
+        // Load color shortcuts
+        int[] shortcuts = ItemMECablePlacementTool.getColorShortcuts(toolStack);
+        if (shortcuts.length >= 5) {
+            this.colorShortcut1 = shortcuts[0];
+            this.colorShortcut2 = shortcuts[1];
+            this.colorShortcut3 = shortcuts[2];
+            this.colorShortcut4 = shortcuts[3];
+            this.colorShortcut5 = shortcuts[4];
+        }
     }
 
     /**
@@ -197,6 +221,46 @@ public class CableToolMenu extends AEBaseMenu {
 
     public boolean hasUpgradeInstalled() {
         return this.hasUpgrade;
+    }
+
+    /**
+     * Get the color shortcuts array.
+     * @return Array of 5 color indices (-1 = empty slot)
+     */
+    public int[] getColorShortcuts() {
+        return new int[]{colorShortcut1, colorShortcut2, colorShortcut3, colorShortcut4, colorShortcut5};
+    }
+
+    /**
+     * Set a specific color shortcut slot.
+     * @param slot Slot index (0-4)
+     * @param colorIndex Color index or -1 for empty
+     */
+    public void setColorShortcut(int slot, int colorIndex) {
+        switch (slot) {
+            case 0 -> this.colorShortcut1 = colorIndex;
+            case 1 -> this.colorShortcut2 = colorIndex;
+            case 2 -> this.colorShortcut3 = colorIndex;
+            case 3 -> this.colorShortcut4 = colorIndex;
+            case 4 -> this.colorShortcut5 = colorIndex;
+        }
+        
+        // Save to tool stack
+        int[] shortcuts = getColorShortcuts();
+        ItemMECablePlacementTool.setColorShortcuts(toolStack, shortcuts);
+        
+        if (isClientSide()) {
+            sendClientAction(ACTION_SET_COLOR_SHORTCUT, new int[]{slot, colorIndex});
+        }
+    }
+
+    /**
+     * Handle setColorShortcut action from client.
+     */
+    private void setColorShortcutFromClient(int[] data) {
+        if (data != null && data.length >= 2) {
+            setColorShortcut(data[0], data[1]);
+        }
     }
 
     @Override
