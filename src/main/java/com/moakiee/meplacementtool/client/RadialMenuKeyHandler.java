@@ -3,7 +3,6 @@ package com.moakiee.meplacementtool.client;
 import com.moakiee.meplacementtool.BasePlacementToolItem;
 import com.moakiee.meplacementtool.ItemMECablePlacementTool;
 import com.moakiee.meplacementtool.ItemMultiblockPlacementTool;
-import com.moakiee.meplacementtool.MEPlacementToolMod;
 import com.moakiee.meplacementtool.network.OpenCableToolGuiPayload;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
@@ -15,7 +14,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * Handler for radial menu and GUI key functionality.
  * Opens the radial menu when G is pressed while holding ME Placement Tool or Multiblock Placement Tool.
  * Opens the GUI screen when G is pressed while holding ME Cable Placement Tool.
- * 
+ *
  * Uses key input events instead of tick-based checking to properly handle
  * the same key being used to both open and close the GUI.
  */
