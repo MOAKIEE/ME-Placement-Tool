@@ -1,6 +1,10 @@
 package com.moakiee.meplacementtool.client;
 
-import com.moakiee.meplacementtool.*;
+import com.moakiee.meplacementtool.ClientConfig;
+import com.moakiee.meplacementtool.ItemMECablePlacementTool;
+import com.moakiee.meplacementtool.ItemMEPlacementTool;
+import com.moakiee.meplacementtool.ItemMultiblockPlacementTool;
+import com.moakiee.meplacementtool.WandMenu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.nbt.CompoundTag;
@@ -87,15 +91,13 @@ public class ToolInfoHudRenderer {
                 lastHeldToolItem = currentToolItem;
             }
 
-            // Refer to ClientConfig.HUD_DISPLAY_DURATION
-            if(ClientConfig.hudDisplayDuration == 0) {
-                return;
+            if (ClientConfig.hudDisplayDuration == 0) {
+                return; // HUD disabled
             }
-            // Check if we're within the display duration
             if (ClientConfig.hudDisplayDuration > 0 && currentTime - toolSwitchTime > ClientConfig.hudDisplayDuration) {
-                // Time expired, don't render
-                return;
+                return; // Timed display expired
             }
+            // hudDisplayDuration < 0: permanent display, never hide
         } else {
             // Not holding any tool, reset state
             lastHeldToolItem = null;
