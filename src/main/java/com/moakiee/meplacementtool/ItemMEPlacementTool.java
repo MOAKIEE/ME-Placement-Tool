@@ -3,16 +3,8 @@ package com.moakiee.meplacementtool;
 import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
 
-import java.util.function.DoubleSupplier;
-import java.util.function.BiConsumer;
-
 import appeng.api.implementations.menuobjects.IMenuItem;
 import appeng.api.implementations.menuobjects.ItemMenuHost;
-import appeng.api.networking.IGridNode;
-import appeng.api.networking.security.IActionHost;
-import appeng.api.networking.crafting.ICraftingService;
-import appeng.api.stacks.AEKey;
-import appeng.menu.ISubMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
@@ -22,7 +14,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.SimpleMenuProvider;
-import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
