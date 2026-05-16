@@ -82,27 +82,20 @@ public class MEPlacementToolMod
                         output.accept(ME_CABLE_PLACEMENT_TOOL.get());
                         output.accept(MOAKIEE_FUMO_ITEM.get());
                         output.accept(CYSTRYSU_FUMO_ITEM.get());
-                        
-                        var chargedMETool = new ItemStack(ME_PLACEMENT_TOOL.get(), 1);
-                        var chargedMultiblockTool = new ItemStack(MULTIBLOCK_PLACEMENT_TOOL.get(), 1);
-                        
-                        if (chargedMETool.getItem() instanceof appeng.api.implementations.items.IAEItemPowerStorage mePowerStorage) {
-                            mePowerStorage.injectAEPower(chargedMETool, mePowerStorage.getAEMaxPower(chargedMETool), appeng.api.config.Actionable.MODULATE);
-                        }
-                        if (chargedMultiblockTool.getItem() instanceof appeng.api.implementations.items.IAEItemPowerStorage multiPowerStorage) {
-                            multiPowerStorage.injectAEPower(chargedMultiblockTool, multiPowerStorage.getAEMaxPower(chargedMultiblockTool), appeng.api.config.Actionable.MODULATE);
-                        }
-                        
-                        var chargedCableTool = new ItemStack(ME_CABLE_PLACEMENT_TOOL.get(), 1);
-                        if (chargedCableTool.getItem() instanceof appeng.api.implementations.items.IAEItemPowerStorage cablePowerStorage) {
-                            cablePowerStorage.injectAEPower(chargedCableTool, cablePowerStorage.getAEMaxPower(chargedCableTool), appeng.api.config.Actionable.MODULATE);
-                        }
 
-                        output.accept(chargedMETool);
-                        output.accept(chargedMultiblockTool);
-                        output.accept(chargedCableTool);
+                        output.accept(fullyChargedStack(ME_PLACEMENT_TOOL.get()));
+                        output.accept(fullyChargedStack(MULTIBLOCK_PLACEMENT_TOOL.get()));
+                        output.accept(fullyChargedStack(ME_CABLE_PLACEMENT_TOOL.get()));
                     })
                     .build());
+
+    private static ItemStack fullyChargedStack(Item item) {
+        ItemStack stack = new ItemStack(item, 1);
+        if (item instanceof appeng.api.implementations.items.IAEItemPowerStorage powerStorage) {
+            powerStorage.injectAEPower(stack, powerStorage.getAEMaxPower(stack), appeng.api.config.Actionable.MODULATE);
+        }
+        return stack;
+    }
 
     public static MEPlacementToolMod instance;
     public MultiblockPreviewRenderer multiblockPreviewRenderer;
