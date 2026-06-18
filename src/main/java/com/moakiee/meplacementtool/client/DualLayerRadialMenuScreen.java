@@ -95,6 +95,11 @@ public class DualLayerRadialMenuScreen extends Screen {
         return true;
     }
 
+    @Override
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
+        // Radial menus are in-world overlays; the 1.21.1 screen did not draw a menu background.
+    }
+
     private void loadSlots() {
         slots.clear();
         if (wandStack.isEmpty()) return;
@@ -286,6 +291,72 @@ public class DualLayerRadialMenuScreen extends Screen {
         int hoveredCount = selectedCount >= 0 ? adjustIndex(selectedCount, numberOfCountSlices) : -1;
         int hoveredItem = selectedItem >= 0 ? adjustIndex(selectedItem, numberOfItemSlices) : -1;
 
+        RadialMenuRenderer.drawSlice(graphics, centerX, centerY, dirRadiusMin, dirRadiusMax, 0, 360, 80, 80, 80, 120);
+        RadialMenuRenderer.drawSlice(graphics, centerX, centerY, countRadiusMin, countRadiusMax, 0, 360, 80, 80, 80, 120);
+        RadialMenuRenderer.drawSlice(graphics, centerX, centerY, outerRadiusMin, outerRadiusMax, 0, 360, 80, 80, 80, 120);
+
+        for (int i = 0; i < numberOfDirectionSlices; i++) {
+            float sliceBorderLeft = (((i - 0.5f) / (float) numberOfDirectionSlices) + 0.25f) * 360;
+            float sliceBorderRight = (((i + 0.5f) / (float) numberOfDirectionSlices) + 0.25f) * 360;
+            int adjusted = adjustIndex(i, numberOfDirectionSlices);
+            boolean isCurrentlySelected = adjusted >= 0 && adjusted < DIRECTION_OPTIONS.length
+                    && DIRECTION_OPTIONS[adjusted] == currentDirection;
+
+            if (selectionLayer == 0 && selectedDirection == i) {
+                RadialMenuRenderer.drawSlice(graphics, centerX, centerY, dirRadiusMin, dirRadiusMax,
+                        sliceBorderLeft, sliceBorderRight, 191, 113, 63, 150);
+            } else if (isCurrentlySelected) {
+                RadialMenuRenderer.drawSlice(graphics, centerX, centerY, dirRadiusMin, dirRadiusMax,
+                        sliceBorderLeft, sliceBorderRight, 80, 180, 80, 130);
+            }
+        }
+
+        for (int i = 0; i < numberOfCountSlices; i++) {
+            float sliceBorderLeft = (((i - 0.5f) / (float) numberOfCountSlices) + 0.25f) * 360;
+            float sliceBorderRight = (((i + 0.5f) / (float) numberOfCountSlices) + 0.25f) * 360;
+            int adjusted = adjustIndex(i, numberOfCountSlices);
+            boolean isCurrentlySelected = adjusted >= 0 && adjusted < COUNT_OPTIONS.length
+                    && COUNT_OPTIONS[adjusted] == currentPlacementCount;
+
+            if (selectionLayer == 1 && selectedCount == i) {
+                RadialMenuRenderer.drawSlice(graphics, centerX, centerY, countRadiusMin, countRadiusMax,
+                        sliceBorderLeft, sliceBorderRight, 191, 161, 63, 150);
+            } else if (isCurrentlySelected) {
+                RadialMenuRenderer.drawSlice(graphics, centerX, centerY, countRadiusMin, countRadiusMax,
+                        sliceBorderLeft, sliceBorderRight, 80, 180, 80, 130);
+            }
+        }
+
+        for (int i = 0; i < numberOfItemSlices; i++) {
+            float sliceBorderLeft = (((i - 0.5f) / (float) numberOfItemSlices) + 0.25f) * 360;
+            float sliceBorderRight = (((i + 0.5f) / (float) numberOfItemSlices) + 0.25f) * 360;
+            int adjusted = adjustIndex(i, numberOfItemSlices);
+            boolean isCurrentlySelected = adjusted < slots.size() && slots.get(adjusted).index == currentSelectedSlot;
+
+            if (selectionLayer == 2 && selectedItem == i) {
+                RadialMenuRenderer.drawSlice(graphics, centerX, centerY, outerRadiusMin, outerRadiusMax,
+                        sliceBorderLeft, sliceBorderRight, 63, 161, 191, 150);
+            } else if (isCurrentlySelected) {
+                RadialMenuRenderer.drawSlice(graphics, centerX, centerY, outerRadiusMin, outerRadiusMax,
+                        sliceBorderLeft, sliceBorderRight, 80, 180, 80, 130);
+            }
+        }
+
+        for (int i = 0; i < numberOfDirectionSlices; i++) {
+            float angle = (((i - 0.5f) / (float) numberOfDirectionSlices) + 0.25f) * 360;
+            RadialMenuRenderer.drawDivider(graphics, centerX, centerY, dirRadiusMin, dirRadiusMax, angle, 200, 200, 200, 100);
+        }
+
+        for (int i = 0; i < numberOfCountSlices; i++) {
+            float angle = (((i - 0.5f) / (float) numberOfCountSlices) + 0.25f) * 360;
+            RadialMenuRenderer.drawDivider(graphics, centerX, centerY, countRadiusMin, countRadiusMax, angle, 200, 200, 200, 100);
+        }
+
+        for (int i = 0; i < numberOfItemSlices; i++) {
+            float angle = (((i - 0.5f) / (float) numberOfItemSlices) + 0.25f) * 360;
+            RadialMenuRenderer.drawDivider(graphics, centerX, centerY, outerRadiusMin, outerRadiusMax, angle, 200, 200, 200, 100);
+        }
+
         int hoverY = (int) (centerY - outerRadiusMax - font.lineHeight - 4);
         if (selectionLayer == 0 && hoveredDirection >= 0 && hoveredDirection < DIRECTION_OPTIONS.length) {
             String text = Component.translatable(DIRECTION_OPTIONS[hoveredDirection].translationKey()).getString();
@@ -304,8 +375,7 @@ public class DualLayerRadialMenuScreen extends Screen {
             int posX = (int) (centerX + dirItemRadius * (float) Math.cos(angle));
             int posY = (int) (centerY + dirItemRadius * (float) Math.sin(angle));
             String label = Component.translatable(DIRECTION_OPTIONS[i].translationKey() + ".short").getString();
-            drawTextOption(graphics, label, posX, posY, selectionLayer == 0 && hoveredDirection == i,
-                    DIRECTION_OPTIONS[i] == currentDirection, 0xFFCC88);
+            graphics.centeredText(font, label, posX, posY - font.lineHeight / 2, 0xFFFFFF);
         }
 
         for (int i = 0; i < numberOfCountSlices; i++) {
@@ -315,8 +385,7 @@ public class DualLayerRadialMenuScreen extends Screen {
             }
             int posX = (int) (centerX + countItemRadius * (float) Math.cos(angle));
             int posY = (int) (centerY + countItemRadius * (float) Math.sin(angle));
-            drawTextOption(graphics, String.valueOf(COUNT_OPTIONS[i]), posX, posY,
-                    selectionLayer == 1 && hoveredCount == i, COUNT_OPTIONS[i] == currentPlacementCount, 0xFFFF00);
+            graphics.centeredText(font, String.valueOf(COUNT_OPTIONS[i]), posX, posY - font.lineHeight / 2, 0xFFFFFF);
         }
 
         for (int i = 0; i < numberOfItemSlices; i++) {
@@ -328,11 +397,6 @@ public class DualLayerRadialMenuScreen extends Screen {
             int posY = (int) (centerY - 8 + outerItemRadius * (float) Math.sin(angle));
 
             SlotData slot = slots.get(i);
-            boolean isHovered = selectionLayer == 2 && hoveredItem == i;
-            boolean isCurrent = slot.index == currentSelectedSlot;
-            int bgColor = isHovered ? 0xAA3FA1BF : isCurrent ? 0xAA50B450 : 0x66505050;
-            graphics.fill(posX - 4, posY - 4, posX + 20, posY + 20, bgColor);
-            graphics.outline(posX - 4, posY - 4, 24, 24, isHovered || isCurrent ? 0xFFFFFFFF : 0xAA999999);
             if (!slot.displayStack.isEmpty()) {
                 graphics.item(slot.displayStack, posX, posY);
             }
@@ -378,17 +442,6 @@ public class DualLayerRadialMenuScreen extends Screen {
             }
         }
         return -1;
-    }
-
-    private void drawTextOption(GuiGraphicsExtractor graphics, String text, int centerX, int centerY,
-            boolean hovered, boolean current, int accentColor) {
-        int halfWidth = Math.max(14, font.width(text) / 2 + 5);
-        int top = centerY - font.lineHeight / 2 - 3;
-        int bottom = centerY + font.lineHeight / 2 + 4;
-        int fill = hovered ? 0xAA3FA1BF : current ? 0xAA50B450 : 0x66505050;
-        graphics.fill(centerX - halfWidth, top, centerX + halfWidth, bottom, fill);
-        graphics.outline(centerX - halfWidth, top, halfWidth * 2, bottom - top, hovered || current ? accentColor : 0xAA999999);
-        graphics.centeredText(font, text, centerX, centerY - font.lineHeight / 2, 0xFFFFFF);
     }
 
     @Override

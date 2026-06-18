@@ -15,6 +15,7 @@ import com.moakiee.meplacementtool.network.SyncPagePayload;
  * Screen for the ME Placement Tool configuration menu
  */
 public class WandScreen extends AbstractContainerScreen<WandMenu> {
+    private static final int GUI_TEXTURE_SIZE = 256;
     // Custom toolbox background texture
     private static final Identifier BG = Identifier.fromNamespaceAndPath("meplacementtool", "textures/gui/toolbox.png");
     // Page button textures
@@ -121,6 +122,6 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
         super.extractBackground(GuiGraphicsExtractor, x, y, partialTicks);
         int relX = (this.width - this.imageWidth) / 2;
         int relY = (this.height - this.imageHeight) / 2;
-        GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, BG, relX, relY, 0, 0, this.imageWidth, this.imageHeight, this.imageWidth, this.imageHeight);
+        GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, BG, relX, relY, 0, 0, this.imageWidth, this.imageHeight, GUI_TEXTURE_SIZE, GUI_TEXTURE_SIZE);
     }
 }

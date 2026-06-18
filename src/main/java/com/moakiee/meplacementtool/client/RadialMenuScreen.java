@@ -67,6 +67,11 @@ public class RadialMenuScreen extends Screen {
         return true;
     }
 
+    @Override
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
+        // Radial menus are in-world overlays; the 1.21.1 screen did not draw a menu background.
+    }
+
     private void loadSlots() {
         slots.clear();
         if (wandStack.isEmpty()) return;
@@ -188,7 +193,6 @@ public class RadialMenuScreen extends Screen {
         int centerY = height / 2;
 
         double mouseAngle = Math.toDegrees(Math.atan2(mouseY - centerY, mouseX - centerX));
-        double mouseDistance = Math.sqrt(Math.pow(mouseX - centerX, 2) + Math.pow(mouseY - centerY, 2));
         float slot0 = (((0 - 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
         if (mouseAngle < slot0) {
             mouseAngle += 360;
@@ -208,7 +212,31 @@ public class RadialMenuScreen extends Screen {
             }
         }
 
-        int mousedOverSlot = selectedItem >= 0 ? adjustIndex(selectedItem, numberOfSlices) : -1;
+        RadialMenuRenderer.drawSlice(graphics, centerX, centerY, radiusIn, radiusOut, 0, 360, 80, 80, 80, 120);
+
+        int mousedOverSlice = -1;
+        for (int i = 0; i < numberOfSlices; i++) {
+            float sliceBorderLeft = (((i - 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
+            float sliceBorderRight = (((i + 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
+            int adjusted = adjustIndex(i, numberOfSlices);
+            boolean isCurrentlySelected = adjusted < slots.size() && slots.get(adjusted).index == currentSelectedSlot;
+
+            if (selectedItem == i) {
+                RadialMenuRenderer.drawSlice(graphics, centerX, centerY, radiusIn, radiusOut,
+                        sliceBorderLeft, sliceBorderRight, 63, 161, 191, 150);
+                mousedOverSlice = i;
+            } else if (isCurrentlySelected) {
+                RadialMenuRenderer.drawSlice(graphics, centerX, centerY, radiusIn, radiusOut,
+                        sliceBorderLeft, sliceBorderRight, 80, 180, 80, 130);
+            }
+        }
+
+        for (int i = 0; i < numberOfSlices; i++) {
+            float angle = (((i - 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
+            RadialMenuRenderer.drawDivider(graphics, centerX, centerY, radiusIn, radiusOut, angle, 200, 200, 200, 100);
+        }
+
+        int mousedOverSlot = mousedOverSlice >= 0 ? adjustIndex(mousedOverSlice, numberOfSlices) : -1;
 
         // Draw hovered item name
         if (mousedOverSlot != -1) {
@@ -227,11 +255,6 @@ public class RadialMenuScreen extends Screen {
             float posY = centerY - 8 + itemRadius * (float) Math.sin(angle);
 
             SlotData slot = slots.get(i);
-            boolean isHovered = mousedOverSlot == i;
-            boolean isCurrent = slot.index == currentSelectedSlot;
-            int bgColor = isHovered ? 0xAA3FA1BF : isCurrent ? 0xAA50B450 : 0x66505050;
-            graphics.fill((int) posX - 4, (int) posY - 4, (int) posX + 20, (int) posY + 20, bgColor);
-            graphics.outline((int) posX - 4, (int) posY - 4, 24, 24, isHovered || isCurrent ? 0xFFFFFFFF : 0xAA999999);
             if (!slot.displayStack.isEmpty()) {
                 graphics.item(slot.displayStack, (int) posX, (int) posY);
             }

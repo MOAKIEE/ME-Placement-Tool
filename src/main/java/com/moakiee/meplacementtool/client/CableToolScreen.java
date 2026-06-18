@@ -42,6 +42,7 @@ import java.util.List;
  * - AE2-style upgrade panel on the right side of GUI
  */
 public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
+    private static final int GUI_TEXTURE_SIZE = 256;
 
     // Textures
     private static final Identifier BACKGROUND = Identifier.fromNamespaceAndPath("meplacementtool", "textures/gui/cable_tool.png");
@@ -154,7 +155,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         int y = this.topPos;
 
         // Draw main GUI background
-        GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND, x, y, 0, 0, GUI_WIDTH, GUI_HEIGHT, GUI_WIDTH, GUI_HEIGHT);
+        GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND, x, y, 0, 0, GUI_WIDTH, GUI_HEIGHT, GUI_TEXTURE_SIZE, GUI_TEXTURE_SIZE);
     }
 
     @Override
