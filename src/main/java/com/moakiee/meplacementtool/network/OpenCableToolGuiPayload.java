@@ -6,7 +6,7 @@ import com.moakiee.meplacementtool.MEPlacementToolMod;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.item.ItemStack;
@@ -18,7 +18,7 @@ import net.minecraft.network.chat.Component;
  */
 public record OpenCableToolGuiPayload() implements CustomPacketPayload {
     public static final Type<OpenCableToolGuiPayload> TYPE = 
-            new Type<>(ResourceLocation.fromNamespaceAndPath(MEPlacementToolMod.MODID, "open_cable_tool_gui"));
+            new Type<>(Identifier.fromNamespaceAndPath(MEPlacementToolMod.MODID, "open_cable_tool_gui"));
 
     public static final StreamCodec<FriendlyByteBuf, OpenCableToolGuiPayload> STREAM_CODEC =
             StreamCodec.unit(new OpenCableToolGuiPayload());
@@ -39,7 +39,7 @@ public record OpenCableToolGuiPayload() implements CustomPacketPayload {
                 
                 if (main.getItem() instanceof ItemMECablePlacementTool) {
                     tool = main;
-                    slot = player.getInventory().selected;
+                    slot = player.getInventory().getSelectedSlot();
                 } else if (off.getItem() instanceof ItemMECablePlacementTool) {
                     tool = off;
                     slot = 40; // Offhand slot

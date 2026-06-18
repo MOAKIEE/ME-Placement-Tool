@@ -6,8 +6,9 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Prism Core - A decorative/crafting item with rainbow colored tooltip
@@ -19,8 +20,9 @@ public class ItemPrismCore extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
-        tooltipComponents.add(Component.translatable("tooltip.meplacementtool.prism_core.prefix"));
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay tooltipDisplay,
+            Consumer<Component> tooltipComponents, TooltipFlag tooltipFlag) {
+        tooltipComponents.accept(Component.translatable("tooltip.meplacementtool.prism_core.prefix"));
         // Rainbow text for "光谱的钥匙" / "Key of Spectrum"
         MutableComponent rainbow = Component.empty();
         String text = Component.translatable("tooltip.meplacementtool.prism_core.rainbow").getString();
@@ -28,7 +30,7 @@ public class ItemPrismCore extends Item {
         for (int i = 0; i < text.length(); i++) {
             rainbow.append(Component.literal(String.valueOf(text.charAt(i))).withStyle(colors[i % colors.length]));
         }
-        tooltipComponents.add(rainbow);
-        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
+        tooltipComponents.accept(rainbow);
+        super.appendHoverText(stack, context, tooltipDisplay, tooltipComponents, tooltipFlag);
     }
 }

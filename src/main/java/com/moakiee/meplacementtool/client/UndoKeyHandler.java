@@ -6,7 +6,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import com.moakiee.meplacementtool.network.UndoPayload;
 import org.lwjgl.glfw.GLFW;
@@ -38,7 +38,7 @@ public class UndoKeyHandler {
                 HitResult hitResult = mc.hitResult;
                 if (hitResult != null && hitResult.getType() == HitResult.Type.BLOCK) {
                     BlockHitResult blockHitResult = (BlockHitResult) hitResult;
-                    PacketDistributor.sendToServer(new UndoPayload(blockHitResult.getBlockPos()));
+                    ClientPacketDistributor.sendToServer(new UndoPayload(blockHitResult.getBlockPos()));
                     event.setCanceled(true);
                 }
             }

@@ -7,7 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -18,7 +18,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  */
 public record ClearCableToolPointsPayload(int slot) implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<ClearCableToolPointsPayload> TYPE = 
-            new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(MEPlacementToolMod.MODID, "clear_cable_points"));
+            new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(MEPlacementToolMod.MODID, "clear_cable_points"));
 
     public static final StreamCodec<FriendlyByteBuf, ClearCableToolPointsPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.INT, ClearCableToolPointsPayload::slot,
@@ -50,7 +50,7 @@ public record ClearCableToolPointsPayload(int slot) implements CustomPacketPaylo
                 // Clear all points
                 ItemMECablePlacementTool.clearAllPoints(stack);
 
-                player.displayClientMessage(Component.translatable("message.meplacementtool.points_cleared"), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.points_cleared"));
             }
         });
     }

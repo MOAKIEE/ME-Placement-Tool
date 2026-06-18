@@ -1,25 +1,22 @@
 package com.moakiee.meplacementtool.client;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.Camera;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.util.ARGB;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.RenderHighlightEvent;
+import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 
 import com.moakiee.meplacementtool.ItemMultiblockPlacementTool;
 import com.moakiee.meplacementtool.ItemMultiblockPlacementTool.DirectionMode;
@@ -28,7 +25,11 @@ import com.moakiee.meplacementtool.MEPlacementToolMod;
 import java.util.*;
 
 /**
- * Renders preview of multiblock placement positions
+ * Renders an in-world preview (cyan wireframe boxes) of the positions the Multiblock Placement
+ * Tool will fill. Ported to NeoForge 26.1's block-outline extraction pipeline: instead of drawing
+ * directly in {@code RenderHighlightEvent.Block}, we register a {@code CustomBlockOutlineRenderer}
+ * during {@link ExtractBlockOutlineRenderStateEvent} and draw the boxes with
+ * {@code ShapeRenderer.renderShape}.
  */
 public class MultiblockPreviewRenderer {
     private BlockHitResult lastRayTraceResult;
@@ -38,15 +39,14 @@ public class MultiblockPreviewRenderer {
     private DirectionMode lastDirectionMode;
 
     @SubscribeEvent
-    public void renderBlockHighlight(RenderHighlightEvent.Block event) {
-        if (event.getTarget().getType() != HitResult.Type.BLOCK) return;
-
-        BlockHitResult rtr = event.getTarget();
-        Entity entity = event.getCamera().getEntity();
-        if (!(entity instanceof Player player)) return;
+    public void extractBlockOutline(ExtractBlockOutlineRenderStateEvent event) {
+        Player player = Minecraft.getInstance().player;
+        if (player == null) return;
 
         ItemStack wand = player.getMainHandItem();
         if (wand.isEmpty() || wand.getItem() != MEPlacementToolMod.MULTIBLOCK_PLACEMENT_TOOL.get()) return;
+
+        if (!(event.getHitResult() instanceof BlockHitResult rtr) || rtr.getType() != HitResult.Type.BLOCK) return;
 
         int placementCount = ItemMultiblockPlacementTool.getPlacementCount(wand);
         DirectionMode directionMode = ItemMultiblockPlacementTool.getDirectionMode(wand);
@@ -67,21 +67,21 @@ public class MultiblockPreviewRenderer {
 
         if (blocks == null || blocks.isEmpty()) return;
 
-        PoseStack ms = event.getPoseStack();
-        MultiBufferSource buffer = event.getMultiBufferSource();
-        VertexConsumer lineBuilder = buffer.getBuffer(RenderType.LINES);
+        final Set<BlockPos> toDraw = blocks;
+        final double camX = event.getCamera().position().x;
+        final double camY = event.getCamera().position().y;
+        final double camZ = event.getCamera().position().z;
 
-        Camera camera = event.getCamera();
-        double camX = camera.getPosition().x;
-        double camY = camera.getPosition().y;
-        double camZ = camera.getPosition().z;
-
-        for (BlockPos block : blocks) {
-            AABB aabb = new AABB(block).move(-camX, -camY, -camZ);
-            LevelRenderer.renderLineBox(ms, lineBuilder, aabb, 0.0F, 0.75F, 1.0F, 0.4F);
-        }
-
-        event.setCanceled(true);
+        event.addCustomRenderer((outlineState, bufferSource, poseStack, translucentPass, levelState) -> {
+            var buffer = bufferSource.getBuffer(RenderTypes.lines());
+            int color = ARGB.colorFromFloat(0.4f, 0.0f, 0.75f, 1.0f); // cyan, matches 1.21.1 original
+            for (BlockPos block : toDraw) {
+                ShapeRenderer.renderShape(poseStack, buffer, Shapes.block(),
+                        block.getX() - camX, block.getY() - camY, block.getZ() - camZ,
+                        color, 7);
+            }
+            return true; // suppress the vanilla single-block highlight
+        });
     }
 
     private Set<BlockPos> calculatePlacementPositions(Player player, BlockHitResult rtr, ItemStack wand, int placementCount, DirectionMode directionMode) {

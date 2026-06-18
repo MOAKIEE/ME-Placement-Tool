@@ -1,14 +1,17 @@
 package com.moakiee.meplacementtool.client;
 
+import com.moakiee.meplacementtool.MEPlacementToolMod;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
 
 /**
  * Key bindings for ME Placement Tool
  */
 public class ModKeyBindings {
-    public static final String CATEGORY = "key.meplacementtool.category";
+    public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
+            Identifier.fromNamespaceAndPath(MEPlacementToolMod.MODID, "placement_tool"));
 
     public static final KeyMapping OPEN_RADIAL_MENU = new KeyMapping(
             "key.meplacementtool.radial_menu",

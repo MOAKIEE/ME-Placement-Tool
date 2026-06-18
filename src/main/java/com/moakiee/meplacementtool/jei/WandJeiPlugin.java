@@ -5,7 +5,7 @@ import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import com.moakiee.meplacementtool.MEPlacementToolMod;
 import com.moakiee.meplacementtool.WandScreen;
@@ -19,11 +19,11 @@ import java.util.List;
  */
 @JeiPlugin
 public class WandJeiPlugin implements IModPlugin {
-    private static final ResourceLocation UID = 
-            ResourceLocation.fromNamespaceAndPath(MEPlacementToolMod.MODID, "jei_plugin");
+    private static final Identifier UID = 
+            Identifier.fromNamespaceAndPath(MEPlacementToolMod.MODID, "jei_plugin");
 
     @Override
-    public ResourceLocation getPluginUid() {
+    public Identifier getPluginUid() {
         return UID;
     }
 

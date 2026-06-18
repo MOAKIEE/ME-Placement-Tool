@@ -1,13 +1,17 @@
 package com.moakiee.meplacementtool;
 
 import appeng.api.inventories.InternalInventory;
-import appeng.client.gui.Icon;
 import appeng.menu.AEBaseMenu;
 import appeng.menu.SlotSemantics;
 import appeng.menu.guisync.GuiSync;
+import appeng.menu.guisync.ClientActionKey;
 import appeng.menu.slot.AppEngSlot;
+import appeng.util.Icon;
 import appeng.util.inv.AppEngInternalInventory;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -19,10 +23,25 @@ import appeng.api.util.AEColor;
  */
 public class CableToolMenu extends AEBaseMenu {
 
-    private static final String ACTION_SET_MODE = "setMode";
-    private static final String ACTION_SET_CABLE_TYPE = "setCableType";
-    private static final String ACTION_SET_COLOR = "setColor";
-    private static final String ACTION_SET_COLOR_SHORTCUT = "setColorShortcut";
+    private static final ClientActionKey<Integer> ACTION_SET_MODE = new ClientActionKey<>("setMode");
+    private static final ClientActionKey<Integer> ACTION_SET_CABLE_TYPE = new ClientActionKey<>("setCableType");
+    private static final ClientActionKey<Integer> ACTION_SET_COLOR = new ClientActionKey<>("setColor");
+    private static final ClientActionKey<int[]> ACTION_SET_COLOR_SHORTCUT = new ClientActionKey<>("setColorShortcut");
+    private static final StreamCodec<RegistryFriendlyByteBuf, int[]> INT_ARRAY_CODEC = StreamCodec.of(
+            (buf, value) -> {
+                ByteBufCodecs.VAR_INT.encode(buf, value.length);
+                for (int entry : value) {
+                    ByteBufCodecs.INT.encode(buf, entry);
+                }
+            },
+            buf -> {
+                int length = ByteBufCodecs.VAR_INT.decode(buf);
+                int[] value = new int[length];
+                for (int i = 0; i < length; i++) {
+                    value[i] = ByteBufCodecs.INT.decode(buf);
+                }
+                return value;
+            });
 
     // Sync fields
     @GuiSync(0)
@@ -51,7 +70,7 @@ public class CableToolMenu extends AEBaseMenu {
     private final Player player;
 
     public CableToolMenu(int id, Inventory playerInventory, FriendlyByteBuf buf) {
-        this(id, playerInventory, getToolStackFromSlot(playerInventory, buf.readInt()), playerInventory.selected);
+        this(id, playerInventory, getToolStackFromSlot(playerInventory, buf.readInt()), playerInventory.getSelectedSlot());
     }
 
     private static ItemStack getToolStackFromSlot(Inventory inv, int slot) {
@@ -62,7 +81,7 @@ public class CableToolMenu extends AEBaseMenu {
     }
 
     public CableToolMenu(int id, Inventory playerInventory, ItemStack toolStack) {
-        this(id, playerInventory, toolStack, playerInventory.selected);
+        this(id, playerInventory, toolStack, playerInventory.getSelectedSlot());
     }
 
     public CableToolMenu(int id, Inventory playerInventory, ItemStack toolStack, int slot) {
@@ -80,7 +99,7 @@ public class CableToolMenu extends AEBaseMenu {
             
             @Override
             public boolean isClientSide() {
-                return player.level().isClientSide;
+                return player.level().isClientSide();
             }
         }, 1, 1);
 
@@ -100,10 +119,10 @@ public class CableToolMenu extends AEBaseMenu {
         loadSettings();
 
         // Register client actions
-        registerClientAction(ACTION_SET_MODE, Integer.class, this::setMode);
-        registerClientAction(ACTION_SET_CABLE_TYPE, Integer.class, this::setCableType);
-        registerClientAction(ACTION_SET_COLOR, Integer.class, this::setColor);
-        registerClientAction(ACTION_SET_COLOR_SHORTCUT, int[].class, this::setColorShortcutFromClient);
+        registerClientAction(ACTION_SET_MODE, ByteBufCodecs.INT, this::setMode);
+        registerClientAction(ACTION_SET_CABLE_TYPE, ByteBufCodecs.INT, this::setCableType);
+        registerClientAction(ACTION_SET_COLOR, ByteBufCodecs.INT, this::setColor);
+        registerClientAction(ACTION_SET_COLOR_SHORTCUT, INT_ARRAY_CODEC, this::setColorShortcutFromClient);
     }
 
     private void loadUpgradeFromTool() {
@@ -256,7 +275,7 @@ public class CableToolMenu extends AEBaseMenu {
     public void removed(Player player) {
         super.removed(player);
 
-        if (!player.level().isClientSide) {
+        if (!player.level().isClientSide()) {
             ItemStack upgradeStack = this.upgradeInv.getStackInSlot(0);
             ItemMECablePlacementTool.setUpgrade(toolStack, !upgradeStack.isEmpty());
         }

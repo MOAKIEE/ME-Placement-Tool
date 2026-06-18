@@ -1,6 +1,6 @@
 package com.moakiee.meplacementtool;
 
-import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 
 import org.jetbrains.annotations.Nullable;
@@ -13,6 +13,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 
@@ -58,14 +59,15 @@ public abstract class BasePlacementToolItem extends AEBasePoweredItem {
     
     @Override
     @OnlyIn(Dist.CLIENT)
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag advancedTooltips) {
-        super.appendHoverText(stack, context, lines, advancedTooltips);
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay tooltipDisplay,
+            Consumer<Component> lines, TooltipFlag advancedTooltips) {
+        super.appendHoverText(stack, context, tooltipDisplay, lines, advancedTooltips);
         
         // Show linked/unlinked status like WirelessTerminalItem
         if (getLinkedPosition(stack) == null) {
-            lines.add(Tooltips.of(GuiText.Unlinked, Tooltips.RED));
+            lines.accept(Tooltips.of(GuiText.Unlinked, Tooltips.RED));
         } else {
-            lines.add(Tooltips.of(GuiText.Linked, Tooltips.GREEN));
+            lines.accept(Tooltips.of(GuiText.Linked, Tooltips.GREEN));
         }
     }
     
@@ -94,7 +96,7 @@ public abstract class BasePlacementToolItem extends AEBasePoweredItem {
         var pos = getLinkedPosition(item);
         if (pos == null) {
             if (sendMessagesTo != null) {
-                sendMessagesTo.displayClientMessage(PlayerMessages.DeviceNotLinked.text(), true);
+                sendMessagesTo.sendOverlayMessage(PlayerMessages.DeviceNotLinked.text());
             }
             return null;
         }
@@ -102,7 +104,7 @@ public abstract class BasePlacementToolItem extends AEBasePoweredItem {
         var linkedLevel = serverLevel.getServer().getLevel(pos.dimension());
         if (linkedLevel == null) {
             if (sendMessagesTo != null) {
-                sendMessagesTo.displayClientMessage(PlayerMessages.LinkedNetworkNotFound.text(), true);
+                sendMessagesTo.sendOverlayMessage(PlayerMessages.LinkedNetworkNotFound.text());
             }
             return null;
         }
@@ -110,7 +112,7 @@ public abstract class BasePlacementToolItem extends AEBasePoweredItem {
         var be = Platform.getTickingBlockEntity(linkedLevel, pos.pos());
         if (!(be instanceof IWirelessAccessPoint accessPoint)) {
             if (sendMessagesTo != null) {
-                sendMessagesTo.displayClientMessage(PlayerMessages.LinkedNetworkNotFound.text(), true);
+                sendMessagesTo.sendOverlayMessage(PlayerMessages.LinkedNetworkNotFound.text());
             }
             return null;
         }
@@ -118,7 +120,7 @@ public abstract class BasePlacementToolItem extends AEBasePoweredItem {
         var grid = accessPoint.getGrid();
         if (grid == null) {
             if (sendMessagesTo != null) {
-                sendMessagesTo.displayClientMessage(PlayerMessages.LinkedNetworkNotFound.text(), true);
+                sendMessagesTo.sendOverlayMessage(PlayerMessages.LinkedNetworkNotFound.text());
             }
         }
         return grid;

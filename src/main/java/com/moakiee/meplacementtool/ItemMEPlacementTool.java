@@ -10,7 +10,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -18,7 +18,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -93,8 +92,8 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
     @Override
     public InteractionResult useOn(UseOnContext context) {
         Level level = context.getLevel();
-        if (level.isClientSide) {
-            return InteractionResult.sidedSuccess(true);
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
 
         Player player = context.getPlayer();
@@ -107,7 +106,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
 
         // Check power
         if (!this.hasPower(player, ENERGY_COST, wand)) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.device_not_powered"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.device_not_powered"));
             return InteractionResult.FAIL;
         }
 
@@ -124,13 +123,13 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
         }
 
         // Selected slot index
-        int selected = cfg.getInt("SelectedSlot");
+        int selected = cfg.getIntOr("SelectedSlot", 0);
         if (selected < 0 || selected >= 18) selected = 0;
 
         // Get target item from config
-        ItemStack target = getItemFromConfig(cfg, selected);
+        ItemStack target = getItemFromConfig(cfg, selected, level.registryAccess());
         if (target == null || target.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.no_configured_item"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.no_configured_item"));
             return InteractionResult.FAIL;
         }
 
@@ -165,10 +164,10 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             var craftingService = grid.getCraftingService();
             if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
                 openCraftingMenu(serverPlayer, wand, craftKey);
-                return InteractionResult.sidedSuccess(false);
+                return InteractionResult.SUCCESS;
             }
-            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", 
-                    target.getHoverName()), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.network_missing", 
+                    target.getHoverName()));
             return InteractionResult.FAIL;
         }
 
@@ -178,10 +177,10 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             var craftingService = grid.getCraftingService();
             if (craftingService != null && craftingService.isCraftable(aeKey)) {
                 openCraftingMenu(serverPlayer, wand, aeKey);
-                return InteractionResult.sidedSuccess(false);
+                return InteractionResult.SUCCESS;
             }
-            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", 
-                    target.getHoverName()), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.network_missing", 
+                    target.getHoverName()));
             return InteractionResult.FAIL;
         }
 
@@ -189,9 +188,9 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
         if (MemoryCardHelper.hasConfiguredMemoryCard(player)) {
             var resourceCheck = MemoryCardHelper.checkResourcesForMultipleBlocks(player, grid, 1);
             if (!resourceCheck.sufficient) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_resources", 
-                        resourceCheck.getMissingItemsMessage()), false);
-                return InteractionResult.sidedSuccess(false);
+                player.sendSystemMessage(Component.translatable("message.meplacementtool.missing_resources", 
+                        resourceCheck.getMissingItemsMessage()));
+                return InteractionResult.SUCCESS;
             }
         }
 
@@ -245,7 +244,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
                         LOGGER.warn("Failed to revert block at {}", revertPos, t);
                     }
                 }
-                return InteractionResult.sidedSuccess(false);
+                return InteractionResult.SUCCESS;
             }
 
             // Consume power
@@ -270,23 +269,22 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
                 MekanismConfigCardHelper.applyConfigCardToBlock(player, level, soundPos, true);
             }
         } else {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.cannot_place"));
         }
 
-        return InteractionResult.sidedSuccess(false);
+        return InteractionResult.SUCCESS;
     }
 
-    private ItemStack getItemFromConfig(CompoundTag cfg, int slot) {
+    private ItemStack getItemFromConfig(CompoundTag cfg, int slot, net.minecraft.core.HolderLookup.Provider lookup) {
         if (cfg == null) return ItemStack.EMPTY;
         
-        CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompound("items") : cfg;
+        CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompoundOrEmpty("items") : cfg;
         if (itemsTag.contains("Items")) {
-            ListTag list = itemsTag.getList("Items", 10);
+            ListTag list = itemsTag.getListOrEmpty("Items");
             for (int i = 0; i < list.size(); i++) {
-                CompoundTag itemTag = list.getCompound(i);
-                if (itemTag.getInt("Slot") == slot) {
-                    return ItemStack.parseOptional(net.minecraft.core.HolderLookup.Provider.create(
-                            java.util.stream.Stream.empty()), itemTag);
+                CompoundTag itemTag = list.getCompoundOrEmpty(i);
+                if (itemTag.getIntOr("Slot", -1) == slot) {
+                    return NbtCompat.parseItemStack(lookup, itemTag);
                 }
             }
         }
@@ -295,10 +293,10 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
 
     private String getFluidFromConfig(CompoundTag cfg, int slot) {
         if (cfg == null || !cfg.contains("fluids")) return null;
-        var ftag = cfg.getCompound("fluids");
+        var ftag = cfg.getCompoundOrEmpty("fluids");
         String key = Integer.toString(slot);
         if (ftag.contains(key)) {
-            String fluidId = ftag.getString(key);
+            String fluidId = ftag.getStringOr(key, "");
             return fluidId.isEmpty() ? null : fluidId;
         }
         return null;
@@ -314,8 +312,8 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
         // Check network has enough fluid
         long simAvail = storage.extract(aeFluidKey, AEFluidKey.AMOUNT_BLOCK, Actionable.SIMULATE, src);
         if (simAvail < AEFluidKey.AMOUNT_BLOCK) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", 
-                    aeFluidKey.getDisplayName()), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.network_missing", 
+                    aeFluidKey.getDisplayName()));
             return InteractionResult.FAIL;
         }
 
@@ -325,30 +323,30 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             long extracted = storage.extract(aeFluidKey, AEFluidKey.AMOUNT_BLOCK, Actionable.MODULATE, src);
             if (extracted <= 0) {
                 try { level.setBlockAndUpdate(fluidPlacePos, prevState); } catch (Throwable ignored) {}
-                player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-                return InteractionResult.sidedSuccess(false);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.cannot_place"));
+                return InteractionResult.SUCCESS;
             }
             this.usePower(player, energyCost, wand);
             level.playSound(null, fluidPlacePos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
-            return InteractionResult.sidedSuccess(false);
+            return InteractionResult.SUCCESS;
         }
 
-        player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-        return InteractionResult.sidedSuccess(false);
+        player.sendOverlayMessage(Component.translatable("message.meplacementtool.cannot_place"));
+        return InteractionResult.SUCCESS;
     }
 
     private InteractionResult handleFluidIdPlacement(UseOnContext context, Player player, ItemStack wand,
             appeng.api.storage.MEStorage storage, PlayerSource src, String fluidId, double energyCost) {
         try {
-            var fid = ResourceLocation.tryParse(fluidId);
+            var fid = Identifier.tryParse(fluidId);
             if (fid == null) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.unsupported_target"));
                 return InteractionResult.FAIL;
             }
             
-            var fluid = BuiltInRegistries.FLUID.get(fid);
+            var fluid = BuiltInRegistries.FLUID.getOptional(fid).orElse(Fluids.EMPTY);
             if (fluid == null || fluid == Fluids.EMPTY) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.unsupported_target"));
                 return InteractionResult.FAIL;
             }
 
@@ -356,7 +354,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             return handleFluidPlacement(context, player, wand, storage, src, aeFluidKey, energyCost);
         } catch (Exception e) {
             LOGGER.warn("Error resolving fluid {}", fluidId, e);
-            player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.unsupported_target"));
             return InteractionResult.FAIL;
         }
     }
@@ -376,7 +374,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
 
         if (!canPlace) return false;
 
-        if (level.dimensionType().ultraWarm() && fluid.is(FluidTags.WATER)) {
+        if (level.dimension() == Level.NETHER && fluid.is(FluidTags.WATER)) {
             level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5F, 2.6F);
             return true;
         }
@@ -470,13 +468,13 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         
         // Only open GUI when not targeting a block
         var hr = player.pick(5.0D, 0.0F, false);
         if (hr != null && hr.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
-            return new InteractionResultHolder<>(InteractionResult.PASS, stack);
+            return InteractionResult.PASS;
         }
 
         if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
@@ -498,6 +496,6 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             });
         }
 
-        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), stack);
+        return InteractionResult.SUCCESS;
     }
 }

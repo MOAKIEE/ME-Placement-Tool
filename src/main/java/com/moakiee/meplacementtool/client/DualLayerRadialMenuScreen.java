@@ -1,23 +1,22 @@
 package com.moakiee.meplacementtool.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.ItemStackHandler;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import com.moakiee.meplacementtool.ItemMultiblockPlacementTool;
 import com.moakiee.meplacementtool.ItemMultiblockPlacementTool.DirectionMode;
 import com.moakiee.meplacementtool.MEPlacementToolMod;
 import com.moakiee.meplacementtool.ModDataComponents;
+import com.moakiee.meplacementtool.NbtCompat;
 import com.moakiee.meplacementtool.network.UpdateDirectionModePayload;
 import com.moakiee.meplacementtool.network.UpdatePlacementCountPayload;
 import com.moakiee.meplacementtool.network.UpdateWandConfigPayload;
@@ -63,7 +62,6 @@ public class DualLayerRadialMenuScreen extends Screen {
 
     public DualLayerRadialMenuScreen() {
         super(Component.literal(""));
-        this.minecraft = Minecraft.getInstance();
         // Look up the wand from main hand first, off hand second, so the radial menu works in either hand.
         this.wandStack = com.moakiee.meplacementtool.BasePlacementToolItem
                 .findHeldTool(minecraft.player, ItemMultiblockPlacementTool.class);
@@ -78,16 +76,16 @@ public class DualLayerRadialMenuScreen extends Screen {
 
         if (cfg != null) {
             if (cfg.contains("SelectedSlot")) {
-                currentSelectedSlot = cfg.getInt("SelectedSlot");
+                currentSelectedSlot = cfg.getIntOr("SelectedSlot", -1);
             }
 
             // Load placement count - use "PlacementCount" key to match ItemMultiblockPlacementTool
             if (cfg.contains("PlacementCount")) {
-                currentPlacementCount = cfg.getInt("PlacementCount");
+                currentPlacementCount = cfg.getIntOr("PlacementCount", 1);
             }
 
             if (cfg.contains("DirectionMode")) {
-                currentDirection = DirectionMode.fromId(cfg.getInt("DirectionMode"));
+                currentDirection = DirectionMode.fromId(cfg.getIntOr("DirectionMode", 0));
             }
         }
     }
@@ -106,23 +104,25 @@ public class DualLayerRadialMenuScreen extends Screen {
 
         ItemStackHandler handler = new ItemStackHandler(18);
         if (cfg.contains("items")) {
-             handler.deserializeNBT(minecraft.level.registryAccess(), cfg.getCompound("items"));
+             handler = NbtCompat.readItemStackHandler(minecraft.level.registryAccess(), cfg.getCompoundOrEmpty("items"), 18);
         }
 
-        CompoundTag fluids = cfg.contains("fluids") ? cfg.getCompound("fluids") : new CompoundTag();
+        CompoundTag fluids = cfg.contains("fluids") ? cfg.getCompoundOrEmpty("fluids") : new CompoundTag();
 
         int slotCount = handler.getSlots();
         for (int i = 0; i < slotCount; i++) {
             ItemStack stack = handler.getStackInSlot(i);
-            String fluidId = fluids.getString(Integer.toString(i));
+            String fluidId = fluids.getStringOr(Integer.toString(i), "");
 
             if (!stack.isEmpty()) {
                 slots.add(new SlotData(i, stack, stack.getHoverName().getString()));
             } else if (fluidId != null && !fluidId.isEmpty()) {
-                var rl = net.minecraft.resources.ResourceLocation.tryParse(fluidId);
+                var rl = net.minecraft.resources.Identifier.tryParse(fluidId);
                 if (rl != null) {
-                    var fluid = net.minecraft.core.registries.BuiltInRegistries.FLUID.get(rl);
-                    if (fluid != null && fluid != net.minecraft.world.level.material.Fluids.EMPTY) {
+                    var fluid = net.minecraft.core.registries.BuiltInRegistries.FLUID
+                            .getOptional(rl)
+                            .orElse(net.minecraft.world.level.material.Fluids.EMPTY);
+                    if (fluid != net.minecraft.world.level.material.Fluids.EMPTY) {
                         var aeFluidKey = appeng.api.stacks.AEFluidKey.of(fluid);
                         var genericStack = new appeng.api.stacks.GenericStack(
                                 aeFluidKey, appeng.api.stacks.AEFluidKey.AMOUNT_BLOCK);
@@ -145,11 +145,11 @@ public class DualLayerRadialMenuScreen extends Screen {
         boolean keyIsDown = ModKeyBindings.OPEN_RADIAL_MENU.isDown();
         if (!keyIsDown) {
             var key = ModKeyBindings.OPEN_RADIAL_MENU.getKey();
-            long windowHandle = Minecraft.getInstance().getWindow().getWindow();
+            var window = Minecraft.getInstance().getWindow();
             if (key.getType() == InputConstants.Type.KEYSYM) {
-                keyIsDown = InputConstants.isKeyDown(windowHandle, key.getValue());
+                keyIsDown = InputConstants.isKeyDown(window, key.getValue());
             } else if (key.getType() == InputConstants.Type.MOUSE) {
-                 keyIsDown = org.lwjgl.glfw.GLFW.glfwGetMouseButton(windowHandle, key.getValue()) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+                 keyIsDown = org.lwjgl.glfw.GLFW.glfwGetMouseButton(window.handle(), key.getValue()) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
             }
         }
 
@@ -169,7 +169,7 @@ public class DualLayerRadialMenuScreen extends Screen {
         cfg.putInt("SelectedSlot", slotIndex);
         wandStack.set(ModDataComponents.PLACEMENT_CONFIG.get(), cfg);
 
-        PacketDistributor.sendToServer(new UpdateWandConfigPayload(cfg));
+        ClientPacketDistributor.sendToServer(new UpdateWandConfigPayload(cfg));
 
         String name = "Empty";
         for (SlotData slot : slots) {
@@ -192,7 +192,7 @@ public class DualLayerRadialMenuScreen extends Screen {
         cfg.putInt("PlacementCount", count);
         wandStack.set(ModDataComponents.PLACEMENT_CONFIG.get(), cfg);
 
-        PacketDistributor.sendToServer(new UpdatePlacementCountPayload(count));
+        ClientPacketDistributor.sendToServer(new UpdatePlacementCountPayload(count));
         MEPlacementToolMod.ClientForgeEvents.showCountOverlay(
                 Component.translatable("meplacementtool.hud.placement_count", count).getString());
     }
@@ -208,7 +208,7 @@ public class DualLayerRadialMenuScreen extends Screen {
         cfg.putInt("DirectionMode", mode.ordinal());
         wandStack.set(ModDataComponents.PLACEMENT_CONFIG.get(), cfg);
 
-        PacketDistributor.sendToServer(new UpdateDirectionModePayload(mode.ordinal()));
+        ClientPacketDistributor.sendToServer(new UpdateDirectionModePayload(mode.ordinal()));
 
         String name = Component.translatable(mode.translationKey()).getString();
         MEPlacementToolMod.ClientForgeEvents.showCountOverlay(
@@ -216,13 +216,14 @@ public class DualLayerRadialMenuScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTicks);
+
         if (slots.isEmpty()) {
-            graphics.drawCenteredString(font, Component.translatable("message.meplacementtool.no_configured_item"), width / 2, height / 2, 0xFFFFFF);
+            graphics.centeredText(font, Component.translatable("message.meplacementtool.no_configured_item"), width / 2, height / 2, 0xFFFFFF);
             return;
         }
 
-        PoseStack ms = graphics.pose();
         float openAnimation = closing ? 1.0f - totalTime / OPEN_ANIMATION_LENGTH : totalTime / OPEN_ANIMATION_LENGTH;
         float currTick = partialTicks;
         totalTime += (currTick + extraTick - prevTick) / 20f;
@@ -236,7 +237,6 @@ public class DualLayerRadialMenuScreen extends Screen {
         int numberOfCountSlices = COUNT_OPTIONS.length;
         int numberOfItemSlices = Math.max(1, slots.size());
 
-        // Three-ring layout (radii scaled by animation progress)
         float dirRadiusMin = Math.max(0.1f, 12 * animProgress);
         float dirRadiusMax = Math.max(0.1f, 32 * animProgress);
         float countRadiusMin = dirRadiusMax + 5 * animProgress;
@@ -264,18 +264,6 @@ public class DualLayerRadialMenuScreen extends Screen {
         if (countMouseAngle < countSlot0) countMouseAngle += 360;
         if (itemMouseAngle < itemSlot0) itemMouseAngle += 360;
 
-        ms.pushPose();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-        RenderSystem.disableCull();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-
-        Tesselator tessellator = Tesselator.getInstance();
-        BufferBuilder buffer = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-
-        // Determine selection layer and selected item
         if (!closing) {
             selectionLayer = -1;
             selectedDirection = -1;
@@ -284,208 +272,75 @@ public class DualLayerRadialMenuScreen extends Screen {
 
             if (mouseDistance >= dirRadiusMin && mouseDistance < dirRadiusMax) {
                 selectionLayer = 0;
-                for (int i = 0; i < numberOfDirectionSlices; i++) {
-                    float sliceBorderLeft = (((i - 0.5f) / (float) numberOfDirectionSlices) + 0.25f) * 360;
-                    float sliceBorderRight = (((i + 0.5f) / (float) numberOfDirectionSlices) + 0.25f) * 360;
-                    if (dirMouseAngle >= sliceBorderLeft && dirMouseAngle < sliceBorderRight) {
-                        selectedDirection = i;
-                        break;
-                    }
-                }
+                selectedDirection = findSlice(dirMouseAngle, numberOfDirectionSlices);
             } else if (mouseDistance >= countRadiusMin && mouseDistance < countRadiusMax) {
                 selectionLayer = 1;
-                for (int i = 0; i < numberOfCountSlices; i++) {
-                    float sliceBorderLeft = (((i - 0.5f) / (float) numberOfCountSlices) + 0.25f) * 360;
-                    float sliceBorderRight = (((i + 0.5f) / (float) numberOfCountSlices) + 0.25f) * 360;
-                    if (countMouseAngle >= sliceBorderLeft && countMouseAngle < sliceBorderRight) {
-                        selectedCount = i;
-                        break;
-                    }
-                }
-            } else if (mouseDistance >= outerRadiusMin && mouseDistance < outerRadiusMax && !slots.isEmpty()) {
+                selectedCount = findSlice(countMouseAngle, numberOfCountSlices);
+            } else if (mouseDistance >= outerRadiusMin && mouseDistance < outerRadiusMax) {
                 selectionLayer = 2;
-                for (int i = 0; i < numberOfItemSlices; i++) {
-                    float sliceBorderLeft = (((i - 0.5f) / (float) numberOfItemSlices) + 0.25f) * 360;
-                    float sliceBorderRight = (((i + 0.5f) / (float) numberOfItemSlices) + 0.25f) * 360;
-                    if (itemMouseAngle >= sliceBorderLeft && itemMouseAngle < sliceBorderRight) {
-                        selectedItem = i;
-                        break;
-                    }
-                }
+                selectedItem = findSlice(itemMouseAngle, numberOfItemSlices);
             }
         }
 
-        // Draw gray background rings
-        drawSlice(buffer, centerX, centerY, 9, dirRadiusMin, dirRadiusMax, 0, 360, 80, 80, 80, 120);
-        drawSlice(buffer, centerX, centerY, 9, countRadiusMin, countRadiusMax, 0, 360, 80, 80, 80, 120);
-        if (!slots.isEmpty()) {
-            drawSlice(buffer, centerX, centerY, 9, outerRadiusMin, outerRadiusMax, 0, 360, 80, 80, 80, 120);
-        }
+        int hoveredDirection = selectedDirection >= 0 ? adjustIndex(selectedDirection, numberOfDirectionSlices) : -1;
+        int hoveredCount = selectedCount >= 0 ? adjustIndex(selectedCount, numberOfCountSlices) : -1;
+        int hoveredItem = selectedItem >= 0 ? adjustIndex(selectedItem, numberOfItemSlices) : -1;
 
-        // Draw direction ring highlights
-        for (int i = 0; i < numberOfDirectionSlices; i++) {
-            float sliceBorderLeft = (((i - 0.5f) / (float) numberOfDirectionSlices) + 0.25f) * 360;
-            float sliceBorderRight = (((i + 0.5f) / (float) numberOfDirectionSlices) + 0.25f) * 360;
-
-            int adjusted = adjustIndex(i, numberOfDirectionSlices);
-            boolean isCurrentlySelected = adjusted >= 0 && adjusted < DIRECTION_OPTIONS.length
-                    && DIRECTION_OPTIONS[adjusted] == currentDirection;
-
-            if (selectionLayer == 0 && selectedDirection == i) {
-                drawSlice(buffer, centerX, centerY, 10, dirRadiusMin, dirRadiusMax, sliceBorderLeft, sliceBorderRight, 191, 113, 63, 150);
-            } else if (isCurrentlySelected) {
-                drawSlice(buffer, centerX, centerY, 10, dirRadiusMin, dirRadiusMax, sliceBorderLeft, sliceBorderRight, 80, 180, 80, 130);
-            }
-        }
-
-        // Draw count ring highlights
-        for (int i = 0; i < numberOfCountSlices; i++) {
-            float sliceBorderLeft = (((i - 0.5f) / (float) numberOfCountSlices) + 0.25f) * 360;
-            float sliceBorderRight = (((i + 0.5f) / (float) numberOfCountSlices) + 0.25f) * 360;
-
-            int adjusted = adjustIndex(i, numberOfCountSlices);
-            boolean isCurrentlySelected = adjusted >= 0 && adjusted < COUNT_OPTIONS.length && COUNT_OPTIONS[adjusted] == currentPlacementCount;
-
-            if (selectionLayer == 1 && selectedCount == i) {
-                drawSlice(buffer, centerX, centerY, 10, countRadiusMin, countRadiusMax, sliceBorderLeft, sliceBorderRight, 191, 161, 63, 150);
-            } else if (isCurrentlySelected) {
-                drawSlice(buffer, centerX, centerY, 10, countRadiusMin, countRadiusMax, sliceBorderLeft, sliceBorderRight, 80, 180, 80, 130);
-            }
-        }
-
-        // Draw outer ring highlights
-        if (!slots.isEmpty()) {
-            for (int i = 0; i < numberOfItemSlices; i++) {
-                float sliceBorderLeft = (((i - 0.5f) / (float) numberOfItemSlices) + 0.25f) * 360;
-                float sliceBorderRight = (((i + 0.5f) / (float) numberOfItemSlices) + 0.25f) * 360;
-
-                int adjusted = adjustIndex(i, numberOfItemSlices);
-                boolean isCurrentlySelected = adjusted < slots.size() && slots.get(adjusted).index == currentSelectedSlot;
-
-                if (selectionLayer == 2 && selectedItem == i) {
-                    drawSlice(buffer, centerX, centerY, 10, outerRadiusMin, outerRadiusMax, sliceBorderLeft, sliceBorderRight, 63, 161, 191, 150);
-                } else if (isCurrentlySelected) {
-                    drawSlice(buffer, centerX, centerY, 10, outerRadiusMin, outerRadiusMax, sliceBorderLeft, sliceBorderRight, 80, 180, 80, 130);
-                }
-            }
-        }
-
-        // End QUADS
-        BufferUploader.drawWithShader(buffer.buildOrThrow());
-
-        // Draw divider lines (DEBUG_LINES)
-        buffer = tessellator.begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
-
-        for (int i = 0; i < numberOfDirectionSlices; i++) {
-            float angle = (float) Math.toRadians((((i - 0.5f) / (float) numberOfDirectionSlices) + 0.25f) * 360);
-            float x1 = centerX + dirRadiusMin * (float) Math.cos(angle);
-            float y1 = centerY + dirRadiusMin * (float) Math.sin(angle);
-            float x2 = centerX + dirRadiusMax * (float) Math.cos(angle);
-            float y2 = centerY + dirRadiusMax * (float) Math.sin(angle);
-            buffer.addVertex(x1, y1, 11).setColor(200, 200, 200, 100);
-            buffer.addVertex(x2, y2, 11).setColor(200, 200, 200, 100);
-        }
-
-        for (int i = 0; i < numberOfCountSlices; i++) {
-            float angle = (float) Math.toRadians((((i - 0.5f) / (float) numberOfCountSlices) + 0.25f) * 360);
-            float x1 = centerX + countRadiusMin * (float) Math.cos(angle);
-            float y1 = centerY + countRadiusMin * (float) Math.sin(angle);
-            float x2 = centerX + countRadiusMax * (float) Math.cos(angle);
-            float y2 = centerY + countRadiusMax * (float) Math.sin(angle);
-            buffer.addVertex(x1, y1, 11).setColor(200, 200, 200, 100);
-            buffer.addVertex(x2, y2, 11).setColor(200, 200, 200, 100);
-        }
-
-        if (!slots.isEmpty()) {
-            for (int i = 0; i < numberOfItemSlices; i++) {
-                float angle = (float) Math.toRadians((((i - 0.5f) / (float) numberOfItemSlices) + 0.25f) * 360);
-                float x1 = centerX + outerRadiusMin * (float) Math.cos(angle);
-                float y1 = centerY + outerRadiusMin * (float) Math.sin(angle);
-                float x2 = centerX + outerRadiusMax * (float) Math.cos(angle);
-                float y2 = centerY + outerRadiusMax * (float) Math.sin(angle);
-                buffer.addVertex(x1, y1, 11).setColor(200, 200, 200, 100);
-                buffer.addVertex(x2, y2, 11).setColor(200, 200, 200, 100);
-            }
-        }
-        BufferUploader.drawWithShader(buffer.buildOrThrow());
-
-        RenderSystem.enableDepthTest();
-        RenderSystem.enableCull();
-        RenderSystem.disableBlend();
-
-        // Draw hover text, placed just above the full menu so it does not occlude the direction labels.
         int hoverY = (int) (centerY - outerRadiusMax - font.lineHeight - 4);
-        if (selectionLayer == 0 && selectedDirection >= 0) {
-            int adjusted = adjustIndex(selectedDirection, numberOfDirectionSlices);
-            if (adjusted >= 0 && adjusted < DIRECTION_OPTIONS.length) {
-                String text = Component.translatable(DIRECTION_OPTIONS[adjusted].translationKey()).getString();
-                graphics.drawCenteredString(font, text, centerX, hoverY, 0xFFCC88);
-            }
-        } else if (selectionLayer == 1 && selectedCount >= 0) {
-            int adjusted = adjustIndex(selectedCount, numberOfCountSlices);
-            if (adjusted >= 0 && adjusted < COUNT_OPTIONS.length) {
-                String countText = String.valueOf(COUNT_OPTIONS[adjusted]);
-                graphics.drawCenteredString(font, countText, centerX, hoverY, 0xFFFF00);
-            }
-        } else if (selectionLayer == 2 && selectedItem >= 0) {
-            int adjusted = adjustIndex(selectedItem, numberOfItemSlices);
-            if (adjusted >= 0 && adjusted < slots.size()) {
-                graphics.drawCenteredString(font, slots.get(adjusted).name, centerX, hoverY, 0xFFFFFF);
-            }
+        if (selectionLayer == 0 && hoveredDirection >= 0 && hoveredDirection < DIRECTION_OPTIONS.length) {
+            String text = Component.translatable(DIRECTION_OPTIONS[hoveredDirection].translationKey()).getString();
+            graphics.centeredText(font, text, centerX, hoverY, 0xFFCC88);
+        } else if (selectionLayer == 1 && hoveredCount >= 0 && hoveredCount < COUNT_OPTIONS.length) {
+            graphics.centeredText(font, String.valueOf(COUNT_OPTIONS[hoveredCount]), centerX, hoverY, 0xFFFF00);
+        } else if (selectionLayer == 2 && hoveredItem >= 0 && hoveredItem < slots.size()) {
+            graphics.centeredText(font, slots.get(hoveredItem).name, centerX, hoverY, 0xFFFFFF);
         }
 
-        ms.popPose();
-
-        // Draw direction short labels
         for (int i = 0; i < numberOfDirectionSlices; i++) {
             float angle = ((i / (float) numberOfDirectionSlices) - 0.25f) * 2 * (float) Math.PI;
             if (numberOfDirectionSlices % 2 != 0) {
                 angle += Math.PI / numberOfDirectionSlices;
             }
-            float posX = centerX + dirItemRadius * (float) Math.cos(angle);
-            float posY = centerY + dirItemRadius * (float) Math.sin(angle);
+            int posX = (int) (centerX + dirItemRadius * (float) Math.cos(angle));
+            int posY = (int) (centerY + dirItemRadius * (float) Math.sin(angle));
             String label = Component.translatable(DIRECTION_OPTIONS[i].translationKey() + ".short").getString();
-            graphics.drawCenteredString(font, label, (int) posX, (int) posY - font.lineHeight / 2, 0xFFFFFF);
+            drawTextOption(graphics, label, posX, posY, selectionLayer == 0 && hoveredDirection == i,
+                    DIRECTION_OPTIONS[i] == currentDirection, 0xFFCC88);
         }
 
-        // Draw count numbers
         for (int i = 0; i < numberOfCountSlices; i++) {
             float angle = ((i / (float) numberOfCountSlices) - 0.25f) * 2 * (float) Math.PI;
             if (numberOfCountSlices % 2 != 0) {
                 angle += Math.PI / numberOfCountSlices;
             }
-            float posX = centerX + countItemRadius * (float) Math.cos(angle);
-            float posY = centerY + countItemRadius * (float) Math.sin(angle);
-            String countText = String.valueOf(COUNT_OPTIONS[i]);
-            graphics.drawCenteredString(font, countText, (int) posX, (int) posY - font.lineHeight / 2, 0xFFFFFF);
+            int posX = (int) (centerX + countItemRadius * (float) Math.cos(angle));
+            int posY = (int) (centerY + countItemRadius * (float) Math.sin(angle));
+            drawTextOption(graphics, String.valueOf(COUNT_OPTIONS[i]), posX, posY,
+                    selectionLayer == 1 && hoveredCount == i, COUNT_OPTIONS[i] == currentPlacementCount, 0xFFFF00);
         }
 
-        // Draw item icons
-        if (!slots.isEmpty()) {
-            for (int i = 0; i < numberOfItemSlices; i++) {
-                float angle = ((i / (float) numberOfItemSlices) - 0.25f) * 2 * (float) Math.PI;
-                if (numberOfItemSlices % 2 != 0) {
-                    angle += Math.PI / numberOfItemSlices;
-                }
-                float posX = centerX - 8 + outerItemRadius * (float) Math.cos(angle);
-                float posY = centerY - 8 + outerItemRadius * (float) Math.sin(angle);
-                RenderSystem.disableDepthTest();
+        for (int i = 0; i < numberOfItemSlices; i++) {
+            float angle = ((i / (float) numberOfItemSlices) - 0.25f) * 2 * (float) Math.PI;
+            if (numberOfItemSlices % 2 != 0) {
+                angle += Math.PI / numberOfItemSlices;
+            }
+            int posX = (int) (centerX - 8 + outerItemRadius * (float) Math.cos(angle));
+            int posY = (int) (centerY - 8 + outerItemRadius * (float) Math.sin(angle));
 
-                SlotData slot = slots.get(i);
-                if (!slot.displayStack.isEmpty()) {
-                    graphics.renderItem(slot.displayStack, (int) posX, (int) posY);
-                }
+            SlotData slot = slots.get(i);
+            boolean isHovered = selectionLayer == 2 && hoveredItem == i;
+            boolean isCurrent = slot.index == currentSelectedSlot;
+            int bgColor = isHovered ? 0xAA3FA1BF : isCurrent ? 0xAA50B450 : 0x66505050;
+            graphics.fill(posX - 4, posY - 4, posX + 20, posY + 20, bgColor);
+            graphics.outline(posX - 4, posY - 4, 24, 24, isHovered || isCurrent ? 0xFFFFFFFF : 0xAA999999);
+            if (!slot.displayStack.isEmpty()) {
+                graphics.item(slot.displayStack, posX, posY);
             }
         }
 
-        // Convert slice indices to option indices for mouse click handling
-        if (selectionLayer == 0 && selectedDirection >= 0) {
-            selectedDirection = adjustIndex(selectedDirection, numberOfDirectionSlices);
-        } else if (selectionLayer == 1 && selectedCount >= 0) {
-            selectedCount = adjustIndex(selectedCount, numberOfCountSlices);
-        } else if (selectionLayer == 2 && selectedItem >= 0) {
-            selectedItem = adjustIndex(selectedItem, numberOfItemSlices);
-        }
+        selectedDirection = hoveredDirection;
+        selectedCount = hoveredCount;
+        selectedItem = hoveredItem;
     }
 
     /**
@@ -500,8 +355,8 @@ public class DualLayerRadialMenuScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (event.button() == 0) {
             if (selectionLayer == 0 && selectedDirection >= 0 && selectedDirection < DIRECTION_OPTIONS.length) {
                 selectDirection(DIRECTION_OPTIONS[selectedDirection]);
             } else if (selectionLayer == 1 && selectedCount >= 0 && selectedCount < COUNT_OPTIONS.length) {
@@ -511,32 +366,29 @@ public class DualLayerRadialMenuScreen extends Screen {
             }
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
-    private void drawSlice(BufferBuilder buffer, float x, float y, float z, float radiusIn, float radiusOut,
-                           float startAngle, float endAngle, int r, int g, int b, int a) {
-        float angle = endAngle - startAngle;
-        int sections = Math.max(1, Mth.ceil(angle / PRECISION));
-
-        for (int i = 0; i < sections; i++) {
-            float angle1 = (float) Math.toRadians(startAngle + (i / (float) sections) * angle);
-            float angle2 = (float) Math.toRadians(startAngle + ((i + 1) / (float) sections) * angle);
-
-            float x1In = x + radiusIn * (float) Math.cos(angle1);
-            float y1In = y + radiusIn * (float) Math.sin(angle1);
-            float x1Out = x + radiusOut * (float) Math.cos(angle1);
-            float y1Out = y + radiusOut * (float) Math.sin(angle1);
-            float x2In = x + radiusIn * (float) Math.cos(angle2);
-            float y2In = y + radiusIn * (float) Math.sin(angle2);
-            float x2Out = x + radiusOut * (float) Math.cos(angle2);
-            float y2Out = y + radiusOut * (float) Math.sin(angle2);
-
-            buffer.addVertex(x1In, y1In, z).setColor(r, g, b, a);
-            buffer.addVertex(x1Out, y1Out, z).setColor(r, g, b, a);
-            buffer.addVertex(x2Out, y2Out, z).setColor(r, g, b, a);
-            buffer.addVertex(x2In, y2In, z).setColor(r, g, b, a);
+    private static int findSlice(double mouseAngle, int totalSlices) {
+        for (int i = 0; i < totalSlices; i++) {
+            float sliceBorderLeft = (((i - 0.5f) / (float) totalSlices) + 0.25f) * 360;
+            float sliceBorderRight = (((i + 0.5f) / (float) totalSlices) + 0.25f) * 360;
+            if (mouseAngle >= sliceBorderLeft && mouseAngle < sliceBorderRight) {
+                return i;
+            }
         }
+        return -1;
+    }
+
+    private void drawTextOption(GuiGraphicsExtractor graphics, String text, int centerX, int centerY,
+            boolean hovered, boolean current, int accentColor) {
+        int halfWidth = Math.max(14, font.width(text) / 2 + 5);
+        int top = centerY - font.lineHeight / 2 - 3;
+        int bottom = centerY + font.lineHeight / 2 + 4;
+        int fill = hovered ? 0xAA3FA1BF : current ? 0xAA50B450 : 0x66505050;
+        graphics.fill(centerX - halfWidth, top, centerX + halfWidth, bottom, fill);
+        graphics.outline(centerX - halfWidth, top, halfWidth * 2, bottom - top, hovered || current ? accentColor : 0xAA999999);
+        graphics.centeredText(font, text, centerX, centerY - font.lineHeight / 2, 0xFFFFFF);
     }
 
     @Override

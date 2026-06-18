@@ -20,7 +20,7 @@ import appeng.api.storage.MEStorage;
 /**
  * Configuration for ME Placement Tool
  */
-@EventBusSubscriber(modid = MEPlacementToolMod.MODID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = MEPlacementToolMod.MODID)
 public class Config {
     private static final Logger LOGGER = LogUtils.getLogger();
 

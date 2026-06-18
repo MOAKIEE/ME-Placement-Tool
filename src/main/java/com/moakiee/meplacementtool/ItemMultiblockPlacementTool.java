@@ -10,14 +10,13 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -112,7 +111,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
     public static int getPlacementCount(ItemStack stack) {
         CompoundTag cfg = stack.get(ModDataComponents.PLACEMENT_CONFIG.get());
         if (cfg != null && cfg.contains("PlacementCount")) {
-            int count = cfg.getInt("PlacementCount");
+            int count = cfg.getIntOr("PlacementCount", 0);
             for (int pc : PLACEMENT_COUNTS) {
                 if (pc == count) return count;
             }
@@ -136,7 +135,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
     public static DirectionMode getDirectionMode(ItemStack stack) {
         CompoundTag cfg = stack.get(ModDataComponents.PLACEMENT_CONFIG.get());
         if (cfg != null && cfg.contains("DirectionMode")) {
-            return DirectionMode.fromId(cfg.getInt("DirectionMode"));
+            return DirectionMode.fromId(cfg.getIntOr("DirectionMode", 0));
         }
         return DirectionMode.AUTO;
     }
@@ -152,8 +151,8 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
     @Override
     public InteractionResult useOn(UseOnContext context) {
         Level level = context.getLevel();
-        if (level.isClientSide) {
-            return InteractionResult.sidedSuccess(true);
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
 
         Player player = context.getPlayer();
@@ -166,7 +165,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         final double ENERGY_COST = Config.multiblockPlacementToolBaseEnergyCost * placementCount;
 
         if (!this.hasPower(player, ENERGY_COST, wand)) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.device_not_powered"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.device_not_powered"));
             return InteractionResult.FAIL;
         }
 
@@ -181,16 +180,16 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             cfg = new CompoundTag();
         }
 
-        int selected = cfg.getInt("SelectedSlot");
+        int selected = cfg.getIntOr("SelectedSlot", 0);
         if (selected < 0 || selected >= 18) selected = 0;
 
-        ItemStack target = getItemFromConfig(cfg, selected);
+        ItemStack target = getItemFromConfig(cfg, selected, level.registryAccess());
         if (target == null || target.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.no_configured_item"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.no_configured_item"));
             return InteractionResult.FAIL;
         }
 
-        DirectionMode directionMode = DirectionMode.fromId(cfg.getInt("DirectionMode"));
+        DirectionMode directionMode = DirectionMode.fromId(cfg.getIntOr("DirectionMode", 0));
 
         var storage = grid.getStorageService().getInventory();
         var src = new PlayerSource(player);
@@ -219,10 +218,10 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
                 // Request crafting for the full amount needed
                 openCraftingMenu(serverPlayer, wand, craftKey, placementCount);
-                return InteractionResult.sidedSuccess(false);
+                return InteractionResult.SUCCESS;
             }
-            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", 
-                    target.getHoverName()), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.network_missing", 
+                    target.getHoverName()));
             return InteractionResult.FAIL;
         }
 
@@ -230,7 +229,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         long totalAvailable = matchingKeys.stream().mapToLong(Map.Entry::getValue).sum();
 
         if (!(target.getItem() instanceof BlockItem blockItem)) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.unsupported_target"));
             return InteractionResult.FAIL;
         }
 
@@ -242,8 +241,8 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         List<BlockPos> placePositions = calculatePlacementPositions(player, level, clickedPos, clickedFace, clickedState, placementCount, directionMode);
 
         if (placePositions.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-            return InteractionResult.sidedSuccess(false);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.cannot_place"));
+            return InteractionResult.SUCCESS;
         }
 
         // Check if we have enough across all matching keys
@@ -255,10 +254,10 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 // Request crafting for the missing amount
                 int missingAmount = (int) (placePositions.size() - totalAvailable);
                 openCraftingMenu(serverPlayer, wand, craftKey, missingAmount);
-                return InteractionResult.sidedSuccess(false);
+                return InteractionResult.SUCCESS;
             }
-            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", 
-                    target.getHoverName()), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.network_missing", 
+                    target.getHoverName()));
             return InteractionResult.FAIL;
         }
 
@@ -266,9 +265,9 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         if (MemoryCardHelper.hasConfiguredMemoryCard(player)) {
             var resourceCheck = MemoryCardHelper.checkResourcesForMultipleBlocks(player, grid, placePositions.size());
             if (!resourceCheck.sufficient) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_resources", 
-                        resourceCheck.getMissingItemsMessage()), false);
-                return InteractionResult.sidedSuccess(false);
+                player.sendSystemMessage(Component.translatable("message.meplacementtool.missing_resources", 
+                        resourceCheck.getMissingItemsMessage()));
+                return InteractionResult.SUCCESS;
             }
         }
 
@@ -335,8 +334,8 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         }
 
         if (placedCount == 0) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-            return InteractionResult.sidedSuccess(false);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.cannot_place"));
+            return InteractionResult.SUCCESS;
         }
 
         // Extract from each key we used
@@ -347,8 +346,8 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         }
         
         if (totalExtracted <= 0) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-            return InteractionResult.sidedSuccess(false);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.cannot_place"));
+            return InteractionResult.SUCCESS;
         }
 
         // Restore off-hand for config card application
@@ -394,7 +393,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
         }
 
-        return InteractionResult.sidedSuccess(false);
+        return InteractionResult.SUCCESS;
     }
 
     private List<BlockPos> calculatePlacementPositions(Player player, Level level, BlockPos clickedPos,
@@ -505,7 +504,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         var fluid = aeFluidKey.getFluid();
 
         if (!(fluid instanceof FlowingFluid)) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.unsupported_target"));
             return InteractionResult.FAIL;
         }
 
@@ -519,15 +518,15 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 clickedState, fluid, legacyBlock, placementCount, directionMode);
 
         if (placePositions.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-            return InteractionResult.sidedSuccess(false);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.cannot_place"));
+            return InteractionResult.SUCCESS;
         }
 
         long totalFluidNeeded = (long) placePositions.size() * AEFluidKey.AMOUNT_BLOCK;
         long simAvail = storage.extract(aeFluidKey, totalFluidNeeded, Actionable.SIMULATE, src);
         if (simAvail < totalFluidNeeded) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing", 
-                    aeFluidKey.getDisplayName()), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.network_missing", 
+                    aeFluidKey.getDisplayName()));
             return InteractionResult.FAIL;
         }
 
@@ -538,7 +537,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 boolean isLiquidContainer = stateAtPos.getBlock() instanceof LiquidBlockContainer;
                 boolean success = false;
 
-                if (level.dimensionType().ultraWarm() && fluid.is(FluidTags.WATER)) {
+                if (level.dimension() == Level.NETHER && fluid.is(FluidTags.WATER)) {
                     success = true;
                 } else if (isLiquidContainer && fluid == Fluids.WATER) {
                     ((LiquidBlockContainer) stateAtPos.getBlock())
@@ -562,11 +561,11 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             storage.extract(aeFluidKey, (long) placedCount * AEFluidKey.AMOUNT_BLOCK, Actionable.MODULATE, src);
             this.usePower(player, energyCost * placedCount / placementCount, wand);
             level.playSound(null, clickedPos.relative(clickedFace), SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
-            return InteractionResult.sidedSuccess(false);
+            return InteractionResult.SUCCESS;
         }
 
-        player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-        return InteractionResult.sidedSuccess(false);
+        player.sendOverlayMessage(Component.translatable("message.meplacementtool.cannot_place"));
+        return InteractionResult.SUCCESS;
     }
 
     private List<BlockPos> calculateFluidPlacementPositions(Level level, BlockPos clickedPos,
@@ -624,15 +623,15 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             appeng.api.storage.MEStorage storage, PlayerSource src, String fluidId,
             int placementCount, double energyCost, DirectionMode directionMode) {
         try {
-            var fid = ResourceLocation.tryParse(fluidId);
+            var fid = Identifier.tryParse(fluidId);
             if (fid == null) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.unsupported_target"));
                 return InteractionResult.FAIL;
             }
 
-            var fluid = BuiltInRegistries.FLUID.get(fid);
+            var fluid = BuiltInRegistries.FLUID.getOptional(fid).orElse(Fluids.EMPTY);
             if (fluid == null || fluid == Fluids.EMPTY) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.unsupported_target"));
                 return InteractionResult.FAIL;
             }
 
@@ -640,22 +639,21 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             return handleFluidMultiPlacement(context, player, wand, storage, src, aeFluidKey, placementCount, energyCost, directionMode);
         } catch (Exception e) {
             LOGGER.warn("Error resolving fluid {}", fluidId, e);
-            player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.unsupported_target"));
             return InteractionResult.FAIL;
         }
     }
 
-    private ItemStack getItemFromConfig(CompoundTag cfg, int slot) {
+    private ItemStack getItemFromConfig(CompoundTag cfg, int slot, net.minecraft.core.HolderLookup.Provider lookup) {
         if (cfg == null) return ItemStack.EMPTY;
 
-        CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompound("items") : cfg;
+        CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompoundOrEmpty("items") : cfg;
         if (itemsTag.contains("Items")) {
-            ListTag list = itemsTag.getList("Items", 10);
+            ListTag list = itemsTag.getListOrEmpty("Items");
             for (int i = 0; i < list.size(); i++) {
-                CompoundTag itemTag = list.getCompound(i);
-                if (itemTag.getInt("Slot") == slot) {
-                    return ItemStack.parseOptional(net.minecraft.core.HolderLookup.Provider.create(
-                            java.util.stream.Stream.empty()), itemTag);
+                CompoundTag itemTag = list.getCompoundOrEmpty(i);
+                if (itemTag.getIntOr("Slot", -1) == slot) {
+                    return NbtCompat.parseItemStack(lookup, itemTag);
                 }
             }
         }
@@ -664,22 +662,22 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
 
     private String getFluidFromConfig(CompoundTag cfg, int slot) {
         if (cfg == null || !cfg.contains("fluids")) return null;
-        var ftag = cfg.getCompound("fluids");
+        var ftag = cfg.getCompoundOrEmpty("fluids");
         String key = Integer.toString(slot);
         if (ftag.contains(key)) {
-            String fluidId = ftag.getString(key);
+            String fluidId = ftag.getStringOr(key, "");
             return fluidId.isEmpty() ? null : fluidId;
         }
         return null;
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
         var hr = player.pick(5.0D, 0.0F, false);
         if (hr != null && hr.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
-            return new InteractionResultHolder<>(InteractionResult.PASS, stack);
+            return InteractionResult.PASS;
         }
 
         if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
@@ -700,6 +698,6 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             });
         }
 
-        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), stack);
+        return InteractionResult.SUCCESS;
     }
 }

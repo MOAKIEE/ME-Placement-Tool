@@ -95,7 +95,7 @@ public class MemoryCardHelper {
         }
         
         int count = 0;
-        for (var stack : patterns.nonEmptyItems()) {
+        for (var stack : patterns.nonEmptyItemCopyStream().toList()) {
             if (!stack.isEmpty()) {
                 count++;
             }
@@ -237,7 +237,8 @@ public class MemoryCardHelper {
             StringBuilder sb = new StringBuilder();
             for (var entry : missingItems.entrySet()) {
                 if (sb.length() > 0) sb.append(", ");
-                sb.append(entry.getValue()).append("x ").append(entry.getKey().getDescription().getString());
+                sb.append(entry.getValue()).append("x ")
+                        .append(entry.getKey().getName(new ItemStack(entry.getKey())).getString());
             }
             return sb.toString();
         }

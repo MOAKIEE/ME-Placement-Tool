@@ -12,7 +12,7 @@ import mezz.jei.api.neoforge.NeoForgeTypes;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import appeng.api.stacks.GenericStack;
 
@@ -98,7 +98,7 @@ public class WandGhostHandler implements IGhostIngredientHandler<WandScreen> {
                 menu.getHandler().setStackInSlot(actualIndex, stackToPlace);
 
                 // Send packet to server to persist the change (like AE2's InventoryActionPacket)
-                PacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, stackToPlace));
+                ClientPacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, stackToPlace));
             } catch (Throwable ignored) {
                 // Swallow to avoid JEI breaking
             }

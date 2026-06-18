@@ -20,8 +20,8 @@ import appeng.api.parts.PartHelper;
 import appeng.parts.PartPlacement;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,11 +29,11 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.DyeItem;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
@@ -185,7 +185,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         
         // In LINE mode, if point1 is set, allow confirming placement by right-clicking air
@@ -193,12 +193,12 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         BlockPos p1 = getPoint1(stack);
         
         if (mode == PlacementMode.LINE && p1 != null) {
-            if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
                 // Use player look direction to determine endpoint
                 BlockPos endpoint = findLine(player, p1);
                 if (endpoint != null) {
                     setPoint2(stack, endpoint);
-                    player.displayClientMessage(Component.translatable("message.meplacementtool.point2_set", endpoint.toShortString()), true);
+                    player.sendOverlayMessage(Component.translatable("message.meplacementtool.point2_set", endpoint.toShortString()));
                     boolean craftingTriggered = executePlacement(serverPlayer, stack, level, p1, endpoint);
                     // Only clear points if crafting was NOT triggered
                     if (!craftingTriggered) {
@@ -207,16 +207,16 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                         // Sync cleared points to client
                         int slot = hand == InteractionHand.OFF_HAND
                                 ? Inventory.SLOT_OFFHAND
-                                : player.getInventory().selected;
+                                : player.getInventory().getSelectedSlot();
                         syncPointsToClient(serverPlayer, slot);
                     }
-                    return InteractionResultHolder.success(stack);
+                    return InteractionResult.SUCCESS;
                 }
             }
-            return InteractionResultHolder.success(stack);
+            return InteractionResult.SUCCESS;
         }
         
-        return InteractionResultHolder.pass(stack);
+        return InteractionResult.PASS;
     }
 
     @Override
@@ -225,7 +225,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         Player player = context.getPlayer();
         ItemStack stack = context.getItemInHand();
 
-        if (level.isClientSide) {
+        if (level.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
         if (!(player instanceof ServerPlayer serverPlayer)) {
@@ -233,7 +233,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         }
         int slot = context.getHand() == InteractionHand.OFF_HAND
                 ? Inventory.SLOT_OFFHAND
-                : player.getInventory().selected;
+                : player.getInventory().getSelectedSlot();
 
         // Get the position using smart target logic
         BlockPos clickedPos = context.getClickedPos();
@@ -248,15 +248,15 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             // Branching mode uses 3 points
             if (p1 == null) {
                 setPoint1(stack, targetPos);
-                player.displayClientMessage(Component.translatable("message.meplacementtool.branch_point1_set", targetPos.toShortString()), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.branch_point1_set", targetPos.toShortString()));
                 syncPointsToClient(serverPlayer, slot);
             } else if (p2 == null) {
                 setPoint2(stack, targetPos);
-                player.displayClientMessage(Component.translatable("message.meplacementtool.branch_point2_set", targetPos.toShortString()), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.branch_point2_set", targetPos.toShortString()));
                 syncPointsToClient(serverPlayer, slot);
             } else {
                 setPoint3(stack, targetPos);
-                player.displayClientMessage(Component.translatable("message.meplacementtool.branch_point3_set", targetPos.toShortString()), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.branch_point3_set", targetPos.toShortString()));
                 boolean craftingTriggered = executeBranchPlacement(serverPlayer, stack, level, p1, p2, targetPos);
                 // Only clear points if crafting was NOT triggered
                 if (!craftingTriggered) {
@@ -271,7 +271,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             // LINE mode: first click sets start, second click uses player look direction
             if (p1 == null) {
                 setPoint1(stack, targetPos);
-                player.displayClientMessage(Component.translatable("message.meplacementtool.point1_set", targetPos.toShortString()), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.point1_set", targetPos.toShortString()));
                 syncPointsToClient(serverPlayer, slot);
             } else {
                 // Use player look direction to determine endpoint
@@ -279,12 +279,12 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                 boolean craftingTriggered;
                 if (endpoint != null) {
                     setPoint2(stack, endpoint);
-                    player.displayClientMessage(Component.translatable("message.meplacementtool.point2_set", endpoint.toShortString()), true);
+                    player.sendOverlayMessage(Component.translatable("message.meplacementtool.point2_set", endpoint.toShortString()));
                     craftingTriggered = executePlacement(serverPlayer, stack, level, p1, endpoint);
                 } else {
                     // Fallback: use clicked position
                     setPoint2(stack, targetPos);
-                    player.displayClientMessage(Component.translatable("message.meplacementtool.point2_set", targetPos.toShortString()), true);
+                    player.sendOverlayMessage(Component.translatable("message.meplacementtool.point2_set", targetPos.toShortString()));
                     craftingTriggered = executePlacement(serverPlayer, stack, level, p1, targetPos);
                 }
                 // Only clear points if crafting was NOT triggered
@@ -299,11 +299,11 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             // PLANE_FILL uses 2 points
             if (p1 == null) {
                 setPoint1(stack, targetPos);
-                player.displayClientMessage(Component.translatable("message.meplacementtool.point1_set", targetPos.toShortString()), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.point1_set", targetPos.toShortString()));
                 syncPointsToClient(serverPlayer, slot);
             } else {
                 setPoint2(stack, targetPos);
-                player.displayClientMessage(Component.translatable("message.meplacementtool.point2_set", targetPos.toShortString()), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.point2_set", targetPos.toShortString()));
                 boolean craftingTriggered = executePlacement(serverPlayer, stack, level, p1, targetPos);
                 // Only clear points if crafting was NOT triggered
                 if (!craftingTriggered) {
@@ -370,14 +370,14 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         List<BlockPos> positions = calculatePositions(p1, p2, mode);
         if (positions.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.no_positions"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.no_positions"));
             return false;
         }
 
         // Check Power
         double energyCost = Config.cablePlacementToolEnergyCost * positions.size();
         if (!this.hasPower(player, energyCost, tool)) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.device_not_powered"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.device_not_powered"));
             return false;
         }
 
@@ -398,7 +398,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         }
         
         if (validPositions.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.no_positions"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.no_positions"));
             return false;
         }
         
@@ -424,7 +424,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                 openCraftingMenu(player, tool, craftKey, missingAmount);
                 return true; // Crafting triggered, preserve all points
             }
-            player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()));
             return false;
         }
 
@@ -436,7 +436,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         for (BlockPos pos : validPositions) {
             AEItemKey keyToExtract = findAvailableCableKey(storage, src, cableType, color);
             if (keyToExtract == null) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()));
                 break;
             }
 
@@ -446,7 +446,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             if (needsDyeForThis && color != AEColor.TRANSPARENT) {
                 if ((dyeConsumed == 0 || placedCount % 8 == 0) && dyeConsumed < (placedCount / 8) + 1) {
                     if (!consumeDye(player, storage, src, color, 1)) {
-                        player.displayClientMessage(Component.translatable("message.meplacementtool.missing_dye", 1, DyeItem.byColor(color.dye).getDescription()), true);
+                        player.sendOverlayMessage(Component.translatable("message.meplacementtool.missing_dye", 1, new ItemStack(dyeItemFor(color.dye)).getHoverName()));
                         break;
                     }
                     dyeConsumed++;
@@ -462,7 +462,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         if (placedCount > 0) {
             this.usePower(player, Config.cablePlacementToolEnergyCost * placedCount, tool);
-            player.displayClientMessage(Component.translatable("message.meplacementtool.placed_count", placedCount), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.placed_count", placedCount));
             
             if (!placedSnapshots.isEmpty()) {
                 BlockPos soundPos = placedSnapshots.get(0).pos;
@@ -502,13 +502,13 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         List<BlockPos> positions = calculateBranchPositions(p1, p2, p3);
         if (positions.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.no_positions"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.no_positions"));
             return false;
         }
 
         double energyCost = Config.cablePlacementToolEnergyCost * positions.size();
         if (!this.hasPower(player, energyCost, tool)) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.device_not_powered"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.device_not_powered"));
             return false;
         }
 
@@ -528,7 +528,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         }
         
         if (validPositions.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.no_positions"), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.no_positions"));
             return false;
         }
         
@@ -554,7 +554,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                 openCraftingMenu(player, tool, craftKey, missingAmount);
                 return true; // Crafting triggered, preserve all points
             }
-            player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()));
             return false;
         }
 
@@ -566,7 +566,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         for (BlockPos pos : validPositions) {
             AEItemKey keyToExtract = findAvailableCableKey(storage, src, cableType, color);
             if (keyToExtract == null) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()), true);
+                player.sendOverlayMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()));
                 break;
             }
 
@@ -576,7 +576,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             if (needsDyeForThis && color != AEColor.TRANSPARENT) {
                 if ((dyeConsumed == 0 || placedCount % 8 == 0) && dyeConsumed < (placedCount / 8) + 1) {
                     if (!consumeDye(player, storage, src, color, 1)) {
-                        player.displayClientMessage(Component.translatable("message.meplacementtool.missing_dye", 1, DyeItem.byColor(color.dye).getDescription()), true);
+                        player.sendOverlayMessage(Component.translatable("message.meplacementtool.missing_dye", 1, new ItemStack(dyeItemFor(color.dye)).getHoverName()));
                         break;
                     }
                     dyeConsumed++;
@@ -592,7 +592,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         if (placedCount > 0) {
             this.usePower(player, Config.cablePlacementToolEnergyCost * placedCount, tool);
-            player.displayClientMessage(Component.translatable("message.meplacementtool.placed_count", placedCount), true);
+            player.sendOverlayMessage(Component.translatable("message.meplacementtool.placed_count", placedCount));
             
             if (!placedSnapshots.isEmpty()) {
                 BlockPos soundPos = placedSnapshots.get(0).pos;
@@ -757,7 +757,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         if (pos == null) {
             tag.remove("Point1");
         } else {
-            tag.put("Point1", NbtUtils.writeBlockPos(pos));
+            tag.putLong("Point1", pos.asLong());
         }
         stack.set(ModDataComponents.CABLE_POINTS.get(), tag);
     }
@@ -766,7 +766,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     public static BlockPos getPoint1(ItemStack stack) {
         CompoundTag tag = stack.get(ModDataComponents.CABLE_POINTS.get());
         if (tag != null && tag.contains("Point1")) {
-            return NbtUtils.readBlockPos(tag, "Point1").orElse(null);
+            return tag.getLong("Point1").map(BlockPos::of).orElse(null);
         }
         return null;
     }
@@ -776,7 +776,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         if (pos == null) {
             tag.remove("Point2");
         } else {
-            tag.put("Point2", NbtUtils.writeBlockPos(pos));
+            tag.putLong("Point2", pos.asLong());
         }
         stack.set(ModDataComponents.CABLE_POINTS.get(), tag);
     }
@@ -785,7 +785,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     public static BlockPos getPoint2(ItemStack stack) {
         CompoundTag tag = stack.get(ModDataComponents.CABLE_POINTS.get());
         if (tag != null && tag.contains("Point2")) {
-            return NbtUtils.readBlockPos(tag, "Point2").orElse(null);
+            return tag.getLong("Point2").map(BlockPos::of).orElse(null);
         }
         return null;
     }
@@ -795,7 +795,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         if (pos == null) {
             tag.remove("Point3");
         } else {
-            tag.put("Point3", NbtUtils.writeBlockPos(pos));
+            tag.putLong("Point3", pos.asLong());
         }
         stack.set(ModDataComponents.CABLE_POINTS.get(), tag);
     }
@@ -804,7 +804,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     public static BlockPos getPoint3(ItemStack stack) {
         CompoundTag tag = stack.get(ModDataComponents.CABLE_POINTS.get());
         if (tag != null && tag.contains("Point3")) {
-            return NbtUtils.readBlockPos(tag, "Point3").orElse(null);
+            return tag.getLong("Point3").map(BlockPos::of).orElse(null);
         }
         return null;
     }
@@ -866,7 +866,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     public static int[] getColorShortcuts(ItemStack stack) {
         CompoundTag tag = stack.get(ModDataComponents.COLOR_SHORTCUTS.get());
         if (tag != null && tag.contains("shortcuts")) {
-            return tag.getIntArray("shortcuts");
+            return tag.getIntArray("shortcuts").orElse(new int[0]);
         }
         return new int[]{-1, -1, -1, -1, -1}; // Default: all empty
     }
@@ -895,8 +895,11 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
     @Nullable
     private AEColor getDyeColorFromStack(ItemStack stack) {
-        if (!stack.isEmpty() && stack.getItem() instanceof DyeItem dyeItem) {
-            return AEColor.fromDye(dyeItem.getDyeColor());
+        if (!stack.isEmpty()) {
+            DyeColor dyeColor = stack.get(DataComponents.DYE);
+            if (dyeColor != null) {
+                return AEColor.fromDye(dyeColor);
+            }
         }
         return null;
     }
@@ -925,7 +928,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
     private boolean consumeDye(Player player, MEStorage storage, PlayerSource src, AEColor color, int amount) {
         if (amount <= 0 || color == AEColor.TRANSPARENT) return true;
 
-        DyeItem dyeItem = (DyeItem) DyeItem.byColor(color.dye);
+        Item dyeItem = dyeItemFor(color.dye);
         AEItemKey dyeKey = AEItemKey.of(dyeItem);
 
         int remaining = amount;
@@ -934,8 +937,9 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         remaining -= takenFromAE;
         if (remaining <= 0) return true;
 
-        for (int i = 0; i < player.getInventory().items.size(); i++) {
-            ItemStack slotStack = player.getInventory().items.get(i);
+        Inventory inventory = player.getInventory();
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack slotStack = inventory.getItem(i);
             if (getDyeColorFromStack(slotStack) == color) {
                 int take = Math.min(remaining, slotStack.getCount());
                 slotStack.shrink(take);
@@ -953,6 +957,27 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         }
 
         return remaining <= 0;
+    }
+
+    private static Item dyeItemFor(DyeColor color) {
+        return switch (color) {
+            case WHITE -> Items.WHITE_DYE;
+            case ORANGE -> Items.ORANGE_DYE;
+            case MAGENTA -> Items.MAGENTA_DYE;
+            case LIGHT_BLUE -> Items.LIGHT_BLUE_DYE;
+            case YELLOW -> Items.YELLOW_DYE;
+            case LIME -> Items.LIME_DYE;
+            case PINK -> Items.PINK_DYE;
+            case GRAY -> Items.GRAY_DYE;
+            case LIGHT_GRAY -> Items.LIGHT_GRAY_DYE;
+            case CYAN -> Items.CYAN_DYE;
+            case PURPLE -> Items.PURPLE_DYE;
+            case BLUE -> Items.BLUE_DYE;
+            case BROWN -> Items.BROWN_DYE;
+            case GREEN -> Items.GREEN_DYE;
+            case RED -> Items.RED_DYE;
+            case BLACK -> Items.BLACK_DYE;
+        };
     }
 
     // ==================== Line Mode ====================

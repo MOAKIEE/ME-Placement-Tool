@@ -23,7 +23,7 @@ import com.moakiee.meplacementtool.WandMenu;
 import com.moakiee.meplacementtool.WandScreen;
 import com.moakiee.meplacementtool.network.UpdateWandSlotPayload;
 
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 /**
  * REI ghost ingredient handler for dragging items from REI into wand slots.
@@ -97,7 +97,7 @@ class WandGhostIngredientHandler implements DraggableStackVisitor<WandScreen> {
                     menu.getHandler().setStackInSlot(actualIndex, stackToPlace);
                     
                     // Send packet to server to persist the change
-                    PacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, stackToPlace));
+                    ClientPacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, stackToPlace));
                     
                     return DraggedAcceptorResult.ACCEPTED;
                 } catch (Throwable ignored) {

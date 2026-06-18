@@ -142,7 +142,7 @@ public class MEPlacementToolMod {
         ModMenus.register(modEventBus);
         ModNetwork.register(modEventBus);
 
-        if (net.neoforged.fml.loading.FMLEnvironment.dist == Dist.CLIENT) {
+        if (net.neoforged.fml.loading.FMLEnvironment.getDist() == Dist.CLIENT) {
             modEventBus.register(ClientModEvents.class);
         }
 
@@ -172,8 +172,8 @@ public class MEPlacementToolMod {
     private static <T extends Item & IAEItemPowerStorage> void registerPowerStorageItem(
             RegisterCapabilitiesEvent event, T item) {
         event.registerItem(
-                Capabilities.EnergyStorage.ITEM,
-                (stack, context) -> new PoweredItemCapabilities(stack, item),
+                Capabilities.Energy.ITEM,
+                (stack, access) -> new PoweredItemCapabilities(access, item, item),
                 item);
     }
 
@@ -207,6 +207,14 @@ public class MEPlacementToolMod {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             CLIENT_LOGGER.info("ME Placement Tool client setup");
+        }
+
+        @SubscribeEvent
+        public static void onRegisterRenderPipelines(
+                net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent event) {
+            // Required so the see-through outline render type can be used at runtime.
+            event.registerPipeline(
+                    com.moakiee.meplacementtool.client.render.MERenderPipelines.LINES_BEHIND_BLOCK);
         }
 
         @SubscribeEvent
@@ -244,7 +252,7 @@ public class MEPlacementToolMod {
         @SubscribeEvent
         public static void onRegisterGuiLayers(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent event) {
             event.registerAbove(net.neoforged.neoforge.client.gui.VanillaGuiLayers.HOTBAR, 
-                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MODID, "overlay"), 
+                net.minecraft.resources.Identifier.fromNamespaceAndPath(MODID, "overlay"), 
                 (graphics, partialTick) -> {
                     net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
                     if (mc.player == null) return;
@@ -264,7 +272,7 @@ public class MEPlacementToolMod {
                         int x = (width - mc.font.width(text)) / 2;
                         int y = baseY - 12; // Selected item text on top
                         
-                        graphics.drawString(mc.font, text, x, y, 0xFFFFFF, true);
+                        graphics.text(mc.font, text, x, y, 0xFFFFFF, true);
                     }
                     
                     // Render Placement Count Text
@@ -275,7 +283,7 @@ public class MEPlacementToolMod {
                         int x = (width - mc.font.width(text)) / 2;
                         int y = baseY; // Count text below selected item text
                         
-                        graphics.drawString(mc.font, text, x, y, 0xFFFFFF, true);
+                        graphics.text(mc.font, text, x, y, 0xFFFFFF, true);
                     }
                 });
         }
@@ -320,11 +328,11 @@ public class MEPlacementToolMod {
     /**
      * Common Forge event subscribers (both client and server)
      */
-    @net.neoforged.fml.common.EventBusSubscriber(modid = MODID, bus = net.neoforged.fml.common.EventBusSubscriber.Bus.GAME)
+    @net.neoforged.fml.common.EventBusSubscriber(modid = MODID)
     public static class CommonForgeEvents {
         @SubscribeEvent
         public static void onLeftClickBlock(net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock event) {
-            if (handleCableToolLeftClick(event.getEntity(), event.getLevel().isClientSide)) {
+            if (handleCableToolLeftClick(event.getEntity(), event.getLevel().isClientSide())) {
                 event.setCanceled(true);
             }
         }
@@ -349,8 +357,8 @@ public class MEPlacementToolMod {
                 ItemMECablePlacementTool.clearAllPoints(stack);
                 
                 // Send packet to server to clear points on server side
-                int slot = player.getInventory().selected;
-                net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                int slot = player.getInventory().getSelectedSlot();
+                net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(
                     new com.moakiee.meplacementtool.network.ClearCableToolPointsPayload(slot)
                 );
             }
@@ -378,7 +386,7 @@ public class MEPlacementToolMod {
                 ItemMECablePlacementTool.clearAllPoints(stack);
                 
                 if (!isClientSide) {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.meplacementtool.points_cleared"), true);
+                    player.sendOverlayMessage(net.minecraft.network.chat.Component.translatable("message.meplacementtool.points_cleared"));
                 }
                 
                 return true;

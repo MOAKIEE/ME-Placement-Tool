@@ -1,82 +1,53 @@
 package com.moakiee.meplacementtool.client;
 
-import static net.minecraft.client.renderer.RenderStateShard.COLOR_WRITE;
-import static net.minecraft.client.renderer.RenderStateShard.ITEM_ENTITY_TARGET;
-import static net.minecraft.client.renderer.RenderStateShard.NO_CULL;
-import static net.minecraft.client.renderer.RenderStateShard.RENDERTYPE_LINES_SHADER;
-import static net.minecraft.client.renderer.RenderStateShard.TRANSLUCENT_TRANSPARENCY;
-import static net.minecraft.client.renderer.RenderStateShard.VIEW_OFFSET_Z_LAYERING;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.OptionalDouble;
 
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
-import org.lwjgl.opengl.GL11;
-
-import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.core.BlockPos;
+import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
-import net.neoforged.neoforge.client.event.RenderHighlightEvent;
-import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
+import appeng.api.implementations.items.IFacadeItem;
+import appeng.api.parts.IFacadePart;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartItem;
 import appeng.parts.BusCollisionHelper;
 import appeng.parts.PartPlacement;
 
 import com.moakiee.meplacementtool.MEPlacementToolMod;
-import com.moakiee.meplacementtool.WandMenu;
 import com.moakiee.meplacementtool.ModDataComponents;
+import com.moakiee.meplacementtool.NbtCompat;
+import com.moakiee.meplacementtool.client.render.MERenderTypes;
 
 /**
- * Renders placement preview for ME Placement Tool when holding cables, panels, quartz fiber, etc.
- * Completely follows AE2's RenderBlockOutlineHook implementation.
+ * Renders an in-world placement preview for the ME Placement Tool when its configured item is an
+ * AE2 part (cable, panel, quartz fiber, ...) or a facade. Follows AE2's {@code RenderBlockOutlineHook}.
+ *
+ * <p>Ported to NeoForge 26.1's block-outline extraction pipeline: instead of drawing in
+ * {@code RenderHighlightEvent.Block}, a {@code CustomBlockOutlineRenderer} is registered during
+ * {@link ExtractBlockOutlineRenderStateEvent}, and the boxes are drawn with
+ * {@code ShapeRenderer.renderShape} (no more hand-copied {@code LevelRenderer.renderShape}).
  */
 public class MEPartPreviewRenderer {
     private MEPartPreviewRenderer() {
     }
-
-    /**
-     * Similar to {@link RenderType#LINES}, but with inverted depth test.
-     * Copied from AE2's RenderBlockOutlineHook.
-     */
-    public static final RenderType LINES_BEHIND_BLOCK = RenderType.create(
-            "meplacementtool_lines_behind_block",
-            DefaultVertexFormat.POSITION_COLOR_NORMAL,
-            VertexFormat.Mode.LINES,
-            256,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RENDERTYPE_LINES_SHADER)
-                    .setLineState(new RenderStateShard.LineStateShard(OptionalDouble.empty()))
-                    .setLayeringState(VIEW_OFFSET_Z_LAYERING)
-                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(new RenderStateShard.DepthTestStateShard(">", GL11.GL_GREATER))
-                    .setOutputState(ITEM_ENTITY_TARGET)
-                    .setWriteMaskState(COLOR_WRITE)
-                    .setCullState(NO_CULL)
-                    .createCompositeState(false));
 
     // Preview box color - same as MultiblockPreviewRenderer (cyan/blue)
     private static final float PREVIEW_RED = 0.0f;
@@ -84,181 +55,127 @@ public class MEPartPreviewRenderer {
     private static final float PREVIEW_BLUE = 1.0f;
 
     public static void install() {
-        // Use HIGH priority to run before AE2's handler (which uses default priority)
-        // AE2's handler checks if the item is IPartItem, but our tool is not IPartItem
-        // So we need higher priority to render preview for our tool
-        NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, MEPartPreviewRenderer::handleEvent);
+        // HIGH priority preserves the original intent of running before AE2's own handler.
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, MEPartPreviewRenderer::extractBlockOutline);
     }
 
-    private static void handleEvent(RenderHighlightEvent.Block evt) {
-        var level = Minecraft.getInstance().level;
-        var poseStack = evt.getPoseStack();
-        var buffers = evt.getMultiBufferSource();
-        var camera = evt.getCamera();
-        if (level == null || buffers == null) {
-            return;
-        }
-
-        var blockHitResult = evt.getTarget();
-        if (blockHitResult.getType() != HitResult.Type.BLOCK) {
-            return;
-        }
-
-        if (replaceBlockOutline(level, poseStack, buffers, camera, blockHitResult)) {
-            evt.setCanceled(true);
-        }
-    }
-
-    /**
-     * Renders placement preview for ME Placement Tool.
-     * Only renders for IPartItem (cables, panels, quartz fiber, etc.)
-     */
-    private static boolean replaceBlockOutline(ClientLevel level,
-            PoseStack poseStack,
-            MultiBufferSource buffers,
-            Camera camera,
-            BlockHitResult hitResult) {
-
+    private static void extractBlockOutline(ExtractBlockOutlineRenderStateEvent evt) {
         var player = Minecraft.getInstance().player;
         if (player == null) {
-            return false;
+            return;
         }
 
-        // Check if player is holding ME Placement Tool
+        // Only when holding the ME Placement Tool.
         ItemStack wand = player.getMainHandItem();
         if (wand.isEmpty() || wand.getItem() != MEPlacementToolMod.ME_PLACEMENT_TOOL.get()) {
-            return false;
+            return;
         }
 
-        // Get the configured item from the wand
+        // Resolve the configured item the tool would place.
         ItemStack targetItem = getConfiguredItem(wand);
         if (targetItem == null || targetItem.isEmpty()) {
-            return false;
+            return;
         }
 
-        // Only render preview for IPartItem (cables, panels, quartz fiber, etc.) or IFacadeItem
-        if (!(targetItem.getItem() instanceof IPartItem<?>) && !(targetItem.getItem() instanceof appeng.api.implementations.items.IFacadeItem)) {
-            return false;
+        if (!(evt.getHitResult() instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
+            return;
         }
 
-        // Render without depth test to also have a preview for parts inside blocks.
-        if (targetItem.getItem() instanceof IPartItem<?>) {
-            showPartPlacementPreview(player, poseStack, buffers, camera, hitResult, targetItem, true);
-            showPartPlacementPreview(player, poseStack, buffers, camera, hitResult, targetItem, false);
-        } else if (targetItem.getItem() instanceof appeng.api.implementations.items.IFacadeItem) {
-            showFacadePlacementPreview(player, poseStack, buffers, camera, hitResult, targetItem);
-        }
+        if (targetItem.getItem() instanceof IPartItem<?> partItem) {
+            var placement = PartPlacement.getPartPlacement(player,
+                    player.level(),
+                    targetItem,
+                    evt.getBlockPos(),
+                    hit.getDirection(),
+                    hit.getLocation());
+            if (placement == null) {
+                return;
+            }
+            IPart part = partItem.createPart();
+            Direction side = placement.side();
+            Vec3 cameraRelativePos = new Vec3(
+                    placement.pos().getX() - evt.getCamera().position().x,
+                    placement.pos().getY() - evt.getCamera().position().y,
+                    placement.pos().getZ() - evt.getCamera().position().z);
 
-        return true;
+            evt.addCustomRenderer((outlineState, bufferSource, poseStack, translucentPass, levelState) -> {
+                // Render without depth test first to also preview parts inside blocks.
+                renderPart(poseStack, bufferSource, cameraRelativePos, part, side, true, true);
+                renderPart(poseStack, bufferSource, cameraRelativePos, part, side, true, false);
+                return true; // replace the vanilla block outline (matches 1.21.1 behavior)
+            });
+        } else if (targetItem.getItem() instanceof IFacadeItem facadeItem) {
+            Direction side = hit.getDirection();
+            IFacadePart facade = facadeItem.createPartFromItemStack(targetItem, side);
+            if (facade == null) {
+                return;
+            }
+            var pos = evt.getBlockPos();
+            Vec3 cameraRelativePos = new Vec3(
+                    pos.getX() - evt.getCamera().position().x,
+                    pos.getY() - evt.getCamera().position().y,
+                    pos.getZ() - evt.getCamera().position().z);
+
+            evt.addCustomRenderer((outlineState, bufferSource, poseStack, translucentPass, levelState) -> {
+                renderFacade(poseStack, bufferSource, cameraRelativePos, facade, side);
+                return true;
+            });
+        }
     }
 
     /**
-     * Get the currently configured item from the wand's Data Component
+     * Get the currently configured item from the wand's data component (client-side), mirroring the
+     * radial-menu screens' use of {@link NbtCompat#readItemStackHandler}.
      */
     private static ItemStack getConfiguredItem(ItemStack wand) {
-        // Use DataComponent instead of NBT
         CompoundTag cfg = wand.get(ModDataComponents.PLACEMENT_CONFIG.get());
-        
-        // Get selected slot index (default 0)
-        int selected = 0;
-        if (cfg != null && cfg.contains("SelectedSlot")) {
-            selected = cfg.getInt("SelectedSlot");
-            if (selected < 0 || selected >= 18) selected = 0;
+        if (cfg == null) {
+            return ItemStack.EMPTY;
         }
 
-        // Build handler from NBT
-        var handler = new ItemStackHandler(18);
-        if (cfg != null) {
-            var registryAccess = Minecraft.getInstance().level.registryAccess();
-            if (cfg.contains("items")) {
-                handler.deserializeNBT(registryAccess, cfg.getCompound("items"));
-            } else {
-                handler.deserializeNBT(registryAccess, cfg);
-            }
+        int selected = cfg.getIntOr("SelectedSlot", 0);
+        if (selected < 0 || selected >= 18) {
+            selected = 0;
         }
 
+        var level = Minecraft.getInstance().level;
+        if (level == null) {
+            return ItemStack.EMPTY;
+        }
+
+        ItemStackHandler handler = NbtCompat.readItemStackHandler(
+                level.registryAccess(), cfg.getCompoundOrEmpty("items"), 18);
         ItemStack target = handler.getStackInSlot(selected);
-        
-        // Unwrap AE wrapped stacks
-        if (target != null && !target.isEmpty()) {
-            try {
-                var unwrapped = appeng.api.stacks.GenericStack.unwrapItemStack(target);
-                if (unwrapped != null && unwrapped.what() instanceof appeng.api.stacks.AEItemKey itemKey) {
-                    return itemKey.toStack();
-                }
-            } catch (Throwable ignored) {}
+        if (target == null || target.isEmpty()) {
+            return ItemStack.EMPTY;
         }
-        
+
+        // Unwrap AE wrapped stacks (GenericStack -> AEItemKey).
+        try {
+            var unwrapped = appeng.api.stacks.GenericStack.unwrapItemStack(target);
+            if (unwrapped != null && unwrapped.what() instanceof appeng.api.stacks.AEItemKey itemKey) {
+                return itemKey.toStack();
+            }
+        } catch (Throwable ignored) {
+        }
+
         return target;
     }
 
-    /**
-     * Show placement preview for AE2 parts (cables, panels, etc.)
-     * Follows AE2's showPartPlacementPreview implementation exactly.
-     */
-    private static void showPartPlacementPreview(
-            Player player,
-            PoseStack poseStack,
-            MultiBufferSource buffers,
-            Camera camera,
-            BlockHitResult blockHitResult,
-            ItemStack itemInHand,
-            boolean insideBlock) {
-        if (itemInHand.getItem() instanceof IPartItem<?> partItem) {
-            var placement = PartPlacement.getPartPlacement(player,
-                    player.level(),
-                    itemInHand,
-                    blockHitResult.getBlockPos(),
-                    blockHitResult.getDirection(),
-                    blockHitResult.getLocation());
-
-            if (placement != null) {
-                var part = partItem.createPart();
-                renderPart(poseStack, buffers, camera, placement.pos(), part, placement.side(), true, insideBlock);
-            }
-        }
-    }
-
-    /**
-     * Show placement preview for AE2 facades
-     */
-    private static void showFacadePlacementPreview(
-            Player player,
-            PoseStack poseStack,
-            MultiBufferSource buffers,
-            Camera camera,
-            BlockHitResult blockHitResult,
-            ItemStack itemInHand) {
-        if (itemInHand.getItem() instanceof appeng.api.implementations.items.IFacadeItem facadeItem) {
-            var facade = facadeItem.createPartFromItemStack(itemInHand, blockHitResult.getDirection());
-            if (facade != null) {
-                renderFacade(poseStack, buffers, camera, blockHitResult.getBlockPos(), facade);
-            }
-        }
-    }
-
-    /**
-     * Render the facade preview boxes.
-     */
     private static void renderFacade(PoseStack poseStack,
             MultiBufferSource buffers,
-            Camera camera,
-            BlockPos pos,
-            appeng.api.parts.IFacadePart facade) {
+            Vec3 cameraRelativePos,
+            IFacadePart facade,
+            Direction side) {
         var boxes = new ArrayList<AABB>();
-        var helper = new BusCollisionHelper(boxes, facade.getSide(), true);
+        var helper = new BusCollisionHelper(boxes, side, true);
         facade.getBoxes(helper, false);
-        renderBoxes(poseStack, buffers, camera, pos, boxes, true, false);
+        renderBoxes(poseStack, buffers, cameraRelativePos, boxes, true, false);
     }
 
-    /**
-     * Render the part preview boxes.
-     * Follows AE2's renderPart implementation exactly.
-     */
     private static void renderPart(PoseStack poseStack,
             MultiBufferSource buffers,
-            Camera camera,
-            BlockPos pos,
+            Vec3 cameraRelativePos,
             IPart part,
             Direction side,
             boolean preview,
@@ -266,68 +183,31 @@ public class MEPartPreviewRenderer {
         var boxes = new ArrayList<AABB>();
         var helper = new BusCollisionHelper(boxes, side, true);
         part.getBoxes(helper);
-        renderBoxes(poseStack, buffers, camera, pos, boxes, preview, insideBlock);
+        renderBoxes(poseStack, buffers, cameraRelativePos, boxes, preview, insideBlock);
     }
 
-    /**
-     * Render the preview boxes.
-     * Follows AE2's renderBoxes implementation exactly, but with custom color (same as MultiblockPreviewRenderer).
-     */
     private static void renderBoxes(PoseStack poseStack,
             MultiBufferSource buffers,
-            Camera camera,
-            BlockPos pos,
+            Vec3 cameraRelativePos,
             List<AABB> boxes,
             boolean preview,
             boolean insideBlock) {
-        RenderType renderType = insideBlock ? LINES_BEHIND_BLOCK : RenderType.lines();
+        RenderType renderType = insideBlock ? MERenderTypes.LINES_BEHIND_BLOCK : RenderTypes.lines();
         var buffer = buffers.getBuffer(renderType);
         float alpha = insideBlock ? 0.2f : preview ? 0.6f : 0.4f;
+        int color = ARGB.colorFromFloat(alpha, PREVIEW_RED, PREVIEW_GREEN, PREVIEW_BLUE);
 
         for (var box : boxes) {
             var shape = Shapes.create(box);
-            renderShape(
+            ShapeRenderer.renderShape(
                     poseStack,
                     buffer,
                     shape,
-                    pos.getX() - camera.getPosition().x,
-                    pos.getY() - camera.getPosition().y,
-                    pos.getZ() - camera.getPosition().z,
-                    PREVIEW_RED,
-                    PREVIEW_GREEN,
-                    PREVIEW_BLUE,
-                    alpha);
+                    cameraRelativePos.x,
+                    cameraRelativePos.y,
+                    cameraRelativePos.z,
+                    color,
+                    7 /* line width */);
         }
-    }
-
-    // Copied from LevelRenderer.renderShape since it is private
-    private static void renderShape(
-            PoseStack poseStack,
-            com.mojang.blaze3d.vertex.VertexConsumer consumer,
-            net.minecraft.world.phys.shapes.VoxelShape shape,
-            double x,
-            double y,
-            double z,
-            float red,
-            float green,
-            float blue,
-            float alpha) {
-        PoseStack.Pose last = poseStack.last();
-        shape.forAllEdges(
-                (k, l, m, n, o, p) -> {
-                    float q = (float)(n - k);
-                    float r = (float)(o - l);
-                    float s = (float)(p - m);
-                    float t = net.minecraft.util.Mth.sqrt(q * q + r * r + s * s);
-                    q /= t;
-                    r /= t;
-                    s /= t;
-                    consumer.addVertex(last, (float)(k + x), (float)(l + y), (float)(m + z))
-                            .setColor(red, green, blue, alpha)
-                            .setNormal(last, q, r, s);
-                    consumer.addVertex(last, (float)(n + x), (float)(o + y), (float)(p + z))
-                            .setColor(red, green, blue, alpha)
-                            .setNormal(last, q, r, s);
-                });
     }
 }

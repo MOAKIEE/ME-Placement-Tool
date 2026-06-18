@@ -5,8 +5,9 @@ import com.moakiee.meplacementtool.ItemMECablePlacementTool;
 import com.moakiee.meplacementtool.ItemMEPlacementTool;
 import com.moakiee.meplacementtool.ItemMultiblockPlacementTool;
 import com.moakiee.meplacementtool.ModDataComponents;
+import com.moakiee.meplacementtool.NbtCompat;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
@@ -135,7 +136,7 @@ public class ToolInfoHudRenderer {
             return;
         }
 
-        int selected = cfg.getInt("SelectedSlot");
+        int selected = cfg.getIntOr("SelectedSlot", 0);
         if (selected < 0 || selected >= 18) selected = 0;
 
         // Get item from config using similar logic to ItemMEPlacementTool
@@ -152,14 +153,17 @@ public class ToolInfoHudRenderer {
     private ItemStack getItemFromConfig(CompoundTag cfg, int slot) {
         if (cfg == null) return ItemStack.EMPTY;
         
-        CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompound("items") : cfg;
+        CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompoundOrEmpty("items") : cfg;
         if (itemsTag.contains("Items")) {
-            net.minecraft.nbt.ListTag list = itemsTag.getList("Items", 10);
+            net.minecraft.nbt.ListTag list = itemsTag.getListOrEmpty("Items");
             for (int i = 0; i < list.size(); i++) {
-                CompoundTag itemTag = list.getCompound(i);
-                if (itemTag.getInt("Slot") == slot) {
-                    return ItemStack.parseOptional(net.minecraft.core.HolderLookup.Provider.create(
-                            java.util.stream.Stream.empty()), itemTag);
+                CompoundTag itemTag = list.getCompoundOrEmpty(i);
+                if (itemTag.getIntOr("Slot", -1) == slot) {
+                    var level = Minecraft.getInstance().level;
+                    var lookup = level != null
+                            ? level.registryAccess()
+                            : net.minecraft.core.HolderLookup.Provider.create(java.util.stream.Stream.empty());
+                    return NbtCompat.parseItemStack(lookup, itemTag);
                 }
             }
         }
@@ -259,7 +263,7 @@ public class ToolInfoHudRenderer {
     /**
      * Render HUD lines on the right side of the crosshair with small font.
      */
-    private void renderHudLines(GuiGraphics guiGraphics, Minecraft mc, List<String> lines) {
+    private void renderHudLines(GuiGraphicsExtractor GuiGraphicsExtractor, Minecraft mc, List<String> lines) {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
@@ -271,8 +275,8 @@ public class ToolInfoHudRenderer {
         int startX = centerX + CROSSHAIR_OFFSET_X;
         int startY = centerY - (lines.size() * (int)(LINE_HEIGHT * FONT_SCALE)) / 2;
 
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().scale(FONT_SCALE, FONT_SCALE, 1.0f);
+        GuiGraphicsExtractor.pose().pushMatrix();
+        GuiGraphicsExtractor.pose().scale(FONT_SCALE, FONT_SCALE);
 
         // Scale coordinates to match the scaled rendering
         float scaledStartX = startX / FONT_SCALE;
@@ -283,9 +287,9 @@ public class ToolInfoHudRenderer {
             int y = (int)(scaledStartY + i * LINE_HEIGHT);
             
             // Draw with shadow for better visibility
-            guiGraphics.drawString(mc.font, line, (int)scaledStartX, y, TEXT_COLOR, true);
+            GuiGraphicsExtractor.text(mc.font, line, (int)scaledStartX, y, TEXT_COLOR, true);
         }
 
-        guiGraphics.pose().popPose();
+        GuiGraphicsExtractor.pose().popMatrix();
     }
 }

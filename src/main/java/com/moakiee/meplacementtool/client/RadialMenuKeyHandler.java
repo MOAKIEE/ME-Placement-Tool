@@ -8,7 +8,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 /**
  * Handler for radial menu and GUI key functionality.
@@ -37,16 +37,16 @@ public class RadialMenuKeyHandler {
 
         // Handle Cable Placement Tool - opens GUI directly
         if (held.getItem() instanceof ItemMECablePlacementTool) {
-            if (ModKeyBindings.OPEN_CABLE_TOOL_GUI.matches(event.getKey(), event.getScanCode())) {
+            if (ModKeyBindings.OPEN_CABLE_TOOL_GUI.matches(event.getKeyEvent())) {
                 // Send packet to server to open the menu
-                PacketDistributor.sendToServer(new OpenCableToolGuiPayload());
+                ClientPacketDistributor.sendToServer(new OpenCableToolGuiPayload());
                 return;
             }
             // Cable tool has its own GUI; do not trigger radial menu for it.
             return;
         }
 
-        if (!ModKeyBindings.OPEN_RADIAL_MENU.matches(event.getKey(), event.getScanCode())) {
+        if (!ModKeyBindings.OPEN_RADIAL_MENU.matches(event.getKeyEvent())) {
             return;
         }
 

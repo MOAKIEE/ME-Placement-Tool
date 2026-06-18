@@ -5,11 +5,11 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.ItemStackHandler;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import com.moakiee.meplacementtool.network.UpdateWandSlotPayload;
 import net.minecraft.core.RegistryAccess;
@@ -45,11 +45,11 @@ public class WandMenu extends AbstractContainerMenu {
         // Load fluids from stack
         CompoundTag cfg = wandStack.get(ModDataComponents.PLACEMENT_CONFIG.get());
         if (cfg != null && cfg.contains("fluids")) {
-            var ftag = cfg.getCompound("fluids");
-            for (String key : ftag.getAllKeys()) {
+            var ftag = cfg.getCompoundOrEmpty("fluids");
+            for (String key : ftag.keySet()) {
                 try {
                     int idx = Integer.parseInt(key);
-                    this.fluidMap.put(idx, ftag.getString(key));
+                    this.fluidMap.put(idx, ftag.getStringOr(key, ""));
                 } catch (NumberFormatException ignored) {}
             }
         }
@@ -87,8 +87,8 @@ public class WandMenu extends AbstractContainerMenu {
                 int actualIndex = getActualSlotIndex(visualIndex);
                 ItemStack stackToSet = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
                 this.handler.setStackInSlot(actualIndex, stackToSet);
-                if (playerInventory.player.level().isClientSide) {
-                    PacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, stackToSet));
+                if (playerInventory.player.level().isClientSide()) {
+                    ClientPacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, stackToSet));
                 }
             });
             // Set up display supplier so vanilla's slot rendering shows the correct item
@@ -130,9 +130,9 @@ public class WandMenu extends AbstractContainerMenu {
     private static ItemStackHandler createHandlerFromTag(CompoundTag cfg, RegistryAccess registryAccess) {
         ItemStackHandler h = new ItemStackHandler(TOTAL_SLOTS);
         if (cfg != null) {
-            CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompound("items") : cfg;
+            CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompoundOrEmpty("items") : cfg;
             if (itemsTag.contains("Items")) {
-                h.deserializeNBT(registryAccess, itemsTag);
+                h = NbtCompat.readItemStackHandler(registryAccess, itemsTag, TOTAL_SLOTS);
             }
         }
         return h;
@@ -185,7 +185,7 @@ public class WandMenu extends AbstractContainerMenu {
     }
 
     @Override
-    public void clicked(int slotId, int dragType, ClickType clickType, Player player) {
+    public void clicked(int slotId, int dragType, ContainerInput clickType, Player player) {
         if (slotId >= 0 && slotId < this.slots.size()) {
             Slot slot = this.slots.get(slotId);
             if (slot instanceof GhostSlot ghostSlot) {
@@ -196,13 +196,13 @@ public class WandMenu extends AbstractContainerMenu {
                 if (!carried.isEmpty()) {
                     ItemStack copy = carried.copyWithCount(1);
                     this.handler.setStackInSlot(actualIndex, copy);
-                    if (player.level().isClientSide) {
-                        PacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, copy));
+                    if (player.level().isClientSide()) {
+                        ClientPacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, copy));
                     }
                 } else {
                     this.handler.setStackInSlot(actualIndex, ItemStack.EMPTY);
-                    if (player.level().isClientSide) {
-                        PacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, ItemStack.EMPTY));
+                    if (player.level().isClientSide()) {
+                        ClientPacketDistributor.sendToServer(new UpdateWandSlotPayload(actualIndex, ItemStack.EMPTY));
                     }
                 }
                 return;
@@ -216,7 +216,7 @@ public class WandMenu extends AbstractContainerMenu {
         super.removed(player);
 
         CompoundTag combined = new CompoundTag();
-        combined.put("items", this.handler.serializeNBT(player.level().registryAccess()));
+        combined.put("items", NbtCompat.writeItemStackHandler(player.level().registryAccess(), this.handler));
 
         CompoundTag ftag = new CompoundTag();
         for (var e : this.fluidMap.entrySet()) {
@@ -228,17 +228,17 @@ public class WandMenu extends AbstractContainerMenu {
         CompoundTag existing = wandStack.get(ModDataComponents.PLACEMENT_CONFIG.get());
         if (existing != null) {
             if (existing.contains("SelectedSlot")) {
-                combined.putInt("SelectedSlot", existing.getInt("SelectedSlot"));
+                combined.putInt("SelectedSlot", existing.getIntOr("SelectedSlot", 0));
             }
             if (existing.contains("PlacementCount")) {
-                combined.putInt("PlacementCount", existing.getInt("PlacementCount"));
+                combined.putInt("PlacementCount", existing.getIntOr("PlacementCount", 1));
             }
             if (existing.contains("DirectionMode")) {
-                combined.putInt("DirectionMode", existing.getInt("DirectionMode"));
+                combined.putInt("DirectionMode", existing.getIntOr("DirectionMode", 0));
             }
         }
 
-        if (!player.level().isClientSide) {
+        if (!player.level().isClientSide()) {
             ItemStack main = player.getMainHandItem();
             if (!main.isEmpty()) {
                 main.set(ModDataComponents.PLACEMENT_CONFIG.get(), combined);
@@ -261,21 +261,21 @@ public class WandMenu extends AbstractContainerMenu {
     private void saveToItemStack(Player player) {
         if (!wandStack.isEmpty()) {
             CompoundTag combined = new CompoundTag();
-            combined.put("items", this.handler.serializeNBT(player.level().registryAccess()));
+            combined.put("items", NbtCompat.writeItemStackHandler(player.level().registryAccess(), this.handler));
 
             CompoundTag existing = wandStack.get(ModDataComponents.PLACEMENT_CONFIG.get());
             if (existing != null) {
                 if (existing.contains("fluids")) {
-                    combined.put("fluids", existing.getCompound("fluids"));
+                    combined.put("fluids", existing.getCompoundOrEmpty("fluids"));
                 }
                 if (existing.contains("SelectedSlot")) {
-                    combined.putInt("SelectedSlot", existing.getInt("SelectedSlot"));
+                    combined.putInt("SelectedSlot", existing.getIntOr("SelectedSlot", 0));
                 }
                 if (existing.contains("PlacementCount")) {
-                    combined.putInt("PlacementCount", existing.getInt("PlacementCount"));
+                    combined.putInt("PlacementCount", existing.getIntOr("PlacementCount", 1));
                 }
                 if (existing.contains("DirectionMode")) {
-                    combined.putInt("DirectionMode", existing.getInt("DirectionMode"));
+                    combined.putInt("DirectionMode", existing.getIntOr("DirectionMode", 0));
                 }
             }
 

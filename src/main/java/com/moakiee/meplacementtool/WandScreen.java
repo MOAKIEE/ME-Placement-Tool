@@ -1,12 +1,13 @@
 package com.moakiee.meplacementtool;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import com.moakiee.meplacementtool.network.SyncPagePayload;
 
@@ -15,10 +16,10 @@ import com.moakiee.meplacementtool.network.SyncPagePayload;
  */
 public class WandScreen extends AbstractContainerScreen<WandMenu> {
     // Custom toolbox background texture
-    private static final ResourceLocation BG = ResourceLocation.fromNamespaceAndPath("meplacementtool", "textures/gui/toolbox.png");
+    private static final Identifier BG = Identifier.fromNamespaceAndPath("meplacementtool", "textures/gui/toolbox.png");
     // Page button textures
-    private static final ResourceLocation PREV_PAGE = ResourceLocation.fromNamespaceAndPath("meplacementtool", "textures/gui/prev_page.png");
-    private static final ResourceLocation NEXT_PAGE = ResourceLocation.fromNamespaceAndPath("meplacementtool", "textures/gui/next_page.png");
+    private static final Identifier PREV_PAGE = Identifier.fromNamespaceAndPath("meplacementtool", "textures/gui/prev_page.png");
+    private static final Identifier NEXT_PAGE = Identifier.fromNamespaceAndPath("meplacementtool", "textures/gui/next_page.png");
     
     private Button prevButton;
     private Button nextButton;
@@ -49,7 +50,7 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
             int currentPage = this.menu.getCurrentPage();
             if (currentPage > 0) {
                 this.menu.setCurrentPage(currentPage - 1);
-                PacketDistributor.sendToServer(new SyncPagePayload(currentPage - 1));
+                ClientPacketDistributor.sendToServer(new SyncPagePayload(currentPage - 1));
                 updateButtonVisibility();
             }
         }).bounds(relX + 44, relY + 35, BTN_WIDTH, BTN_HEIGHT).build();
@@ -59,7 +60,7 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
             int currentPage = this.menu.getCurrentPage();
             if (currentPage < WandMenu.MAX_PAGES - 1) {
                 this.menu.setCurrentPage(currentPage + 1);
-                PacketDistributor.sendToServer(new SyncPagePayload(currentPage + 1));
+                ClientPacketDistributor.sendToServer(new SyncPagePayload(currentPage + 1));
                 updateButtonVisibility();
             }
         }).bounds(relX + 117, relY + 35, BTN_WIDTH, BTN_HEIGHT).build();
@@ -76,19 +77,16 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
-        super.render(guiGraphics, mouseX, mouseY, partialTicks);
-        
+    public void extractContents(GuiGraphicsExtractor GuiGraphicsExtractor, int mouseX, int mouseY, float partialTicks) {
+        super.extractContents(GuiGraphicsExtractor, mouseX, mouseY, partialTicks);
+
         // Render custom button textures (override default button rendering)
-        renderPageButtons(guiGraphics);
+        renderPageButtons(GuiGraphicsExtractor);
         
         // Ghost slot items are now rendered by vanilla's slot rendering system
         // via GhostSlot.getItem() -> displayStackSupplier, ensuring proper Z-ordering
         // with JEI/REI drag overlays
         
-        this.renderTooltip(guiGraphics, mouseX, mouseY);
-
         // Draw page indicator above the 3x3 grid area
         int relX = (this.width - this.imageWidth) / 2;
         int relY = (this.height - this.imageHeight) / 2;
@@ -96,40 +94,33 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
         String pageText = (currentPage + 1) + "/" + WandMenu.MAX_PAGES;
         int textWidth = this.font.width(pageText);
         // Position centered above the 3x3 grid
-        guiGraphics.drawString(this.font, pageText, relX + 88 - textWidth / 2, relY + 8, 0x404040, false);
+        GuiGraphicsExtractor.text(this.font, pageText, relX + 88 - textWidth / 2, relY + 8, 0x404040, false);
     }
     
     /**
      * Render custom page button textures over the invisible buttons.
      */
-    private void renderPageButtons(GuiGraphics guiGraphics) {
+    private void renderPageButtons(GuiGraphicsExtractor GuiGraphicsExtractor) {
         if (prevButton.visible) {
-            guiGraphics.blit(PREV_PAGE, prevButton.getX(), prevButton.getY(), 0, 0, BTN_WIDTH, BTN_HEIGHT, BTN_WIDTH, BTN_HEIGHT);
+            GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, PREV_PAGE, prevButton.getX(), prevButton.getY(), 0, 0, BTN_WIDTH, BTN_HEIGHT, BTN_WIDTH, BTN_HEIGHT);
         }
         if (nextButton.visible) {
-            guiGraphics.blit(NEXT_PAGE, nextButton.getX(), nextButton.getY(), 0, 0, BTN_WIDTH, BTN_HEIGHT, BTN_WIDTH, BTN_HEIGHT);
+            GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, NEXT_PAGE, nextButton.getX(), nextButton.getY(), 0, 0, BTN_WIDTH, BTN_HEIGHT, BTN_WIDTH, BTN_HEIGHT);
         }
     }
 
     @Override
-    protected void renderTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        // Push pose and translate Z to render tooltip above REI's drag highlight overlay
-        // REI's overlay typically renders at Z around 300-400, so we use 500 to ensure
-        // our tooltip appears above it
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, 0, 500);
-        
+    protected void extractTooltip(GuiGraphicsExtractor GuiGraphicsExtractor, int mouseX, int mouseY) {
         // Vanilla's renderTooltip will now correctly handle ghost slots
         // since GhostSlot.getItem() returns the actual display item
-        super.renderTooltip(guiGraphics, mouseX, mouseY);
-        
-        guiGraphics.pose().popPose();
+        super.extractTooltip(GuiGraphicsExtractor, mouseX, mouseY);
     }
 
     @Override
-    protected void renderBg(GuiGraphics guiGraphics, float partialTicks, int x, int y) {
+    public void extractBackground(GuiGraphicsExtractor GuiGraphicsExtractor, int x, int y, float partialTicks) {
+        super.extractBackground(GuiGraphicsExtractor, x, y, partialTicks);
         int relX = (this.width - this.imageWidth) / 2;
         int relY = (this.height - this.imageHeight) / 2;
-        guiGraphics.blit(BG, relX, relY, 0, 0, this.imageWidth, this.imageHeight);
+        GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, BG, relX, relY, 0, 0, this.imageWidth, this.imageHeight, this.imageWidth, this.imageHeight);
     }
 }

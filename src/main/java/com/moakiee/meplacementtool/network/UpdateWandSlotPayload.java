@@ -5,12 +5,13 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
 import com.moakiee.meplacementtool.MEPlacementToolMod;
+import com.moakiee.meplacementtool.NbtCompat;
 import com.moakiee.meplacementtool.ModDataComponents;
 import com.moakiee.meplacementtool.WandMenu;
 
@@ -18,7 +19,7 @@ public record UpdateWandSlotPayload(int slotIndex, ItemStack stack) implements C
     private static final int TOTAL_SLOTS = 18;
 
     public static final CustomPacketPayload.Type<UpdateWandSlotPayload> TYPE = 
-        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(MEPlacementToolMod.MODID, "update_wand_slot"));
+        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(MEPlacementToolMod.MODID, "update_wand_slot"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, UpdateWandSlotPayload> STREAM_CODEC = StreamCodec.composite(
         ByteBufCodecs.VAR_INT,
@@ -57,25 +58,26 @@ public record UpdateWandSlotPayload(int slotIndex, ItemStack stack) implements C
 
         ItemStackHandler handler = new ItemStackHandler(TOTAL_SLOTS);
         if (existingConfig.contains("items")) {
-            handler.deserializeNBT(player.level().registryAccess(), existingConfig.getCompound("items"));
+            handler = NbtCompat.readItemStackHandler(
+                    player.level().registryAccess(), existingConfig.getCompoundOrEmpty("items"), TOTAL_SLOTS);
         }
 
         handler.setStackInSlot(slotIndex, newStack);
 
         CompoundTag newConfig = new CompoundTag();
-        newConfig.put("items", handler.serializeNBT(player.level().registryAccess()));
+        newConfig.put("items", NbtCompat.writeItemStackHandler(player.level().registryAccess(), handler));
 
         if (existingConfig.contains("fluids")) {
-            newConfig.put("fluids", existingConfig.getCompound("fluids"));
+            newConfig.put("fluids", existingConfig.getCompoundOrEmpty("fluids"));
         }
         if (existingConfig.contains("SelectedSlot")) {
-            newConfig.putInt("SelectedSlot", existingConfig.getInt("SelectedSlot"));
+            newConfig.putInt("SelectedSlot", existingConfig.getIntOr("SelectedSlot", 0));
         }
         if (existingConfig.contains("PlacementCount")) {
-            newConfig.putInt("PlacementCount", existingConfig.getInt("PlacementCount"));
+            newConfig.putInt("PlacementCount", existingConfig.getIntOr("PlacementCount", 1));
         }
         if (existingConfig.contains("DirectionMode")) {
-            newConfig.putInt("DirectionMode", existingConfig.getInt("DirectionMode"));
+            newConfig.putInt("DirectionMode", existingConfig.getIntOr("DirectionMode", 0));
         }
 
         wandStack.set(ModDataComponents.PLACEMENT_CONFIG.get(), newConfig);

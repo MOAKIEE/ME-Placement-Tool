@@ -5,7 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -15,7 +15,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  */
 public record UndoPayload(BlockPos pos) implements CustomPacketPayload {
     public static final Type<UndoPayload> TYPE = 
-            new Type<>(ResourceLocation.fromNamespaceAndPath(MEPlacementToolMod.MODID, "undo"));
+            new Type<>(Identifier.fromNamespaceAndPath(MEPlacementToolMod.MODID, "undo"));
 
     public static final StreamCodec<FriendlyByteBuf, UndoPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> buf.writeBlockPos(payload.pos),
