@@ -57,27 +57,27 @@ public class MEPlacementToolMod {
 
     // Items
     public static final DeferredHolder<Item, ItemMEPlacementTool> ME_PLACEMENT_TOOL = 
-            ITEMS.register("me_placement_tool", () -> new ItemMEPlacementTool(new Item.Properties().stacksTo(1)));
+            ITEMS.registerItem("me_placement_tool", properties -> new ItemMEPlacementTool(properties.stacksTo(1)));
     
     public static final DeferredHolder<Item, ItemMultiblockPlacementTool> MULTIBLOCK_PLACEMENT_TOOL = 
-            ITEMS.register("multiblock_placement_tool", () -> new ItemMultiblockPlacementTool(new Item.Properties().stacksTo(1)));
+            ITEMS.registerItem("multiblock_placement_tool", properties -> new ItemMultiblockPlacementTool(properties.stacksTo(1)));
     
     public static final DeferredHolder<Item, ItemKeyOfSpectrum> KEY_OF_SPECTRUM = 
-            ITEMS.register("key_of_spectrum", () -> new ItemKeyOfSpectrum(new Item.Properties().stacksTo(64)));
+            ITEMS.registerItem("key_of_spectrum", properties -> new ItemKeyOfSpectrum(properties.stacksTo(64)));
     
     public static final DeferredHolder<Item, ItemPrismCore> PRISM_CORE = 
-            ITEMS.register("prism_core", () -> new ItemPrismCore(new Item.Properties().stacksTo(64)));
+            ITEMS.registerItem("prism_core", properties -> new ItemPrismCore(properties.stacksTo(64)));
 
     public static final DeferredHolder<Item, ItemMECablePlacementTool> ME_CABLE_PLACEMENT_TOOL = 
-            ITEMS.register("me_cable_placement_tool", () -> new ItemMECablePlacementTool(new Item.Properties().stacksTo(1)));
+            ITEMS.registerItem("me_cable_placement_tool", properties -> new ItemMECablePlacementTool(properties.stacksTo(1)));
 
     // Fumo decorative blocks - author tribute plushies
-    public static final DeferredHolder<Block, BlockFumo> MOAKIEE_FUMO = BLOCKS.register("moakiee_fumo", BlockFumo::new);
-    public static final DeferredHolder<Block, BlockFumo> CYSTRYSU_FUMO = BLOCKS.register("cystrysu_fumo", BlockFumo::new);
+    public static final DeferredHolder<Block, BlockFumo> MOAKIEE_FUMO = BLOCKS.registerBlock("moakiee_fumo", BlockFumo::new);
+    public static final DeferredHolder<Block, BlockFumo> CYSTRYSU_FUMO = BLOCKS.registerBlock("cystrysu_fumo", BlockFumo::new);
     public static final DeferredHolder<Item, BlockItem> MOAKIEE_FUMO_ITEM = 
-            ITEMS.register("moakiee_fumo", () -> new BlockItem(MOAKIEE_FUMO.get(), new Item.Properties()));
+            ITEMS.registerItem("moakiee_fumo", properties -> new BlockItem(MOAKIEE_FUMO.get(), properties.useBlockDescriptionPrefix()));
     public static final DeferredHolder<Item, BlockItem> CYSTRYSU_FUMO_ITEM = 
-            ITEMS.register("cystrysu_fumo", () -> new BlockItem(CYSTRYSU_FUMO.get(), new Item.Properties()));
+            ITEMS.registerItem("cystrysu_fumo", properties -> new BlockItem(CYSTRYSU_FUMO.get(), properties.useBlockDescriptionPrefix()));
 
     // Creative Tab
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> ME_PLACEMENT_TOOL_TAB = 

@@ -13,8 +13,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
@@ -27,7 +25,6 @@ import java.util.List;
  * Displays different information based on the tool type held by the player.
  * Shows HUD for 2 seconds when switching to the tool, then auto-hides.
  */
-@OnlyIn(Dist.CLIENT)
 public class ToolInfoHudRenderer {
 
     private static final int CROSSHAIR_OFFSET_X = 15;
