@@ -21,6 +21,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -55,7 +56,35 @@ public class CablePreviewRenderer {
     private static BlockPos lastTargetPos = null;
 
     public static void install() {
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, CablePreviewRenderer::extractBlockOutline);
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, CablePreviewRenderer::onRenderLevelStage);
+    }
+
+    private static void extractBlockOutline(ExtractBlockOutlineRenderStateEvent evt) {
+        var mc = Minecraft.getInstance();
+        var player = mc.player;
+        var level = mc.level;
+        if (player == null || level == null) {
+            return;
+        }
+
+        ItemStack wand = player.getMainHandItem();
+        if (wand.isEmpty() || wand.getItem() != MEPlacementToolMod.ME_CABLE_PLACEMENT_TOOL.get()) {
+            lastTargetPos = null;
+            return;
+        }
+
+        if (!(evt.getHitResult() instanceof BlockHitResult blockHit)
+                || blockHit.getType() != HitResult.Type.BLOCK) {
+            return;
+        }
+
+        lastTargetPos = ItemMECablePlacementTool.getSmartTargetPos(
+                level, blockHit.getBlockPos(), blockHit.getDirection());
+
+        Vec3 camPos = evt.getCamera().position();
+        evt.addCustomRenderer((outlineState, bufferSource, poseStack, translucentPass, levelState) ->
+                renderCablePreview(level, poseStack, bufferSource, camPos, blockHit, false));
     }
 
     private static void onRenderLevelStage(RenderLevelStageEvent.AfterWeather evt) {
@@ -78,17 +107,15 @@ public class CablePreviewRenderer {
         BlockHitResult blockHit = (hitResult instanceof BlockHitResult bhr
                 && hitResult.getType() == HitResult.Type.BLOCK) ? bhr : null;
 
-        // Keep the cached target up to date from the current block hit (used for the air preview).
         if (blockHit != null) {
-            lastTargetPos = ItemMECablePlacementTool.getSmartTargetPos(level, blockHit.getBlockPos(), blockHit.getDirection());
+            return;
         }
 
         Vec3 camPos = mc.gameRenderer.getMainCamera().position();
         PoseStack poseStack = evt.getPoseStack();
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
 
-        boolean isAirPreview = (blockHit == null);
-        boolean drew = renderCablePreview(level, poseStack, buffers, camPos, blockHit, isAirPreview);
+        boolean drew = renderCablePreview(level, poseStack, buffers, camPos, null, true);
         if (drew) {
             buffers.endBatch();
         }
@@ -206,6 +233,7 @@ public class CablePreviewRenderer {
         // Show preview of current target position (next click will set point1).
         if (ItemMECablePlacementTool.canPlaceCableAt(level, targetPos)) {
             renderSingleBlockOutline(poseStack, buffers, camPos, targetPos, POINT1_RED, POINT1_GREEN, POINT1_BLUE, 0.3f, false);
+            return true;
         }
 
         return false;
@@ -355,13 +383,15 @@ public class CablePreviewRenderer {
         if (minX == Integer.MAX_VALUE) return;
 
         AABB box = new AABB(
-                minX + CABLE_CORE_MIN, minY + CABLE_CORE_MIN, minZ + CABLE_CORE_MIN,
-                maxX + CABLE_CORE_MAX, maxY + CABLE_CORE_MAX, maxZ + CABLE_CORE_MAX);
+                CABLE_CORE_MIN, CABLE_CORE_MIN, CABLE_CORE_MIN,
+                (maxX - minX) + CABLE_CORE_MAX,
+                (maxY - minY) + CABLE_CORE_MAX,
+                (maxZ - minZ) + CABLE_CORE_MAX);
 
         float[] color = RainbowRenderHelper.getTimeBasedRainbowColor();
         int packed = ARGB.colorFromFloat(alpha, color[0], color[1], color[2]);
 
-        drawBox(poseStack, buffers, camPos, box, packed, insideBlock);
+        drawBox(poseStack, buffers, camPos, minX, minY, minZ, box, packed, insideBlock);
     }
 
     /**
@@ -375,11 +405,11 @@ public class CablePreviewRenderer {
             boolean insideBlock) {
 
         AABB box = new AABB(
-                pos.getX() + CABLE_CORE_MIN, pos.getY() + CABLE_CORE_MIN, pos.getZ() + CABLE_CORE_MIN,
-                pos.getX() + CABLE_CORE_MAX, pos.getY() + CABLE_CORE_MAX, pos.getZ() + CABLE_CORE_MAX);
+                CABLE_CORE_MIN, CABLE_CORE_MIN, CABLE_CORE_MIN,
+                CABLE_CORE_MAX, CABLE_CORE_MAX, CABLE_CORE_MAX);
 
         int packed = ARGB.colorFromFloat(alpha, red, green, blue);
-        drawBox(poseStack, buffers, camPos, box, packed, insideBlock);
+        drawBox(poseStack, buffers, camPos, pos.getX(), pos.getY(), pos.getZ(), box, packed, insideBlock);
     }
 
     /**
@@ -388,6 +418,9 @@ public class CablePreviewRenderer {
     private static void drawBox(PoseStack poseStack,
             MultiBufferSource buffers,
             Vec3 camPos,
+            double x,
+            double y,
+            double z,
             AABB box,
             int packedColor,
             boolean insideBlock) {
@@ -397,7 +430,7 @@ public class CablePreviewRenderer {
                 poseStack,
                 buffer,
                 Shapes.create(box),
-                -camPos.x, -camPos.y, -camPos.z,
+                x - camPos.x, y - camPos.y, z - camPos.z,
                 packedColor,
                 7 /* line width */);
     }
