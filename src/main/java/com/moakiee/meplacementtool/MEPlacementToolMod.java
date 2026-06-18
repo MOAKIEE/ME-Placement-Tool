@@ -33,6 +33,7 @@ import appeng.items.tools.powered.powersink.PoweredItemCapabilities;
 
 import appeng.api.features.GridLinkables;
 import com.moakiee.meplacementtool.client.ModKeyBindings;
+import com.moakiee.meplacementtool.client.GuiTextColors;
 import com.moakiee.meplacementtool.client.MEPartPreviewRenderer;
 import com.moakiee.meplacementtool.client.MultiblockPreviewRenderer;
 import com.moakiee.meplacementtool.client.RadialMenuKeyHandler;
@@ -239,9 +240,6 @@ public class MEPlacementToolMod {
             NeoForge.EVENT_BUS.register(new RadialMenuKeyHandler());
             NeoForge.EVENT_BUS.register(ClientForgeEvents.class);
             
-            // HUD renderer for tool information display
-            NeoForge.EVENT_BUS.register(new ToolInfoHudRenderer());
-            
             // Install ME Part preview renderer
             MEPartPreviewRenderer.install();
             
@@ -251,6 +249,10 @@ public class MEPlacementToolMod {
 
         @SubscribeEvent
         public static void onRegisterGuiLayers(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent event) {
+            event.registerAbove(net.neoforged.neoforge.client.gui.VanillaGuiLayers.CROSSHAIR,
+                net.minecraft.resources.Identifier.fromNamespaceAndPath(MODID, "tool_info_hud"),
+                ToolInfoHudRenderer.INSTANCE);
+
             event.registerAbove(net.neoforged.neoforge.client.gui.VanillaGuiLayers.HOTBAR, 
                 net.minecraft.resources.Identifier.fromNamespaceAndPath(MODID, "overlay"), 
                 (graphics, partialTick) -> {
@@ -272,7 +274,7 @@ public class MEPlacementToolMod {
                         int x = (width - mc.font.width(text)) / 2;
                         int y = baseY - 12; // Selected item text on top
                         
-                        graphics.text(mc.font, text, x, y, 0xFFFFFF, true);
+                        graphics.text(mc.font, text, x, y, GuiTextColors.opaque(0xFFFFFF), true);
                     }
                     
                     // Render Placement Count Text
@@ -283,7 +285,7 @@ public class MEPlacementToolMod {
                         int x = (width - mc.font.width(text)) / 2;
                         int y = baseY; // Count text below selected item text
                         
-                        graphics.text(mc.font, text, x, y, 0xFFFFFF, true);
+                        graphics.text(mc.font, text, x, y, GuiTextColors.opaque(0xFFFFFF), true);
                     }
                 });
         }

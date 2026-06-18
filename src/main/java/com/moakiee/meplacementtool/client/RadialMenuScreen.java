@@ -169,7 +169,7 @@ public class RadialMenuScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, partialTicks);
 
         if (slots.isEmpty()) {
-            graphics.centeredText(font, Component.translatable("message.meplacementtool.no_configured_item"), width / 2, height / 2, 0xFFFFFF);
+            graphics.centeredText(font, Component.translatable("message.meplacementtool.no_configured_item"), width / 2, height / 2, GuiTextColors.opaque(0xFFFFFF));
             return;
         }
 
@@ -223,7 +223,7 @@ public class RadialMenuScreen extends Screen {
         // Draw hovered item name
         if (mousedOverSlot != -1) {
             if (mousedOverSlot >= 0 && mousedOverSlot < slots.size()) {
-                graphics.centeredText(font, slots.get(mousedOverSlot).name, centerX, (height - font.lineHeight) / 2, 0xFFFFFF);
+                graphics.centeredText(font, slots.get(mousedOverSlot).name, centerX, (height - font.lineHeight) / 2, GuiTextColors.opaque(0xFFFFFF));
             }
         }
 

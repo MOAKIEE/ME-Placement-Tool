@@ -229,7 +229,7 @@ public class DualLayerRadialMenuScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, partialTicks);
 
         if (slots.isEmpty()) {
-            graphics.centeredText(font, Component.translatable("message.meplacementtool.no_configured_item"), width / 2, height / 2, 0xFFFFFF);
+            graphics.centeredText(font, Component.translatable("message.meplacementtool.no_configured_item"), width / 2, height / 2, GuiTextColors.opaque(0xFFFFFF));
             return;
         }
 
@@ -366,11 +366,11 @@ public class DualLayerRadialMenuScreen extends Screen {
         int hoverY = (int) (centerY - outerRadiusMax - font.lineHeight - 4);
         if (selectionLayer == 0 && hoveredDirection >= 0 && hoveredDirection < DIRECTION_OPTIONS.length) {
             String text = Component.translatable(DIRECTION_OPTIONS[hoveredDirection].translationKey()).getString();
-            graphics.centeredText(font, text, centerX, hoverY, 0xFFCC88);
+            graphics.centeredText(font, text, centerX, hoverY, GuiTextColors.opaque(0xFFCC88));
         } else if (selectionLayer == 1 && hoveredCount >= 0 && hoveredCount < COUNT_OPTIONS.length) {
-            graphics.centeredText(font, String.valueOf(COUNT_OPTIONS[hoveredCount]), centerX, hoverY, 0xFFFF00);
+            graphics.centeredText(font, String.valueOf(COUNT_OPTIONS[hoveredCount]), centerX, hoverY, GuiTextColors.opaque(0xFFFF00));
         } else if (selectionLayer == 2 && hoveredItem >= 0 && hoveredItem < slots.size()) {
-            graphics.centeredText(font, slots.get(hoveredItem).name, centerX, hoverY, 0xFFFFFF);
+            graphics.centeredText(font, slots.get(hoveredItem).name, centerX, hoverY, GuiTextColors.opaque(0xFFFFFF));
         }
 
         for (int i = 0; i < numberOfDirectionSlices; i++) {
@@ -381,7 +381,7 @@ public class DualLayerRadialMenuScreen extends Screen {
             int posX = (int) (centerX + dirItemRadius * (float) Math.cos(angle));
             int posY = (int) (centerY + dirItemRadius * (float) Math.sin(angle));
             String label = Component.translatable(DIRECTION_OPTIONS[i].translationKey() + ".short").getString();
-            graphics.centeredText(font, label, posX, posY - font.lineHeight / 2, 0xFFFFFF);
+            graphics.centeredText(font, label, posX, posY - font.lineHeight / 2, GuiTextColors.opaque(0xFFFFFF));
         }
 
         for (int i = 0; i < numberOfCountSlices; i++) {
@@ -391,7 +391,7 @@ public class DualLayerRadialMenuScreen extends Screen {
             }
             int posX = (int) (centerX + countItemRadius * (float) Math.cos(angle));
             int posY = (int) (centerY + countItemRadius * (float) Math.sin(angle));
-            graphics.centeredText(font, String.valueOf(COUNT_OPTIONS[i]), posX, posY - font.lineHeight / 2, 0xFFFFFF);
+            graphics.centeredText(font, String.valueOf(COUNT_OPTIONS[i]), posX, posY - font.lineHeight / 2, GuiTextColors.opaque(0xFFFFFF));
         }
 
         for (int i = 0; i < numberOfItemSlices; i++) {

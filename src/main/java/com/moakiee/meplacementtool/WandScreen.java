@@ -9,6 +9,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
+import com.moakiee.meplacementtool.client.GuiTextColors;
 import com.moakiee.meplacementtool.network.SyncPagePayload;
 
 /**
@@ -95,7 +96,7 @@ public class WandScreen extends AbstractContainerScreen<WandMenu> {
         String pageText = (currentPage + 1) + "/" + WandMenu.MAX_PAGES;
         int textWidth = this.font.width(pageText);
         // Position centered above the 3x3 grid
-        GuiGraphicsExtractor.text(this.font, pageText, relX + 88 - textWidth / 2, relY + 8, 0x404040, false);
+        GuiGraphicsExtractor.text(this.font, pageText, relX + 88 - textWidth / 2, relY + 8, GuiTextColors.opaque(0x404040), false);
     }
     
     /**

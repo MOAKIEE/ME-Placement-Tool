@@ -109,7 +109,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
 
     @Nullable
     private Component hintText = null;
-    private int hintColor = 0xFFFFFF;
+    private int hintColor = GuiTextColors.opaque(0xFFFFFF);
 
     // Color shortcut bar - stores color indices (-1 = empty slot)
     private int[] colorShortcuts = new int[]{0, -1, -1, -1, -1, -1};
@@ -208,7 +208,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
                 hintColor = getDisplayColor(color);
             } else {
                 hintText = Component.translatable("gui.meplacementtool.empty_slot");
-                hintColor = 0x808080;
+                hintColor = GuiTextColors.opaque(0x808080);
             }
         }
 
@@ -216,10 +216,10 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         if (hoveredExpandButton) {
             if (menu.hasUpgrade) {
                 hintText = Component.translatable(colorMenuExpanded ? "gui.meplacementtool.collapse_colors" : "gui.meplacementtool.expand_colors");
-                hintColor = 0x000000;
+                hintColor = GuiTextColors.opaque(0x000000);
             } else {
                 hintText = Component.translatable("gui.meplacementtool.need_spectrum_key");
-                hintColor = 0xFF5555;
+                hintColor = GuiTextColors.opaque(0xFF5555);
             }
         }
 
@@ -237,14 +237,14 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         if (hoveredCableIndex >= 0) {
             String[] cableKeys = {"glass", "covered", "smart", "dense_covered", "dense_smart"};
             hintText = Component.translatable("meplacementtool.cable." + cableKeys[hoveredCableIndex]);
-            hintColor = 0x8B479B;
+            hintColor = GuiTextColors.opaque(0x8B479B);
         }
 
         hoveredModeIndex = findModeAt(mouseX, mouseY);
         if (hoveredModeIndex >= 0) {
             String[] modeKeys = {"line", "plane_fill", "plane_branching"};
             hintText = Component.translatable("meplacementtool.mode." + modeKeys[hoveredModeIndex]);
-            hintColor = 0x000000;
+            hintColor = GuiTextColors.opaque(0x000000);
         }
     }
 
@@ -437,7 +437,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
 
         Component markHint = Component.translatable("gui.meplacementtool.mark_hint", 
             ModKeyBindings.MARK_COLOR_SHORTCUT.getTranslatedKeyMessage());
-        graphics.text(font, markHint, menuX + 2, menuY + COLOR_MENU_HEIGHT + 2, 0xAAAAAA, false);
+        graphics.text(font, markHint, menuX + 2, menuY + COLOR_MENU_HEIGHT + 2, GuiTextColors.opaque(0xAAAAAA), false);
     }
 
     /**
@@ -478,7 +478,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             graphics.pose().popMatrix();
 
             String label = Component.translatable("meplacementtool.cable." + cableKeys[i] + ".short").getString();
-            int textColor = isSelected ? 0xFFFFFF : 0x404040;
+            int textColor = GuiTextColors.opaque(isSelected ? 0xFFFFFF : 0x404040);
             graphics.text(font, label, btnX + CABLE_BTN_WIDTH + 2, btnY + 1, textColor, false);
         }
     }
@@ -508,10 +508,10 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             Identifier btnTex = isSelected ? BUTTON_PRESSED : BUTTON_NORMAL;
             graphics.blit(RenderPipelines.GUI_TEXTURED, btnTex, btnX, btnY, 0, 0, MODE_BTN_WIDTH, MODE_BTN_HEIGHT, MODE_BTN_WIDTH, MODE_BTN_HEIGHT);
 
-            graphics.centeredText(font, modeIcons[i], btnX + MODE_BTN_WIDTH / 2, btnY + 1, isSelected ? 0xFFFFFF : 0xE0E0E0);
+            graphics.centeredText(font, modeIcons[i], btnX + MODE_BTN_WIDTH / 2, btnY + 1, GuiTextColors.opaque(isSelected ? 0xFFFFFF : 0xE0E0E0));
 
             String label = Component.translatable("meplacementtool.mode." + modeKeys[i] + ".short").getString();
-            int textColor = isSelected ? 0xFFFFFF : 0x404040;
+            int textColor = GuiTextColors.opaque(isSelected ? 0xFFFFFF : 0x404040);
             graphics.text(font, label, btnX + MODE_BTN_WIDTH + 2, btnY + 1, textColor, false);
         }
     }
@@ -535,7 +535,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     }
 
     private int getDisplayColor(AEColor color) {
-        return color == AEColor.TRANSPARENT ? 0x8B479B : color.mediumVariant;
+        return GuiTextColors.opaque(color == AEColor.TRANSPARENT ? 0x8B479B : color.mediumVariant);
     }
 
     private boolean isInBounds(int mx, int my, int x, int y, int w, int h) {
