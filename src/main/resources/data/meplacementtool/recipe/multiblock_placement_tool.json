@@ -2,15 +2,9 @@
     "type": "minecraft:crafting_shaped",
     "category": "misc",
     "key": {
-        "D": {
-            "item": "ae2:dense_energy_cell"
-        },
-        "M": {
-            "item": "meplacementtool:me_placement_tool"
-        },
-        "N": {
-            "item": "minecraft:nether_star"
-        }
+        "D": "ae2:dense_energy_cell",
+        "M": "meplacementtool:me_placement_tool",
+        "N": "minecraft:nether_star"
     },
     "pattern": [
         "  D",

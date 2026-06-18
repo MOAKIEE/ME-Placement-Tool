@@ -2,15 +2,9 @@
     "type": "minecraft:crafting_shaped",
     "category": "misc",
     "key": {
-        "F": {
-            "item": "ae2:formation_plane"
-        },
-        "W": {
-            "item": "ae2:wireless_terminal"
-        },
-        "S": {
-            "item": "minecraft:stick"
-        }
+        "F": "ae2:formation_plane",
+        "W": "ae2:wireless_terminal",
+        "S": "minecraft:stick"
     },
     "pattern": [
         "  F",

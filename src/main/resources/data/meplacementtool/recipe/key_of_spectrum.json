@@ -2,33 +2,15 @@
     "type": "minecraft:crafting_shaped",
     "category": "misc",
     "key": {
-        "U": {
-            "item": "meplacementtool:prism_core"
-        },
-        "L": {
-            "item": "ae2:light_gray_paint_ball"
-        },
-        "C": {
-            "item": "ae2:cyan_paint_ball"
-        },
-        "P": {
-            "item": "ae2:purple_paint_ball"
-        },
-        "B": {
-            "item": "ae2:blue_paint_ball"
-        },
-        "K": {
-            "item": "ae2:black_paint_ball"
-        },
-        "W": {
-            "item": "ae2:brown_paint_ball"
-        },
-        "R": {
-            "item": "ae2:red_paint_ball"
-        },
-        "G": {
-            "item": "ae2:green_paint_ball"
-        }
+        "U": "meplacementtool:prism_core",
+        "L": "ae2:light_gray_paint_ball",
+        "C": "ae2:cyan_paint_ball",
+        "P": "ae2:purple_paint_ball",
+        "B": "ae2:blue_paint_ball",
+        "K": "ae2:black_paint_ball",
+        "W": "ae2:brown_paint_ball",
+        "R": "ae2:red_paint_ball",
+        "G": "ae2:green_paint_ball"
     },
     "pattern": [
         "LCP",
