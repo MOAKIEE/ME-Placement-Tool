@@ -59,6 +59,10 @@ public class DualLayerRadialMenuScreen extends Screen {
     private int selectionLayer = -1;
 
     public record SlotData(int index, ItemStack displayStack, String name) {}
+    private record MenuRadii(float dirMin, float dirMax, float countMin, float countMax, float outerMin, float outerMax) {}
+    private record HoveredSelection(int layer, int index) {
+        private static final HoveredSelection NONE = new HoveredSelection(-1, -1);
+    }
 
     public DualLayerRadialMenuScreen() {
         super(Component.literal(""));
@@ -357,6 +361,8 @@ public class DualLayerRadialMenuScreen extends Screen {
             RadialMenuRenderer.drawDivider(graphics, centerX, centerY, outerRadiusMin, outerRadiusMax, angle, 200, 200, 200, 100);
         }
 
+        graphics.nextStratum();
+
         int hoverY = (int) (centerY - outerRadiusMax - font.lineHeight - 4);
         if (selectionLayer == 0 && hoveredDirection >= 0 && hoveredDirection < DIRECTION_OPTIONS.length) {
             String text = Component.translatable(DIRECTION_OPTIONS[hoveredDirection].translationKey()).getString();
@@ -421,16 +427,70 @@ public class DualLayerRadialMenuScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (event.button() == 0) {
-            if (selectionLayer == 0 && selectedDirection >= 0 && selectedDirection < DIRECTION_OPTIONS.length) {
-                selectDirection(DIRECTION_OPTIONS[selectedDirection]);
-            } else if (selectionLayer == 1 && selectedCount >= 0 && selectedCount < COUNT_OPTIONS.length) {
-                selectCount(COUNT_OPTIONS[selectedCount]);
-            } else if (selectionLayer == 2 && selectedItem >= 0 && selectedItem < slots.size()) {
-                selectSlot(slots.get(selectedItem).index);
+            HoveredSelection clicked = findHoveredSelection((int) event.x(), (int) event.y());
+            if (clicked.layer == 0 && clicked.index >= 0 && clicked.index < DIRECTION_OPTIONS.length) {
+                selectDirection(DIRECTION_OPTIONS[clicked.index]);
+            } else if (clicked.layer == 1 && clicked.index >= 0 && clicked.index < COUNT_OPTIONS.length) {
+                selectCount(COUNT_OPTIONS[clicked.index]);
+            } else if (clicked.layer == 2 && clicked.index >= 0 && clicked.index < slots.size()) {
+                selectSlot(slots.get(clicked.index).index);
             }
             return true;
         }
         return super.mouseClicked(event, doubleClick);
+    }
+
+    private HoveredSelection findHoveredSelection(int mouseX, int mouseY) {
+        int numberOfItemSlices = Math.max(1, slots.size());
+        MenuRadii radii = calculateRadii(numberOfItemSlices, currentAnimationProgress());
+        double mouseDistance = Math.sqrt(Math.pow(mouseX - width / 2.0, 2) + Math.pow(mouseY - height / 2.0, 2));
+
+        if (mouseDistance >= radii.dirMin && mouseDistance < radii.dirMax) {
+            return adjustedSelection(mouseX, mouseY, DIRECTION_OPTIONS.length, 0);
+        }
+        if (mouseDistance >= radii.countMin && mouseDistance < radii.countMax) {
+            return adjustedSelection(mouseX, mouseY, COUNT_OPTIONS.length, 1);
+        }
+        if (mouseDistance >= radii.outerMin && mouseDistance < radii.outerMax) {
+            return adjustedSelection(mouseX, mouseY, numberOfItemSlices, 2);
+        }
+        return HoveredSelection.NONE;
+    }
+
+    private HoveredSelection adjustedSelection(int mouseX, int mouseY, int totalSlices, int layer) {
+        int slice = findSliceForMouse(mouseX, mouseY, totalSlices);
+        return slice >= 0 ? new HoveredSelection(layer, adjustIndex(slice, totalSlices)) : HoveredSelection.NONE;
+    }
+
+    private int findSliceForMouse(int mouseX, int mouseY, int totalSlices) {
+        if (totalSlices <= 0) {
+            return -1;
+        }
+
+        int centerX = width / 2;
+        int centerY = height / 2;
+        double mouseAngle = Math.toDegrees(Math.atan2(mouseY - centerY, mouseX - centerX));
+        float slot0 = (((0 - 0.5f) / (float) totalSlices) + 0.25f) * 360;
+        if (mouseAngle < slot0) {
+            mouseAngle += 360;
+        }
+        return findSlice(mouseAngle, totalSlices);
+    }
+
+    private float currentAnimationProgress() {
+        float openAnimation = closing ? 1.0f - totalTime / OPEN_ANIMATION_LENGTH : totalTime / OPEN_ANIMATION_LENGTH;
+        float animProgress = Mth.clamp(openAnimation, 0, 1);
+        return (float) (1 - Math.pow(1 - animProgress, 3));
+    }
+
+    private static MenuRadii calculateRadii(int numberOfItemSlices, float animProgress) {
+        float dirRadiusMin = Math.max(0.1f, 12 * animProgress);
+        float dirRadiusMax = Math.max(0.1f, 32 * animProgress);
+        float countRadiusMin = dirRadiusMax + 5 * animProgress;
+        float countRadiusMax = countRadiusMin + 18 * animProgress;
+        float outerRadiusMin = countRadiusMax + 7 * animProgress;
+        float outerRadiusMax = outerRadiusMin + Math.max(33, 23 + numberOfItemSlices * 1.3f) * animProgress;
+        return new MenuRadii(dirRadiusMin, dirRadiusMax, countRadiusMin, countRadiusMax, outerRadiusMin, outerRadiusMax);
     }
 
     private static int findSlice(double mouseAngle, int totalSlices) {

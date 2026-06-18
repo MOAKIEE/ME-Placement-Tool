@@ -192,39 +192,21 @@ public class RadialMenuScreen extends Screen {
         int centerX = width / 2;
         int centerY = height / 2;
 
-        double mouseAngle = Math.toDegrees(Math.atan2(mouseY - centerY, mouseX - centerX));
-        float slot0 = (((0 - 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
-        if (mouseAngle < slot0) {
-            mouseAngle += 360;
-        }
-
-        // Determine selected item
-        if (!closing) {
-            selectedItem = -1;
-            for (int i = 0; i < numberOfSlices; i++) {
-                float sliceBorderLeft = (((i - 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
-                float sliceBorderRight = (((i + 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
-                // Allow selection anywhere based on angle only (inside and outside the ring)
-                if (mouseAngle >= sliceBorderLeft && mouseAngle < sliceBorderRight) {
-                    selectedItem = i;
-                    break;
-                }
-            }
-        }
+        int hoveredSlice = closing ? -1 : findHoveredSlice(mouseX, mouseY, numberOfSlices);
+        int mousedOverSlot = hoveredSlice >= 0 ? adjustIndex(hoveredSlice, numberOfSlices) : -1;
+        selectedItem = mousedOverSlot;
 
         RadialMenuRenderer.drawSlice(graphics, centerX, centerY, radiusIn, radiusOut, 0, 360, 80, 80, 80, 120);
 
-        int mousedOverSlice = -1;
         for (int i = 0; i < numberOfSlices; i++) {
             float sliceBorderLeft = (((i - 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
             float sliceBorderRight = (((i + 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
             int adjusted = adjustIndex(i, numberOfSlices);
             boolean isCurrentlySelected = adjusted < slots.size() && slots.get(adjusted).index == currentSelectedSlot;
 
-            if (selectedItem == i) {
+            if (hoveredSlice == i) {
                 RadialMenuRenderer.drawSlice(graphics, centerX, centerY, radiusIn, radiusOut,
                         sliceBorderLeft, sliceBorderRight, 63, 161, 191, 150);
-                mousedOverSlice = i;
             } else if (isCurrentlySelected) {
                 RadialMenuRenderer.drawSlice(graphics, centerX, centerY, radiusIn, radiusOut,
                         sliceBorderLeft, sliceBorderRight, 80, 180, 80, 130);
@@ -236,7 +218,7 @@ public class RadialMenuScreen extends Screen {
             RadialMenuRenderer.drawDivider(graphics, centerX, centerY, radiusIn, radiusOut, angle, 200, 200, 200, 100);
         }
 
-        int mousedOverSlot = mousedOverSlice >= 0 ? adjustIndex(mousedOverSlice, numberOfSlices) : -1;
+        graphics.nextStratum();
 
         // Draw hovered item name
         if (mousedOverSlot != -1) {
@@ -265,11 +247,43 @@ public class RadialMenuScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 0 && selectedItem >= 0 && selectedItem < slots.size()) {
-            selectSlot(slots.get(selectedItem).index);
+        int clickedSlot = findHoveredSlot((int) event.x(), (int) event.y(), Math.min(MAX_SLOTS, slots.size()));
+        if (event.button() == 0 && clickedSlot >= 0 && clickedSlot < slots.size()) {
+            selectSlot(slots.get(clickedSlot).index);
             return true;
         }
         return super.mouseClicked(event, doubleClick);
+    }
+
+    private int findHoveredSlot(int mouseX, int mouseY, int numberOfSlices) {
+        int hoveredSlice = findHoveredSlice(mouseX, mouseY, numberOfSlices);
+        return hoveredSlice >= 0 ? adjustIndex(hoveredSlice, numberOfSlices) : -1;
+    }
+
+    private int findHoveredSlice(int mouseX, int mouseY, int numberOfSlices) {
+        if (numberOfSlices <= 0) {
+            return -1;
+        }
+
+        int centerX = width / 2;
+        int centerY = height / 2;
+        double mouseAngle = Math.toDegrees(Math.atan2(mouseY - centerY, mouseX - centerX));
+        float slot0 = (((0 - 0.5f) / (float) numberOfSlices) + 0.25f) * 360;
+        if (mouseAngle < slot0) {
+            mouseAngle += 360;
+        }
+        return findSlice(mouseAngle, numberOfSlices);
+    }
+
+    private static int findSlice(double mouseAngle, int totalSlices) {
+        for (int i = 0; i < totalSlices; i++) {
+            float sliceBorderLeft = (((i - 0.5f) / (float) totalSlices) + 0.25f) * 360;
+            float sliceBorderRight = (((i + 0.5f) / (float) totalSlices) + 0.25f) * 360;
+            if (mouseAngle >= sliceBorderLeft && mouseAngle < sliceBorderRight) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private static int adjustIndex(int sliceIndex, int totalSlices) {

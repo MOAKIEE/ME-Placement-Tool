@@ -101,9 +101,9 @@ final class RadialMenuRenderer {
                 float y2Out = this.y + this.radiusOut * (float) Math.sin(angle2);
 
                 vertexConsumer.addVertexWith2DPose(this.pose, x1In, y1In).setColor(this.color);
-                vertexConsumer.addVertexWith2DPose(this.pose, x1Out, y1Out).setColor(this.color);
-                vertexConsumer.addVertexWith2DPose(this.pose, x2Out, y2Out).setColor(this.color);
                 vertexConsumer.addVertexWith2DPose(this.pose, x2In, y2In).setColor(this.color);
+                vertexConsumer.addVertexWith2DPose(this.pose, x2Out, y2Out).setColor(this.color);
+                vertexConsumer.addVertexWith2DPose(this.pose, x1Out, y1Out).setColor(this.color);
             }
         }
     }

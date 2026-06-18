@@ -149,54 +149,205 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor GuiGraphicsExtractor, int mouseX, int mouseY, float partialTicks) {
-        super.extractBackground(GuiGraphicsExtractor, mouseX, mouseY, partialTicks);
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
+        super.extractBackground(graphics, mouseX, mouseY, partialTicks);
         int x = this.leftPos;
         int y = this.topPos;
 
         // Draw main GUI background
-        GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND, x, y, 0, 0, GUI_WIDTH, GUI_HEIGHT, GUI_TEXTURE_SIZE, GUI_TEXTURE_SIZE);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND, x, y, 0, 0, GUI_WIDTH, GUI_HEIGHT, GUI_TEXTURE_SIZE, GUI_TEXTURE_SIZE);
+
+        updateHoverState(mouseX, mouseY);
+
+        // Draw color shortcut bar
+        drawColorBar(graphics, x, y);
+
+        // Draw cable and mode selection areas (unless color menu is covering them)
+        if (!colorMenuExpanded) {
+            drawCableSection(graphics, x, y);
+            drawModeSection(graphics, x, y);
+        }
+
+        // Draw expanded color menu ON TOP
+        if (colorMenuExpanded) {
+            drawColorMenu(graphics, x, y);
+        }
+
+        // Update and draw AE2 upgrade panel
+        upgradesPanel.updateBeforeRender();
+        upgradesPanel.drawBackgroundLayer(graphics, getBounds(), new Point(mouseX - leftPos, mouseY - topPos));
+
+        // Draw upgrade slot icon if empty
+        drawUpgradeSlotIcon(graphics);
     }
 
     @Override
-    public void extractContents(GuiGraphicsExtractor GuiGraphicsExtractor, int mouseX, int mouseY, float partialTicks) {
-        int x = this.leftPos;
-        int y = this.topPos;
+    public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
+        super.extractContents(graphics, mouseX, mouseY, partialTicks);
+    }
 
-        // Reset hover states
+    private void resetHoverState() {
         hoveredColorIndex = -1;
         hoveredExpandedColorIndex = -1;
         hoveredCableIndex = -1;
         hoveredModeIndex = -1;
         hoveredExpandButton = false;
         hintText = null;
+    }
 
-        // Draw color shortcut bar
-        drawColorBar(GuiGraphicsExtractor, x, y, mouseX, mouseY);
+    private void updateHoverState(int mouseX, int mouseY) {
+        resetHoverState();
+        syncColorShortcuts();
 
-        // Draw cable and mode selection areas (unless color menu is covering them)
-        if (!colorMenuExpanded) {
-            drawCableSection(GuiGraphicsExtractor, x, y, mouseX, mouseY);
-            drawModeSection(GuiGraphicsExtractor, x, y, mouseX, mouseY);
+        hoveredColorIndex = findColorShortcutAt(mouseX, mouseY);
+        if (hoveredColorIndex >= 0) {
+            int colorIndex = colorShortcuts[hoveredColorIndex];
+            if (colorIndex >= 0) {
+                AEColor color = AEColor.values()[colorIndex];
+                hintText = Component.translatable("meplacementtool.color." + color.name().toLowerCase());
+                hintColor = getDisplayColor(color);
+            } else {
+                hintText = Component.translatable("gui.meplacementtool.empty_slot");
+                hintColor = 0x808080;
+            }
         }
 
-        // Draw expanded color menu ON TOP
+        hoveredExpandButton = isExpandButtonAt(mouseX, mouseY);
+        if (hoveredExpandButton) {
+            if (menu.hasUpgrade) {
+                hintText = Component.translatable(colorMenuExpanded ? "gui.meplacementtool.collapse_colors" : "gui.meplacementtool.expand_colors");
+                hintColor = 0x000000;
+            } else {
+                hintText = Component.translatable("gui.meplacementtool.need_spectrum_key");
+                hintColor = 0xFF5555;
+            }
+        }
+
         if (colorMenuExpanded) {
-            drawColorMenu(GuiGraphicsExtractor, x, y, mouseX, mouseY);
+            hoveredExpandedColorIndex = findExpandedColorAt(mouseX, mouseY);
+            if (hoveredExpandedColorIndex >= 0) {
+                AEColor color = AEColor.values()[hoveredExpandedColorIndex];
+                hintText = Component.translatable("meplacementtool.color." + color.name().toLowerCase());
+                hintColor = getDisplayColor(color);
+            }
+            return;
         }
 
-        // Update and draw AE2 upgrade panel
-        upgradesPanel.updateBeforeRender();
-        upgradesPanel.drawBackgroundLayer(GuiGraphicsExtractor, getBounds(), new Point(mouseX - leftPos, mouseY - topPos));
-        
-        // Draw upgrade slot icon if empty
-        drawUpgradeSlotIcon(GuiGraphicsExtractor);
+        hoveredCableIndex = findCableAt(mouseX, mouseY);
+        if (hoveredCableIndex >= 0) {
+            String[] cableKeys = {"glass", "covered", "smart", "dense_covered", "dense_smart"};
+            hintText = Component.translatable("meplacementtool.cable." + cableKeys[hoveredCableIndex]);
+            hintColor = 0x8B479B;
+        }
 
-        super.extractContents(GuiGraphicsExtractor, mouseX, mouseY, partialTicks);
+        hoveredModeIndex = findModeAt(mouseX, mouseY);
+        if (hoveredModeIndex >= 0) {
+            String[] modeKeys = {"line", "plane_fill", "plane_branching"};
+            hintText = Component.translatable("meplacementtool.mode." + modeKeys[hoveredModeIndex]);
+            hintColor = 0x000000;
+        }
+    }
+
+    private void syncColorShortcuts() {
+        if (menu.hasUpgrade) {
+            colorShortcuts[0] = menu.currentColor;
+        } else {
+            colorShortcuts[0] = AEColor.TRANSPARENT.ordinal();
+        }
+
+        int[] savedShortcuts = menu.getColorShortcuts();
+        for (int i = 0; i < 5 && i < savedShortcuts.length; i++) {
+            colorShortcuts[i + 1] = savedShortcuts[i];
+        }
+    }
+
+    private int colorBarStartX() {
+        int areaWidth = COLOR_BAR_RIGHT - COLOR_BAR_LEFT + 1;
+        int totalCellsWidth = COLOR_CELL_COUNT * COLOR_CELL_SIZE
+                + (COLOR_CELL_COUNT - 1) * COLOR_CELL_SPACING
+                + EXPAND_BTN_SIZE + COLOR_CELL_SPACING;
+        return leftPos + COLOR_BAR_LEFT + (areaWidth - totalCellsWidth) / 2;
+    }
+
+    private int colorBarStartY() {
+        int areaHeight = COLOR_BAR_BOTTOM - COLOR_BAR_TOP + 1;
+        return topPos + COLOR_BAR_TOP + (areaHeight - COLOR_CELL_SIZE) / 2;
+    }
+
+    private int findColorShortcutAt(int mouseX, int mouseY) {
+        int startX = colorBarStartX();
+        int startY = colorBarStartY();
+        for (int i = 0; i < COLOR_CELL_COUNT; i++) {
+            int cellX = startX + i * (COLOR_CELL_SIZE + COLOR_CELL_SPACING);
+            if (isInBounds(mouseX, mouseY, cellX, startY, COLOR_CELL_SIZE, COLOR_CELL_SIZE)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private boolean isExpandButtonAt(int mouseX, int mouseY) {
+        int expandX = colorBarStartX() + COLOR_CELL_COUNT * (COLOR_CELL_SIZE + COLOR_CELL_SPACING);
+        int expandY = colorBarStartY() + (COLOR_CELL_SIZE - EXPAND_BTN_SIZE) / 2;
+        return isInBounds(mouseX, mouseY, expandX, expandY, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE);
+    }
+
+    private int findExpandedColorAt(int mouseX, int mouseY) {
+        int cellStartX = colorBarStartX();
+        int cellStartY = topPos + COLOR_MENU_Y + COLOR_MENU_PADDING;
+        AEColor[] colors = AEColor.values();
+        for (int i = 0; i < colors.length; i++) {
+            int col = i % COLOR_MENU_COLS;
+            int row = i / COLOR_MENU_COLS;
+            int cellX = cellStartX + col * (COLOR_MENU_CELL_SIZE + COLOR_MENU_CELL_SPACING);
+            int cellY = cellStartY + row * (COLOR_MENU_CELL_SIZE + COLOR_MENU_CELL_SPACING);
+            if (isInBounds(mouseX, mouseY, cellX, cellY, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int findCableAt(int mouseX, int mouseY) {
+        int areaWidth = CABLE_AREA_RIGHT - CABLE_AREA_LEFT + 1;
+        int colWidth = areaWidth / 2;
+        int rowHeight = CABLE_BTN_HEIGHT + CABLE_BTN_SPACING;
+        int leftColX = leftPos + CABLE_AREA_LEFT + 5;
+        int rightColX = leftPos + CABLE_AREA_LEFT + colWidth + 5;
+        int startY = topPos + CABLE_AREA_TOP + 5;
+        ItemMECablePlacementTool.CableType[] types = ItemMECablePlacementTool.CableType.values();
+
+        for (int i = 0; i < types.length; i++) {
+            int col = i / 3;
+            int row = i % 3;
+            int btnX = (col == 0) ? leftColX : rightColX;
+            int btnY = startY + row * rowHeight;
+            if (isInBounds(mouseX, mouseY, btnX, btnY, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int findModeAt(int mouseX, int mouseY) {
+        int areaHeight = MODE_AREA_BOTTOM - MODE_AREA_TOP + 1;
+        ItemMECablePlacementTool.PlacementMode[] modes = ItemMECablePlacementTool.PlacementMode.values();
+        int rowHeight = MODE_BTN_HEIGHT + MODE_BTN_SPACING;
+        int totalHeight = modes.length * MODE_BTN_HEIGHT + (modes.length - 1) * MODE_BTN_SPACING;
+        int startX = leftPos + MODE_AREA_LEFT + 5;
+        int startY = topPos + MODE_AREA_TOP + (areaHeight - totalHeight) / 2;
+
+        for (int i = 0; i < modes.length; i++) {
+            int btnY = startY + i * rowHeight;
+            if (isInBounds(mouseX, mouseY, startX, btnY, MODE_BTN_WIDTH, MODE_BTN_HEIGHT)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     @Override
-    protected void extractLabels(GuiGraphicsExtractor GuiGraphicsExtractor, int mouseX, int mouseY) {
+    protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         // Draw hint text in the area to the right of color bar
         // Position: starts at COLOR_BAR_RIGHT + 5px gap, centered in available width
         if (hintText != null) {
@@ -211,7 +362,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
                 // Center each line in the available area
                 int lineWidth = font.width(lines.get(i));
                 int lineX = hintAreaLeft + (hintAreaWidth - lineWidth) / 2;
-                GuiGraphicsExtractor.text(font, lines.get(i), lineX, hintY + i * 10, hintColor, false);
+                graphics.text(font, lines.get(i), lineX, hintY + i * 10, hintColor, false);
             }
         }
     }
@@ -219,7 +370,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
     /**
      * Draw color shortcut bar at (9,18)-(116,32)
      */
-    private void drawColorBar(GuiGraphicsExtractor GuiGraphicsExtractor, int baseX, int baseY, int mouseX, int mouseY) {
+    private void drawColorBar(GuiGraphicsExtractor graphics, int baseX, int baseY) {
         int areaWidth = COLOR_BAR_RIGHT - COLOR_BAR_LEFT + 1;
         int areaHeight = COLOR_BAR_BOTTOM - COLOR_BAR_TOP + 1;
         
@@ -228,67 +379,35 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         int startX = baseX + COLOR_BAR_LEFT + (areaWidth - totalCellsWidth) / 2;
         int startY = baseY + COLOR_BAR_TOP + (areaHeight - COLOR_CELL_SIZE) / 2;
 
-        // Slot 0: shows current color only if upgrade is installed, otherwise stays Fluix
-        if (menu.hasUpgrade) {
-            colorShortcuts[0] = menu.currentColor;
-        } else {
-            colorShortcuts[0] = AEColor.TRANSPARENT.ordinal(); // Fluix = 16
-        }
-
         for (int i = 0; i < COLOR_CELL_COUNT; i++) {
             int cellX = startX + i * (COLOR_CELL_SIZE + COLOR_CELL_SPACING);
             int cellY = startY;
 
             int colorIndex = colorShortcuts[i];
-            boolean isHovered = isInBounds(mouseX, mouseY, cellX, cellY, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
-
-            if (isHovered) {
-                hoveredColorIndex = i;
-                if (colorIndex >= 0) {
-                    AEColor color = AEColor.values()[colorIndex];
-                    hintText = Component.translatable("meplacementtool.color." + color.name().toLowerCase());
-                    hintColor = getDisplayColor(color);
-                } else {
-                    hintText = Component.translatable("gui.meplacementtool.empty_slot");
-                    hintColor = 0x808080;
-                }
-            }
 
             if (colorIndex < 0) {
-                GuiGraphicsExtractor.blit(COLOR_UNSELECTED, cellX, cellY, 0, 0, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, COLOR_UNSELECTED, cellX, cellY, 0, 0, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
             } else {
-                GuiGraphicsExtractor.blit(COLOR_FRAME, cellX, cellY, 0, 0, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, COLOR_FRAME, cellX, cellY, 0, 0, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE, COLOR_CELL_SIZE);
                 AEColor color = AEColor.values()[colorIndex];
                 int fillColor = getDisplayColor(color);
-                GuiGraphicsExtractor.fill(cellX + 1, cellY + 1, cellX + COLOR_CELL_SIZE - 1, cellY + COLOR_CELL_SIZE - 1, 0xFF000000 | fillColor);
+                graphics.fill(cellX + 1, cellY + 1, cellX + COLOR_CELL_SIZE - 1, cellY + COLOR_CELL_SIZE - 1, 0xFF000000 | fillColor);
             }
         }
 
         int expandX = startX + COLOR_CELL_COUNT * (COLOR_CELL_SIZE + COLOR_CELL_SPACING);
         int expandY = startY + (COLOR_CELL_SIZE - EXPAND_BTN_SIZE) / 2;
-        hoveredExpandButton = isInBounds(mouseX, mouseY, expandX, expandY, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE);
-
-        if (hoveredExpandButton) {
-            if (menu.hasUpgrade) {
-                hintText = Component.translatable(colorMenuExpanded ? "gui.meplacementtool.collapse_colors" : "gui.meplacementtool.expand_colors");
-                hintColor = 0x000000;
-            } else {
-                hintText = Component.translatable("gui.meplacementtool.need_spectrum_key");
-                hintColor = 0xFF5555; // Red color to indicate requirement
-            }
-        }
-
-        GuiGraphicsExtractor.blit(EXPAND_BUTTON, expandX, expandY, 0, 0, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, EXPAND_BUTTON, expandX, expandY, 0, 0, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE, EXPAND_BTN_SIZE);
     }
 
     /**
      * Draw expanded color menu at (7,33).
      */
-    private void drawColorMenu(GuiGraphicsExtractor GuiGraphicsExtractor, int baseX, int baseY, int mouseX, int mouseY) {
+    private void drawColorMenu(GuiGraphicsExtractor graphics, int baseX, int baseY) {
         int menuX = baseX + COLOR_MENU_X;
         int menuY = baseY + COLOR_MENU_Y;
 
-        GuiGraphicsExtractor.blit(COLOR_MENU, menuX, menuY, 0, 0, COLOR_MENU_WIDTH, COLOR_MENU_HEIGHT, COLOR_MENU_WIDTH, COLOR_MENU_HEIGHT);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, COLOR_MENU, menuX, menuY, 0, 0, COLOR_MENU_WIDTH, COLOR_MENU_HEIGHT, COLOR_MENU_WIDTH, COLOR_MENU_HEIGHT);
 
         AEColor[] colors = AEColor.values();
         
@@ -304,35 +423,27 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             int cellX = cellStartX + col * (COLOR_MENU_CELL_SIZE + COLOR_MENU_CELL_SPACING);
             int cellY = cellStartY + row * (COLOR_MENU_CELL_SIZE + COLOR_MENU_CELL_SPACING);
 
-            boolean isHovered = isInBounds(mouseX, mouseY, cellX, cellY, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE);
             boolean isSelected = (i == menu.currentColor);
 
-            if (isHovered) {
-                hoveredExpandedColorIndex = i;
-                AEColor color = colors[i];
-                hintText = Component.translatable("meplacementtool.color." + color.name().toLowerCase());
-                hintColor = getDisplayColor(color);
-            }
-
-            GuiGraphicsExtractor.blit(COLOR_FRAME, cellX, cellY, 0, 0, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, COLOR_FRAME, cellX, cellY, 0, 0, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE, COLOR_MENU_CELL_SIZE);
             AEColor color = colors[i];
             int fillColor = getDisplayColor(color);
-            GuiGraphicsExtractor.fill(cellX + 1, cellY + 1, cellX + COLOR_MENU_CELL_SIZE - 1, cellY + COLOR_MENU_CELL_SIZE - 1, 0xFF000000 | fillColor);
+            graphics.fill(cellX + 1, cellY + 1, cellX + COLOR_MENU_CELL_SIZE - 1, cellY + COLOR_MENU_CELL_SIZE - 1, 0xFF000000 | fillColor);
 
             if (isSelected) {
-                GuiGraphicsExtractor.outline(cellX - 1, cellY - 1, COLOR_MENU_CELL_SIZE + 2, COLOR_MENU_CELL_SIZE + 2, 0xFF00FF00);
+                graphics.outline(cellX - 1, cellY - 1, COLOR_MENU_CELL_SIZE + 2, COLOR_MENU_CELL_SIZE + 2, 0xFF00FF00);
             }
         }
 
         Component markHint = Component.translatable("gui.meplacementtool.mark_hint", 
             ModKeyBindings.MARK_COLOR_SHORTCUT.getTranslatedKeyMessage());
-        GuiGraphicsExtractor.text(font, markHint, menuX + 2, menuY + COLOR_MENU_HEIGHT + 2, 0xAAAAAA, false);
+        graphics.text(font, markHint, menuX + 2, menuY + COLOR_MENU_HEIGHT + 2, 0xAAAAAA, false);
     }
 
     /**
      * Draw cable type selection at (7,49)-(118,102) - TWO COLUMNS
      */
-    private void drawCableSection(GuiGraphicsExtractor GuiGraphicsExtractor, int baseX, int baseY, int mouseX, int mouseY) {
+    private void drawCableSection(GuiGraphicsExtractor graphics, int baseX, int baseY) {
         int areaWidth = CABLE_AREA_RIGHT - CABLE_AREA_LEFT + 1;
         
         int selectedCable = menu.currentCableType;
@@ -353,36 +464,29 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             int btnX = (col == 0) ? leftColX : rightColX;
             int btnY = startY + row * rowHeight;
 
-            boolean isHovered = isInBounds(mouseX, mouseY, btnX, btnY, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT);
             boolean isSelected = (i == selectedCable);
 
-            if (isHovered) {
-                hoveredCableIndex = i;
-                hintText = Component.translatable("meplacementtool.cable." + cableKeys[i]);
-                hintColor = 0x8B479B;
-            }
-
             Identifier btnTex = isSelected ? BUTTON_PRESSED : BUTTON_NORMAL;
-            GuiGraphicsExtractor.blit(btnTex, btnX, btnY, 0, 0, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, btnTex, btnX, btnY, 0, 0, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT, CABLE_BTN_WIDTH, CABLE_BTN_HEIGHT);
 
             ItemStack cableStack = types[i].getStack(AEColor.TRANSPARENT);
-            GuiGraphicsExtractor.pose().pushMatrix();
+            graphics.pose().pushMatrix();
             float scale = 0.55f;
-            GuiGraphicsExtractor.pose().translate(btnX + (CABLE_BTN_WIDTH - 16 * scale) / 2, btnY + (CABLE_BTN_HEIGHT - 16 * scale) / 2);
-            GuiGraphicsExtractor.pose().scale(scale, scale);
-            GuiGraphicsExtractor.item(cableStack, 0, 0);
-            GuiGraphicsExtractor.pose().popMatrix();
+            graphics.pose().translate(btnX + (CABLE_BTN_WIDTH - 16 * scale) / 2, btnY + (CABLE_BTN_HEIGHT - 16 * scale) / 2);
+            graphics.pose().scale(scale, scale);
+            graphics.item(cableStack, 0, 0);
+            graphics.pose().popMatrix();
 
             String label = Component.translatable("meplacementtool.cable." + cableKeys[i] + ".short").getString();
             int textColor = isSelected ? 0xFFFFFF : 0x404040;
-            GuiGraphicsExtractor.text(font, label, btnX + CABLE_BTN_WIDTH + 2, btnY + 1, textColor, false);
+            graphics.text(font, label, btnX + CABLE_BTN_WIDTH + 2, btnY + 1, textColor, false);
         }
     }
 
     /**
      * Draw placement mode selection at (124,49)-(168,102)
      */
-    private void drawModeSection(GuiGraphicsExtractor GuiGraphicsExtractor, int baseX, int baseY, int mouseX, int mouseY) {
+    private void drawModeSection(GuiGraphicsExtractor graphics, int baseX, int baseY) {
         int areaHeight = MODE_AREA_BOTTOM - MODE_AREA_TOP + 1;
 
         int selectedMode = menu.currentMode;
@@ -399,23 +503,16 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
             int btnX = startX;
             int btnY = startY + i * rowHeight;
 
-            boolean isHovered = isInBounds(mouseX, mouseY, btnX, btnY, MODE_BTN_WIDTH, MODE_BTN_HEIGHT);
             boolean isSelected = (i == selectedMode);
 
-            if (isHovered) {
-                hoveredModeIndex = i;
-                hintText = Component.translatable("meplacementtool.mode." + modeKeys[i]);
-                hintColor = 0x000000; // Black color for mode hints
-            }
-
             Identifier btnTex = isSelected ? BUTTON_PRESSED : BUTTON_NORMAL;
-            GuiGraphicsExtractor.blit(btnTex, btnX, btnY, 0, 0, MODE_BTN_WIDTH, MODE_BTN_HEIGHT, MODE_BTN_WIDTH, MODE_BTN_HEIGHT);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, btnTex, btnX, btnY, 0, 0, MODE_BTN_WIDTH, MODE_BTN_HEIGHT, MODE_BTN_WIDTH, MODE_BTN_HEIGHT);
 
-            GuiGraphicsExtractor.centeredText(font, modeIcons[i], btnX + MODE_BTN_WIDTH / 2, btnY + 1, isSelected ? 0xFFFFFF : 0xE0E0E0);
+            graphics.centeredText(font, modeIcons[i], btnX + MODE_BTN_WIDTH / 2, btnY + 1, isSelected ? 0xFFFFFF : 0xE0E0E0);
 
             String label = Component.translatable("meplacementtool.mode." + modeKeys[i] + ".short").getString();
             int textColor = isSelected ? 0xFFFFFF : 0x404040;
-            GuiGraphicsExtractor.text(font, label, btnX + MODE_BTN_WIDTH + 2, btnY + 1, textColor, false);
+            graphics.text(font, label, btnX + MODE_BTN_WIDTH + 2, btnY + 1, textColor, false);
         }
     }
 
@@ -475,6 +572,7 @@ public class CableToolScreen extends AbstractContainerScreen<CableToolMenu> {
         double mouseX = event.x();
         double mouseY = event.y();
         int button = event.button();
+        updateHoverState((int) mouseX, (int) mouseY);
 
         if (button == 0) {
             if (hoveredExpandButton) {
