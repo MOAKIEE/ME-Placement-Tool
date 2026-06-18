@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "meplacementtool:item/me_cable_placement_tool"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "meplacementtool:item/multiblock_placement_tool"
+  }
+}
