@@ -1,7 +1,7 @@
 # ME 放置工具
 
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.1-green.svg)](https://www.minecraft.net/)
-[![NeoForge](https://img.shields.io/badge/NeoForge-21.1-orange.svg)](https://neoforged.net/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-26.1.2-green.svg)](https://www.minecraft.net/)
+[![NeoForge](https://img.shields.io/badge/NeoForge-26.1-orange.svg)](https://neoforged.net/)
 [![License](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)](../LICENSE)
 
 [🇬🇧 English](../README.md)
@@ -14,10 +14,9 @@
 - 直接从 ME 网络放置物品
 - 支持普通方块、AE2 线缆部件（总线、面板等）和流体
 - 18 格配置槽，按 G 键打开轮盘快速选择
-- JEI 集成 - 可直接拖拽物品到配置格
+- JEI / REI 集成 - 可直接拖拽物品到配置格
 - HUD 显示当前选择和网络状态
 - 内存卡支持 - 自动应用设置到放置的方块
-- Mekanism 配置卡支持
 
 ### ME 多方块放置工具
 - 使用 BFS 算法一次放置多个方块
@@ -35,14 +34,14 @@
 
 ## 前置要求
 
-- Minecraft 1.21.1
-- NeoForge 21.1+
+- Minecraft 26.1.2
+- NeoForge 26.1+
 - Applied Energistics 2
 
 ## 可选依赖
 
 - JEI（Just Enough Items）- 支持拖放功能
-- Mekanism - 支持配置卡
+- REI（Roughly Enough Items）- 支持拖放功能
 
 ## 操作
 
