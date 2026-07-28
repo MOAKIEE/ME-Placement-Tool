@@ -56,7 +56,7 @@ public class MultiblockPreviewRenderer {
     private CompoundTag lastTargetCfg;
     private ItemStack cachedTargetStack = ItemStack.EMPTY;
 
-    @SubscribeEvent
+    @SubscribeEvent(receiveCanceled = true)
     public void renderBlockHighlight(RenderHighlightEvent.Block event) {
         if (event.getTarget().getType() != HitResult.Type.BLOCK) return;
 
@@ -231,7 +231,7 @@ public class MultiblockPreviewRenderer {
                 supportMatches = level.getBlockState(currentCandidate.relative(partSide)).getBlock() == clickedState.getBlock();
             }
 
-            if (supportMatches && canPlaceConfiguredPartOnCable(player, level, target, currentCandidate, partSide)) {
+            if (supportMatches && canPlaceConfiguredPart(player, level, target, currentCandidate, partSide)) {
                 positions.add(currentCandidate);
                 addAdjacentPositions(candidates, currentCandidate, clickedFace, directionMode);
             }
@@ -241,17 +241,9 @@ public class MultiblockPreviewRenderer {
         return placePositions;
     }
 
-    private boolean canPlaceConfiguredPartOnCable(Player player, Level level, ItemStack partStack, BlockPos pos,
+    private boolean canPlaceConfiguredPart(Player player, Level level, ItemStack partStack, BlockPos pos,
             Direction side) {
-        if (side != null && !hasCenterCable(level, pos)) {
-            return false;
-        }
         return PartPlacement.canPlacePartOnBlock(player, level, partStack, pos, side);
-    }
-
-    private boolean hasCenterCable(Level level, BlockPos pos) {
-        var host = PartHelper.getPartHost(level, pos);
-        return host != null && host.getPart(null) != null;
     }
 
     private PartPlacement.Placement getPartPlacementWithCableFallback(Player player, Level level,

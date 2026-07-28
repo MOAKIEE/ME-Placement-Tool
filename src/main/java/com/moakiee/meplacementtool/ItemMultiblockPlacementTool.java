@@ -856,7 +856,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             if (supportMatches
                     && level.mayInteract(player, currentCandidate)
                     && player.mayUseItemAt(currentCandidate, partSide, partStack)
-                    && canPlaceConfiguredPartOnCable(player, level, partStack, currentCandidate, partSide)) {
+                    && canPlaceConfiguredPart(player, level, partStack, currentCandidate, partSide)) {
                 placePositions.add(currentCandidate);
                 addAdjacentPositions(candidates, currentCandidate, clickedFace, directionMode);
             }
@@ -865,17 +865,9 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         return placePositions;
     }
 
-    private boolean canPlaceConfiguredPartOnCable(Player player, Level level, ItemStack partStack, BlockPos pos,
+    private boolean canPlaceConfiguredPart(Player player, Level level, ItemStack partStack, BlockPos pos,
             Direction side) {
-        if (side != null && !hasCenterCable(level, pos)) {
-            return false;
-        }
         return PartPlacement.canPlacePartOnBlock(player, level, partStack, pos, side);
-    }
-
-    private boolean hasCenterCable(Level level, BlockPos pos) {
-        var host = PartHelper.getPartHost(level, pos);
-        return host != null && host.getPart(null) != null;
     }
 
     private PartPlacement.Placement getPartPlacementWithCableFallback(Player player, Level level, ItemStack partStack,
