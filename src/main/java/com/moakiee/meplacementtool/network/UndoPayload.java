@@ -30,6 +30,11 @@ public record UndoPayload(BlockPos pos) implements CustomPacketPayload {
     public static void handle(UndoPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer player) {
+                // Never trust the client-provided position: require it to be near the player,
+                // otherwise the "must be at the site" range check could be bypassed remotely.
+                if (!player.blockPosition().closerThan(payload.pos, 10)) {
+                    return;
+                }
                 // Perform undo action with position for range checking
                 if (MEPlacementToolMod.instance != null && MEPlacementToolMod.instance.undoHistory != null) {
                     MEPlacementToolMod.instance.undoHistory.undo(player, player.level(), payload.pos);

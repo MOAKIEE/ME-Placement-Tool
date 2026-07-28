@@ -36,6 +36,11 @@ public record ClearCableToolPointsPayload(int slot) implements CustomPacketPaylo
                 return;
             }
 
+            // Validate the client-provided slot index (negative values would throw)
+            if (payload.slot < 0 || payload.slot >= player.getInventory().getContainerSize()) {
+                return;
+            }
+
             ItemStack stack = player.getInventory().getItem(payload.slot);
             if (stack.getItem() != MEPlacementToolMod.ME_CABLE_PLACEMENT_TOOL.get()) {
                 return;

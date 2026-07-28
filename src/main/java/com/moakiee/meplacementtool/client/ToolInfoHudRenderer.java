@@ -42,6 +42,9 @@ public class ToolInfoHudRenderer {
     private Item lastHeldToolItem = null;
     // Track when the tool was switched to
     private long toolSwitchTime = 0L;
+    // Cache built HUD lines; rebuilt only when the tool stack changes
+    private ItemStack cachedToolStack = ItemStack.EMPTY;
+    private List<String> cachedLines = new ArrayList<>();
 
     @SubscribeEvent
     public void onRenderGuiOverlay(RenderGuiLayerEvent.Post event) {
@@ -101,18 +104,22 @@ public class ToolInfoHudRenderer {
             return;
         }
 
-        List<String> lines = new ArrayList<>();
-
-        if (currentToolStack.getItem() instanceof ItemMEPlacementTool) {
-            collectMEPlacementToolInfo(currentToolStack, lines);
-        } else if (currentToolStack.getItem() instanceof ItemMultiblockPlacementTool) {
-            collectMultiblockToolInfo(currentToolStack, lines);
-        } else if (currentToolStack.getItem() instanceof ItemMECablePlacementTool) {
-            collectCableToolInfo(currentToolStack, lines);
+        // Rebuild lines only when the tool stack (or its components) changed -
+        // parsing NBT and building translated strings every frame is wasteful.
+        if (!ItemStack.matches(cachedToolStack, currentToolStack)) {
+            cachedToolStack = currentToolStack.copy();
+            cachedLines = new ArrayList<>();
+            if (currentToolStack.getItem() instanceof ItemMEPlacementTool) {
+                collectMEPlacementToolInfo(currentToolStack, cachedLines);
+            } else if (currentToolStack.getItem() instanceof ItemMultiblockPlacementTool) {
+                collectMultiblockToolInfo(currentToolStack, cachedLines);
+            } else if (currentToolStack.getItem() instanceof ItemMECablePlacementTool) {
+                collectCableToolInfo(currentToolStack, cachedLines);
+            }
         }
 
-        if (!lines.isEmpty()) {
-            renderHudLines(event.getGuiGraphics(), mc, lines);
+        if (!cachedLines.isEmpty()) {
+            renderHudLines(event.getGuiGraphics(), mc, cachedLines);
         }
     }
 
@@ -151,6 +158,8 @@ public class ToolInfoHudRenderer {
      */
     private ItemStack getItemFromConfig(CompoundTag cfg, int slot) {
         if (cfg == null) return ItemStack.EMPTY;
+        var level = Minecraft.getInstance().level;
+        if (level == null) return ItemStack.EMPTY;
         
         CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompound("items") : cfg;
         if (itemsTag.contains("Items")) {
@@ -158,8 +167,7 @@ public class ToolInfoHudRenderer {
             for (int i = 0; i < list.size(); i++) {
                 CompoundTag itemTag = list.getCompound(i);
                 if (itemTag.getInt("Slot") == slot) {
-                    return ItemStack.parseOptional(net.minecraft.core.HolderLookup.Provider.create(
-                            java.util.stream.Stream.empty()), itemTag);
+                    return ItemStack.parseOptional(level.registryAccess(), itemTag);
                 }
             }
         }

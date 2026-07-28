@@ -462,6 +462,7 @@ public class DualLayerRadialMenuScreen extends Screen {
 
         // Draw item icons
         if (!slots.isEmpty()) {
+            RenderSystem.disableDepthTest();
             for (int i = 0; i < numberOfItemSlices; i++) {
                 float angle = ((i / (float) numberOfItemSlices) - 0.25f) * 2 * (float) Math.PI;
                 if (numberOfItemSlices % 2 != 0) {
@@ -469,13 +470,14 @@ public class DualLayerRadialMenuScreen extends Screen {
                 }
                 float posX = centerX - 8 + outerItemRadius * (float) Math.cos(angle);
                 float posY = centerY - 8 + outerItemRadius * (float) Math.sin(angle);
-                RenderSystem.disableDepthTest();
 
                 SlotData slot = slots.get(i);
                 if (!slot.displayStack.isEmpty()) {
                     graphics.renderItem(slot.displayStack, (int) posX, (int) posY);
                 }
             }
+            // Restore depth test so we don't leak state into subsequent rendering
+            RenderSystem.enableDepthTest();
         }
 
         // Convert slice indices to option indices for mouse click handling

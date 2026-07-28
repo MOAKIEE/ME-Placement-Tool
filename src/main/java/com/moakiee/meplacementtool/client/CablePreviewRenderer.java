@@ -153,7 +153,10 @@ public class CablePreviewRenderer {
                 var buffers = mc.renderBuffers().bufferSource();
                 
                 renderCablePreview((ClientLevel) level, poseStack, buffers, camera, null, true);
-                buffers.endBatch();
+                // Only flush the render types we used; a bare endBatch() would flush every
+                // pending batch in the shared buffer source, disturbing other mods' batching.
+                buffers.endBatch(RenderType.lines());
+                buffers.endBatch(LINES_BEHIND_BLOCK);
             }
         }
     }

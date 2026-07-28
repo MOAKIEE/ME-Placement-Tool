@@ -198,6 +198,22 @@ public class MEPlacementToolMod {
         LOGGER.info("ME Placement Tool server starting");
     }
 
+    @SubscribeEvent
+    public void onPlayerLoggedOut(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        // Free undo history so we don't pin Level references for disconnected players
+        if (undoHistory != null && !event.getEntity().level().isClientSide) {
+            undoHistory.removePlayer(event.getEntity());
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerStopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
+        // Release all Level references held by undo history
+        if (undoHistory != null) {
+            undoHistory.clear();
+        }
+    }
+
     /**
      * Client-side event subscribers
      */
@@ -225,20 +241,24 @@ public class MEPlacementToolMod {
 
         @SubscribeEvent
         public static void onClientSetupComplete(FMLClientSetupEvent event) {
-            MEPlacementToolMod.instance.multiblockPreviewRenderer = new MultiblockPreviewRenderer();
-            NeoForge.EVENT_BUS.register(MEPlacementToolMod.instance.multiblockPreviewRenderer);
-            NeoForge.EVENT_BUS.register(new UndoKeyHandler());
-            NeoForge.EVENT_BUS.register(new RadialMenuKeyHandler());
-            NeoForge.EVENT_BUS.register(ClientForgeEvents.class);
-            
-            // HUD renderer for tool information display
-            NeoForge.EVENT_BUS.register(new ToolInfoHudRenderer());
-            
-            // Install ME Part preview renderer
-            MEPartPreviewRenderer.install();
-            
-            // Install Cable preview renderer for ME Cable Placement Tool
-            com.moakiee.meplacementtool.client.CablePreviewRenderer.install();
+            // FMLClientSetupEvent is dispatched on a parallel mod-loading thread;
+            // defer client state initialization to the synchronous work queue.
+            event.enqueueWork(() -> {
+                MEPlacementToolMod.instance.multiblockPreviewRenderer = new MultiblockPreviewRenderer();
+                NeoForge.EVENT_BUS.register(MEPlacementToolMod.instance.multiblockPreviewRenderer);
+                NeoForge.EVENT_BUS.register(new UndoKeyHandler());
+                NeoForge.EVENT_BUS.register(new RadialMenuKeyHandler());
+                NeoForge.EVENT_BUS.register(ClientForgeEvents.class);
+
+                // HUD renderer for tool information display
+                NeoForge.EVENT_BUS.register(new ToolInfoHudRenderer());
+
+                // Install ME Part preview renderer
+                MEPartPreviewRenderer.install();
+
+                // Install Cable preview renderer for ME Cable Placement Tool
+                com.moakiee.meplacementtool.client.CablePreviewRenderer.install();
+            });
         }
 
         @SubscribeEvent

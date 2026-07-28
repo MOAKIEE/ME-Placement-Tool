@@ -39,14 +39,19 @@ public record UpdateWandSlotPayload(int slotIndex, ItemStack stack) implements C
                 return;
             }
 
+            // Ghost slots only ever represent a single item; normalize the client stack
+            ItemStack sanitized = payload.stack().isEmpty() ? ItemStack.EMPTY : payload.stack().copyWithCount(1);
+
             // If the WandMenu is open, use its handler
             if (player.containerMenu instanceof WandMenu wandMenu) {
-                wandMenu.handleUpdateSlot(player, payload.slotIndex(), payload.stack());
+                wandMenu.handleUpdateSlot(player, payload.slotIndex(), sanitized);
             } else {
-                // Fallback: directly update the item's data component
+                // Fallback: directly update the item's data component.
+                // Only allow writing to an actual placement tool, never to arbitrary items.
                 ItemStack mainHand = player.getMainHandItem();
-                if (!mainHand.isEmpty() && payload.slotIndex() >= 0 && payload.slotIndex() < TOTAL_SLOTS) {
-                    updateItemDirectly(mainHand, payload.slotIndex(), payload.stack(), player);
+                if (mainHand.getItem() instanceof com.moakiee.meplacementtool.BasePlacementToolItem
+                        && payload.slotIndex() >= 0 && payload.slotIndex() < TOTAL_SLOTS) {
+                    updateItemDirectly(mainHand, payload.slotIndex(), sanitized, player);
                 }
             }
         });

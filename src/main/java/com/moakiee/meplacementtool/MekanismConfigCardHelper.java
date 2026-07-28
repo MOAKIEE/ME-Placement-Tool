@@ -59,9 +59,11 @@ public class MekanismConfigCardHelper {
             return false;
         }
 
-        // Check if the card has configuration data stored using Mekanism's Data Component
+        // Check if the card has configuration data stored using Mekanism's Data Component.
+        // Check DATA_TYPE, the same field that applyConfigCardToBlockInternal requires, so
+        // "has" and "apply" can never disagree on whether the card is usable.
         CompoundTag data = offHandStack.get(MekanismDataComponents.CONFIGURATION_DATA);
-        return data != null && !data.isEmpty() && data.contains(SerializationConstants.DATA_NAME, Tag.TAG_STRING);
+        return data != null && !data.isEmpty() && data.contains(SerializationConstants.DATA_TYPE, Tag.TAG_STRING);
     }
 
     /**
@@ -155,7 +157,8 @@ public class MekanismConfigCardHelper {
             return false;
         }
 
-        Block storedType = BuiltInRegistries.BLOCK.get(storedTypeId);
+        // getOptional: BLOCK.get() would return minecraft:air for unknown ids instead of null
+        Block storedType = BuiltInRegistries.BLOCK.getOptional(storedTypeId).orElse(null);
         if (storedType == null) {
             return false;
         }

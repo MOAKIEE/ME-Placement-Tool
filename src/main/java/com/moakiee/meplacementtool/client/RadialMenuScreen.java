@@ -273,6 +273,7 @@ public class RadialMenuScreen extends Screen {
         ms.popPose();
 
         // Draw item icons
+        RenderSystem.disableDepthTest();
         for (int i = 0; i < numberOfSlices; i++) {
             float angle = ((i / (float) numberOfSlices) - 0.25f) * 2 * (float) Math.PI;
             if (numberOfSlices % 2 != 0) {
@@ -280,13 +281,14 @@ public class RadialMenuScreen extends Screen {
             }
             float posX = centerX - 8 + itemRadius * (float) Math.cos(angle);
             float posY = centerY - 8 + itemRadius * (float) Math.sin(angle);
-            RenderSystem.disableDepthTest();
 
             SlotData slot = slots.get(i);
             if (!slot.displayStack.isEmpty()) {
                 graphics.renderItem(slot.displayStack, (int) posX, (int) posY);
             }
         }
+        // Restore depth test so we don't leak state into subsequent rendering
+        RenderSystem.enableDepthTest();
 
         if (mousedOverSlot != -1) {
             int adjusted = ((mousedOverSlot + (numberOfSlices / 2 + 1)) % numberOfSlices) - 1;

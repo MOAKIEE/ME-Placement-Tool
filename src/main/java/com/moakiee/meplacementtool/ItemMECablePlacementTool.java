@@ -49,6 +49,11 @@ import java.util.List;
  */
 public class ItemMECablePlacementTool extends BasePlacementToolItem implements IMenuItem {
 
+    /** Maximum span (in blocks) allowed per axis between the two selected points. */
+    public static final int MAX_AXIS_SPAN = 64;
+    /** Hard cap on the number of positions a single placement operation may generate. */
+    public static final int MAX_TOTAL_POSITIONS = 4096;
+
     /**
      * Check if a cable can be placed at the given position.
      * A cable can be placed if:
@@ -389,21 +394,36 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         ItemStack placeCableStack = cableType.getStack(color);
 
+        return runCablePlacement(player, tool, level, positions, cableType, color, colorLogic, placeCableStack, grid, storage, src);
+    }
+
+    /**
+     * Shared placement pipeline for line/plane and branch modes:
+     * filters valid positions, pre-checks availability (triggering crafting if short),
+     * then places cables extracting each one from the network first.
+     *
+     * @return true if crafting was triggered (points should be preserved), false otherwise
+     */
+    private boolean runCablePlacement(ServerPlayer player, ItemStack tool, Level level, List<BlockPos> positions,
+            CableType cableType, AEColor color, ColorLogicResult colorLogic, ItemStack placeCableStack,
+            IGrid grid, MEStorage storage, PlayerSource src) {
         // Pre-check: Count how many positions actually need cables (filter valid positions)
         List<BlockPos> validPositions = new ArrayList<>();
         for (BlockPos pos : positions) {
-            if (canPlaceCableAt(level, pos)) {
+            if (canPlaceCableAt(level, pos)
+                    && level.mayInteract(player, pos)
+                    && player.mayUseItemAt(pos, Direction.UP, placeCableStack)) {
                 validPositions.add(pos);
             }
         }
-        
+
         if (validPositions.isEmpty()) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.no_positions"), true);
             return false;
         }
-        
+
         int totalNeeded = validPositions.size();
-        
+
         // Pre-check: Count total available cables in network (any color of this type)
         long totalAvailable = 0;
         for (AEColor c : AEColor.values()) {
@@ -412,7 +432,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
             totalAvailable += storage.extract(key, totalNeeded, Actionable.SIMULATE, src);
             if (totalAvailable >= totalNeeded) break;
         }
-        
+
         // If not enough cables, trigger crafting BEFORE placing anything
         if (totalAvailable < totalNeeded) {
             // Try to craft Fluix (TRANSPARENT) cable as it's the base type
@@ -453,25 +473,32 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
                 }
             }
 
+            // Extract first, then place - avoids leaving free cables in the world on concurrent
+            // extraction failure. Creative placement leaves the network unchanged.
+            boolean extracted = !player.isCreative();
+            if (extracted && storage.extract(keyToExtract, 1, Actionable.MODULATE, src) < 1) {
+                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()), true);
+                break;
+            }
             if (placeCable(player, (ServerLevel) level, pos, placeCableStack)) {
-                storage.extract(keyToExtract, 1, Actionable.MODULATE, src);
                 placedCount++;
                 placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, keyToExtract));
+            } else if (extracted) {
+                // Placement failed - return the extracted cable to the network
+                storage.insert(keyToExtract, 1, Actionable.MODULATE, src);
             }
         }
 
         if (placedCount > 0) {
             this.usePower(player, Config.cablePlacementToolEnergyCost * placedCount, tool);
             player.displayClientMessage(Component.translatable("message.meplacementtool.placed_count", placedCount), true);
-            
-            if (!placedSnapshots.isEmpty()) {
-                BlockPos soundPos = placedSnapshots.get(0).pos;
-                var placedState = level.getBlockState(soundPos);
-                var soundType = placedState.getSoundType(level, soundPos, player);
-                level.playSound(null, soundPos, soundType.getPlaceSound(), SoundSource.BLOCKS, 
-                    (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
-            }
-            
+
+            BlockPos soundPos = placedSnapshots.get(0).pos;
+            var placedState = level.getBlockState(soundPos);
+            var soundType = placedState.getSoundType(level, soundPos, player);
+            level.playSound(null, soundPos, soundType.getPlaceSound(), SoundSource.BLOCKS,
+                (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
+
             // Add to undo history
             MEPlacementToolMod.instance.undoHistory.addCablePlacement(player, level, placedSnapshots);
         }
@@ -519,93 +546,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
         ItemStack placeCableStack = cableType.getStack(color);
 
-        // Pre-check: Count how many positions actually need cables (filter valid positions)
-        List<BlockPos> validPositions = new ArrayList<>();
-        for (BlockPos pos : positions) {
-            if (canPlaceCableAt(level, pos)) {
-                validPositions.add(pos);
-            }
-        }
-        
-        if (validPositions.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.no_positions"), true);
-            return false;
-        }
-        
-        int totalNeeded = validPositions.size();
-        
-        // Pre-check: Count total available cables in network (any color of this type)
-        long totalAvailable = 0;
-        for (AEColor c : AEColor.values()) {
-            ItemStack stack = cableType.getStack(c);
-            AEItemKey key = AEItemKey.of(stack);
-            totalAvailable += storage.extract(key, totalNeeded, Actionable.SIMULATE, src);
-            if (totalAvailable >= totalNeeded) break;
-        }
-        
-        // If not enough cables, trigger crafting BEFORE placing anything
-        if (totalAvailable < totalNeeded) {
-            // Try to craft Fluix (TRANSPARENT) cable as it's the base type
-            var fluixCableStack = cableType.getStack(AEColor.TRANSPARENT);
-            var craftKey = AEItemKey.of(fluixCableStack);
-            var craftingService = grid.getCraftingService();
-            if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)) {
-                int missingAmount = (int) (totalNeeded - totalAvailable);
-                openCraftingMenu(player, tool, craftKey, missingAmount);
-                return true; // Crafting triggered, preserve all points
-            }
-            player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()), true);
-            return false;
-        }
-
-        // Now we know we have enough cables, proceed with placement
-        int placedCount = 0;
-        int dyeConsumed = 0;
-        List<UndoHistory.CablePlacementSnapshot> placedSnapshots = new ArrayList<>();
-        
-        for (BlockPos pos : validPositions) {
-            AEItemKey keyToExtract = findAvailableCableKey(storage, src, cableType, color);
-            if (keyToExtract == null) {
-                player.displayClientMessage(Component.translatable("message.meplacementtool.missing_cable", placeCableStack.getHoverName()), true);
-                break;
-            }
-
-            AEColor extractedColor = getColorFromCableKey(keyToExtract, cableType);
-            boolean needsDyeForThis = colorLogic.needsDye && (extractedColor != color);
-
-            if (needsDyeForThis && color != AEColor.TRANSPARENT) {
-                if ((dyeConsumed == 0 || placedCount % 8 == 0) && dyeConsumed < (placedCount / 8) + 1) {
-                    if (!consumeDye(player, storage, src, color, 1)) {
-                        player.displayClientMessage(Component.translatable("message.meplacementtool.missing_dye", 1, DyeItem.byColor(color.dye).getDescription()), true);
-                        break;
-                    }
-                    dyeConsumed++;
-                }
-            }
-
-            if (placeCable(player, (ServerLevel) level, pos, placeCableStack)) {
-                storage.extract(keyToExtract, 1, Actionable.MODULATE, src);
-                placedCount++;
-                placedSnapshots.add(new UndoHistory.CablePlacementSnapshot(pos, cableType, keyToExtract));
-            }
-        }
-
-        if (placedCount > 0) {
-            this.usePower(player, Config.cablePlacementToolEnergyCost * placedCount, tool);
-            player.displayClientMessage(Component.translatable("message.meplacementtool.placed_count", placedCount), true);
-            
-            if (!placedSnapshots.isEmpty()) {
-                BlockPos soundPos = placedSnapshots.get(0).pos;
-                var placedState = level.getBlockState(soundPos);
-                var soundType = placedState.getSoundType(level, soundPos, player);
-                level.playSound(null, soundPos, soundType.getPlaceSound(), SoundSource.BLOCKS, 
-                    (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
-            }
-            
-            // Add to undo history
-            MEPlacementToolMod.instance.undoHistory.addCablePlacement(player, level, placedSnapshots);
-        }
-        return false; // Normal completion, can clear points
+        return runCablePlacement(player, tool, level, positions, cableType, color, colorLogic, placeCableStack, grid, storage, src);
     }
 
     /**
@@ -617,11 +558,22 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         int x2 = p2.getX(), y2 = p2.getY(), z2 = p2.getZ();
 
         if (mode == PlacementMode.LINE) {
+            if (axisSpanExceeded(p1, p2)) {
+                return list;
+            }
             return getLineBlocks(x1, y1, z1, x2, y2, z2);
         } else if (mode == PlacementMode.PLANE_FILL) {
             int minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
             int minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
             int minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+            // Guard against unbounded volumes (memory / chunk-load DoS)
+            if (maxX - minX > MAX_AXIS_SPAN || maxY - minY > MAX_AXIS_SPAN || maxZ - minZ > MAX_AXIS_SPAN) {
+                return list;
+            }
+            long volume = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
+            if (volume > MAX_TOTAL_POSITIONS) {
+                return list;
+            }
             for (int x = minX; x <= maxX; x++) {
                 for (int y = minY; y <= maxY; y++) {
                     for (int z = minZ; z <= maxZ; z++) {
@@ -638,7 +590,12 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
      */
     public static List<BlockPos> calculateBranchPositions(BlockPos p1, BlockPos p2, BlockPos p3) {
         List<BlockPos> list = new ArrayList<>();
-        
+
+        // Guard against unbounded spans between the three points (memory / chunk-load DoS)
+        if (axisSpanExceeded(p1, p2) || axisSpanExceeded(p1, p3) || axisSpanExceeded(p2, p3)) {
+            return list;
+        }
+
         int x1 = p1.getX(), y1 = p1.getY(), z1 = p1.getZ();
         int x2 = p2.getX(), y2 = p2.getY(), z2 = p2.getZ();
         int x3 = p3.getX(), y3 = p3.getY(), z3 = p3.getZ();
@@ -924,6 +881,7 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
 
     private boolean consumeDye(Player player, MEStorage storage, PlayerSource src, AEColor color, int amount) {
         if (amount <= 0 || color == AEColor.TRANSPARENT) return true;
+        if (player.isCreative()) return true;
 
         DyeItem dyeItem = (DyeItem) DyeItem.byColor(color.dye);
         AEItemKey dyeKey = AEItemKey.of(dyeItem);
@@ -1000,6 +958,13 @@ public class ItemMECablePlacementTool extends BasePlacementToolItem implements I
         }
 
         return BlockPos.containing(selected.lineBound);
+    }
+
+    /** Returns true if any axis distance between the two points exceeds {@link #MAX_AXIS_SPAN}. */
+    private static boolean axisSpanExceeded(BlockPos a, BlockPos b) {
+        return Math.abs(a.getX() - b.getX()) > MAX_AXIS_SPAN
+                || Math.abs(a.getY() - b.getY()) > MAX_AXIS_SPAN
+                || Math.abs(a.getZ() - b.getZ()) > MAX_AXIS_SPAN;
     }
 
     public static List<BlockPos> getLineBlocks(int x1, int y1, int z1, int x2, int y2, int z2) {

@@ -101,6 +101,10 @@ public class Config {
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
+        // Config values are not accessible while unloading; reading them would throw.
+        if (event instanceof ModConfigEvent.Unloading) {
+            return;
+        }
         mePlacementToolEnergyCapacity = ME_PLACEMENT_TOOL_ENERGY_CAPACITY.get();
         mePlacementToolEnergyCost = ME_PLACEMENT_TOOL_ENERGY_COST.get();
         multiblockPlacementToolEnergyCapacity = MULTIBLOCK_PLACEMENT_TOOL_ENERGY_CAPACITY.get();

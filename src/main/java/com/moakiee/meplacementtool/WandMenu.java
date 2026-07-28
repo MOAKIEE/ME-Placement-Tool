@@ -36,12 +36,14 @@ public class WandMenu extends AbstractContainerMenu {
 
     // Constructor for network packet (CLIENT SIDE)
     public WandMenu(int id, Inventory playerInventory, FriendlyByteBuf buf) {
-        this(id, playerInventory, createHandlerFromBuf(buf, playerInventory.player.level().registryAccess()));
+        this(id, playerInventory, playerInventory.player.getMainHandItem(),
+                createHandlerFromBuf(buf, playerInventory.player.level().registryAccess()));
     }
 
     // Constructor with ItemStack (SERVER SIDE)
     public WandMenu(int id, Inventory playerInventory, ItemStack wandStack) {
-        this(id, playerInventory, createHandlerFromStack(wandStack, playerInventory.player.level().registryAccess()));
+        this(id, playerInventory, wandStack,
+                createHandlerFromStack(wandStack, playerInventory.player.level().registryAccess()));
         // Load fluids from stack
         CompoundTag cfg = wandStack.get(ModDataComponents.PLACEMENT_CONFIG.get());
         if (cfg != null && cfg.contains("fluids")) {
@@ -56,9 +58,11 @@ public class WandMenu extends AbstractContainerMenu {
     }
 
     // Main constructor
-    private WandMenu(int id, Inventory playerInventory, ItemStackHandler handler) {
+    private WandMenu(int id, Inventory playerInventory, ItemStack wandStack, ItemStackHandler handler) {
         super(ModMenus.WAND_MENU.get(), id);
-        this.wandStack = playerInventory.player.getMainHandItem();
+        // Bind to the actual tool being edited, not whatever happens to be in the main hand
+        // when the menu closes (hotbar slot can be switched while a menu is open).
+        this.wandStack = wandStack;
 
         // Ensure handler is always 18 slots
         if (handler == null) {
@@ -188,6 +192,10 @@ public class WandMenu extends AbstractContainerMenu {
     public void clicked(int slotId, int dragType, ClickType clickType, Player player) {
         if (slotId >= 0 && slotId < this.slots.size()) {
             Slot slot = this.slots.get(slotId);
+            // Lock the tool being edited: prevent picking it up / moving it while its menu is open
+            if (!(slot instanceof GhostSlot) && slot.getItem() == this.wandStack) {
+                return;
+            }
             if (slot instanceof GhostSlot ghostSlot) {
                 int visualIndex = ghostSlot.getVisualIndex();
                 int actualIndex = getActualSlotIndex(visualIndex);
@@ -239,9 +247,10 @@ public class WandMenu extends AbstractContainerMenu {
         }
 
         if (!player.level().isClientSide) {
-            ItemStack main = player.getMainHandItem();
-            if (!main.isEmpty()) {
-                main.set(ModDataComponents.PLACEMENT_CONFIG.get(), combined);
+            // Write back to the tool this menu was opened for - never to whatever is
+            // currently in the main hand (the hotbar selection can change while open).
+            if (isSupported(wandStack)) {
+                wandStack.set(ModDataComponents.PLACEMENT_CONFIG.get(), combined);
             }
         }
     }
@@ -259,7 +268,7 @@ public class WandMenu extends AbstractContainerMenu {
     }
 
     private void saveToItemStack(Player player) {
-        if (!wandStack.isEmpty()) {
+        if (isSupported(wandStack)) {
             CompoundTag combined = new CompoundTag();
             combined.put("items", this.handler.serializeNBT(player.level().registryAccess()));
 

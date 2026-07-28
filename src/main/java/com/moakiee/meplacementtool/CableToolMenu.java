@@ -248,7 +248,13 @@ public class CableToolMenu extends AEBaseMenu {
      */
     private void setColorShortcutFromClient(int[] data) {
         if (data != null && data.length >= 2) {
-            setColorShortcut(data[0], data[1]);
+            int colorIndex = data[1];
+            // Validate: only -1 (empty) or a valid AEColor ordinal, otherwise a poisoned
+            // synced value could crash clients rendering the shortcut bar.
+            if (colorIndex != -1 && (colorIndex < 0 || colorIndex >= AEColor.values().length)) {
+                return;
+            }
+            setColorShortcut(data[0], colorIndex);
         }
     }
 
