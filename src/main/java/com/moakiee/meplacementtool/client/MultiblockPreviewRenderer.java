@@ -47,6 +47,7 @@ public class MultiblockPreviewRenderer {
     private BlockHitResult lastRayTraceResult;
     private ItemStack lastWand;
     private Set<BlockPos> cachedPositions;
+    private BlockPos lastPartPlacementPos;
     private Direction lastPartSide;
     private int lastPlacementCount;
     private DirectionMode lastDirectionMode;
@@ -70,20 +71,29 @@ public class MultiblockPreviewRenderer {
         DirectionMode directionMode = ItemMultiblockPlacementTool.getDirectionMode(wand);
         ItemStack target = getSelectedTargetStack(wand);
 
+        boolean targetIsPart = target.getItem() instanceof IPartItem<?>;
+        PartPlacement.Placement currentPartPlacement = targetIsPart
+                ? getPartPlacementWithCableFallback(player, player.level(), target,
+                        rtr.getBlockPos(), rtr.getDirection(), rtr.getLocation())
+                : null;
+        BlockPos currentPartPlacementPos = currentPartPlacement != null ? currentPartPlacement.pos() : null;
+        Direction currentPartSide = currentPartPlacement != null ? currentPartPlacement.side() : null;
+        boolean partPlacementChanged = targetIsPart
+                && (!Objects.equals(lastPartPlacementPos, currentPartPlacementPos)
+                        || lastPartSide != currentPartSide);
+
         Set<BlockPos> blocks;
         Direction partSide = null;
         if (cachedPositions == null || !compareRTR(lastRayTraceResult, rtr) ||
                 !ItemStack.matches(lastWand, wand) || lastPlacementCount != placementCount ||
-                lastDirectionMode != directionMode) {
-            if (target.getItem() instanceof IPartItem<?>) {
-                var placement = getPartPlacementWithCableFallback(player, player.level(), target,
-                        rtr.getBlockPos(), rtr.getDirection(), rtr.getLocation());
-                if (placement == null) {
+                lastDirectionMode != directionMode || partPlacementChanged) {
+            if (targetIsPart) {
+                if (currentPartPlacement == null) {
                     blocks = Collections.emptySet();
                     partSide = null;
                 } else {
-                    partSide = placement.side();
-                    blocks = calculatePartPlacementPositions(player, rtr, target, placement,
+                    partSide = currentPartSide;
+                    blocks = calculatePartPlacementPositions(player, rtr, target, currentPartPlacement,
                             placementCount, directionMode);
                 }
             } else {
@@ -94,6 +104,7 @@ public class MultiblockPreviewRenderer {
             lastWand = wand.copy();
             lastPlacementCount = placementCount;
             lastDirectionMode = directionMode;
+            lastPartPlacementPos = currentPartPlacementPos;
             lastPartSide = partSide;
         } else {
             blocks = cachedPositions;
@@ -124,7 +135,13 @@ public class MultiblockPreviewRenderer {
             }
         }
 
-        event.setCanceled(true);
+        // AE2's own outline hook highlights the exact cable/part hit by the crosshair.
+        // Keep the event alive for part hosts so that handler can render the selected
+        // sub-part after our bulk-placement preview. For ordinary blocks, continue
+        // replacing the vanilla full-block outline as before.
+        if (PartHelper.getPartHost(player.level(), rtr.getBlockPos()) == null) {
+            event.setCanceled(true);
+        }
     }
 
     private Set<BlockPos> calculatePlacementPositions(Player player, BlockHitResult rtr, ItemStack wand, int placementCount, DirectionMode directionMode) {
@@ -370,6 +387,7 @@ public class MultiblockPreviewRenderer {
         lastWand = null;
         lastPlacementCount = 0;
         lastDirectionMode = null;
+        lastPartPlacementPos = null;
         lastPartSide = null;
     }
 }
