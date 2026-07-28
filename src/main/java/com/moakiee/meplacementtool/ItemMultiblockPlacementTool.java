@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import java.util.*;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -30,18 +31,24 @@ import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 import appeng.api.config.Actionable;
 import appeng.api.implementations.menuobjects.IMenuItem;
 import appeng.api.implementations.menuobjects.ItemMenuHost;
+import appeng.api.networking.IGrid;
+import appeng.api.parts.IPartItem;
+import appeng.api.parts.PartHelper;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.storage.MEStorage;
 import appeng.me.helpers.PlayerSource;
 import appeng.menu.locator.ItemMenuHostLocator;
 import appeng.menu.locator.MenuLocators;
 import appeng.menu.me.crafting.CraftAmountMenu;
+import appeng.parts.PartPlacement;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -184,7 +191,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         int selected = cfg.getInt("SelectedSlot");
         if (selected < 0 || selected >= 18) selected = 0;
 
-        ItemStack target = getItemFromConfig(cfg, selected);
+        ItemStack target = getItemFromConfig(cfg, selected, level.registryAccess());
         if (target == null || target.isEmpty()) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.no_configured_item"), true);
             return InteractionResult.FAIL;
@@ -229,6 +236,12 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         // Calculate total available across all matching keys
         long totalAvailable = matchingKeys.stream().mapToLong(Map.Entry::getValue).sum();
 
+        // AE2 parts (planes, buses, etc.) attach to cable faces, not adjacent empty cells.
+        if (target.getItem() instanceof IPartItem<?>) {
+            return handlePartMultiPlacement(context, player, wand, grid, storage, src, target,
+                    matchingKeys, totalAvailable, placementCount, ENERGY_COST, directionMode);
+        }
+
         if (!(target.getItem() instanceof BlockItem blockItem)) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.unsupported_target"), true);
             return InteractionResult.FAIL;
@@ -239,7 +252,8 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         var clickedState = level.getBlockState(clickedPos);
 
         // Generate placement positions (BFS or axis-locked based on mode)
-        List<BlockPos> placePositions = calculatePlacementPositions(player, level, clickedPos, clickedFace, clickedState, placementCount, directionMode);
+        List<BlockPos> placePositions = calculatePlacementPositions(player, level, clickedPos, clickedFace,
+                clickedState, target, placementCount, directionMode);
 
         if (placePositions.isEmpty()) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
@@ -284,14 +298,16 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             availableKeys.add(new AbstractMap.SimpleEntry<>(entry.getKey(), entry.getValue()));
         }
 
-        // Track which keys we've used and how many from each (for extraction later)
-        Map<AEItemKey, Long> extractionMap = new LinkedHashMap<>();
-
         // Place blocks - track snapshots for undo
         int placedCount = 0;
         List<UndoHistory.PlacementSnapshot> placedSnapshots = new ArrayList<>();
 
         for (BlockPos placePos : placePositions) {
+            if (!level.mayInteract(player, placePos)
+                    || !player.mayUseItemAt(placePos, clickedFace.getOpposite(), target)) {
+                continue;
+            }
+
             // Find a key with available count
             AEItemKey currentKey = null;
             for (var entry : availableKeys) {
@@ -307,24 +323,34 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             }
 
             var placeStack = currentKey.toStack(1);
+            // Extract first, then place - avoids leaving free blocks in the world when the
+            // network contents change concurrently between SIMULATE and MODULATE.
+            boolean extracted = !player.isCreative();
+            if (extracted && storage.extract(currentKey, 1, Actionable.MODULATE, src) < 1) {
+                break;
+            }
+
             ItemStack origMain = player.getMainHandItem();
             ItemStack origOff = player.getOffhandItem();
+            boolean placedThis = false;
 
             try {
                 player.setItemInHand(InteractionHand.MAIN_HAND, placeStack);
+                // Synthesize the click location at the target position so orientation-sensitive
+                // blocks (slabs, stairs, logs) don't use the far-away original click point.
+                var hitVec = net.minecraft.world.phys.Vec3.atCenterOf(placePos.relative(context.getClickedFace().getOpposite()))
+                        .add(net.minecraft.world.phys.Vec3.atLowerCornerOf(context.getClickedFace().getNormal()).scale(0.5));
                 BlockPlaceContext placeContext = new BlockPlaceContext(
                         level, player, InteractionHand.MAIN_HAND, placeStack,
-                        new BlockHitResult(context.getClickLocation(), context.getClickedFace(),
-                                placePos, context.isInside())
+                        new BlockHitResult(hitVec, context.getClickedFace(), placePos, context.isInside())
                 );
                 var result = blockItem.place(placeContext);
                 if (result.consumesAction()) {
+                    placedThis = true;
                     placedCount++;
                     // Record for undo - store the new block state after placement
                     placedSnapshots.add(new UndoHistory.PlacementSnapshot(
                             level.getBlockState(placePos), placePos, placeStack, currentKey, 1));
-                    // Track extraction
-                    extractionMap.merge(currentKey, 1L, Long::sum);
                 }
             } catch (Throwable t) {
                 LOGGER.warn("Exception during placement at {}", placePos, t);
@@ -332,21 +358,14 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 player.setItemInHand(InteractionHand.MAIN_HAND, origMain);
                 player.setItemInHand(InteractionHand.OFF_HAND, origOff);
             }
+
+            if (!placedThis && extracted) {
+                // Placement failed - return the extracted item to the network
+                storage.insert(currentKey, 1, Actionable.MODULATE, src);
+            }
         }
 
         if (placedCount == 0) {
-            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
-            return InteractionResult.sidedSuccess(false);
-        }
-
-        // Extract from each key we used
-        long totalExtracted = 0;
-        for (var entry : extractionMap.entrySet()) {
-            long extracted = storage.extract(entry.getKey(), entry.getValue(), Actionable.MODULATE, src);
-            totalExtracted += extracted;
-        }
-        
-        if (totalExtracted <= 0) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
             return InteractionResult.sidedSuccess(false);
         }
@@ -378,6 +397,11 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             }
         }
 
+        // AE2LT Overloaded Frequency Card auto-connect for each placed block
+        for (UndoHistory.PlacementSnapshot snapshot : placedSnapshots) {
+            AE2LTFrequencyCardHelper.queueAutoConnect(player, level, snapshot.pos, null);
+        }
+
         // Add to undo history, marking as non-undoable if config was applied
         MEPlacementToolMod.instance.undoHistory.add(player, level, placedSnapshots, configApplied);
 
@@ -399,7 +423,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
 
     private List<BlockPos> calculatePlacementPositions(Player player, Level level, BlockPos clickedPos,
             net.minecraft.core.Direction clickedFace, net.minecraft.world.level.block.state.BlockState clickedState,
-            int maxCount, DirectionMode directionMode) {
+            ItemStack placementStack, int maxCount, DirectionMode directionMode) {
         LinkedList<BlockPos> candidates = new LinkedList<>();
         HashSet<BlockPos> allCandidates = new HashSet<>();
         ArrayList<BlockPos> placePositions = new ArrayList<>();
@@ -432,6 +456,12 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                         ));
                         canPlace = currentState.canBeReplaced(checkContext);
                     } catch (Throwable t) {}
+                }
+
+                // Respect world / claim protection for every target position
+                if (canPlace && (!level.mayInteract(player, currentCandidate)
+                        || !player.mayUseItemAt(currentCandidate, clickedFace.getOpposite(), placementStack))) {
+                    canPlace = false;
                 }
 
                 if (canPlace) {
@@ -533,10 +563,28 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
 
         int placedCount = 0;
         for (BlockPos placePos : placePositions) {
+            // Respect world / claim protection for every target position
+            if (!level.mayInteract(player, placePos)
+                    || !player.mayUseItemAt(placePos, clickedFace.getOpposite(), wand)) {
+                continue;
+            }
+            // Extract first, then place - avoids free fluid on concurrent extraction failure.
+            // Creative placement leaves the network unchanged, matching undo behavior.
+            boolean extracted = !player.isCreative();
+            if (extracted) {
+                long extractedAmount = storage.extract(
+                        aeFluidKey, AEFluidKey.AMOUNT_BLOCK, Actionable.MODULATE, src);
+                if (extractedAmount < AEFluidKey.AMOUNT_BLOCK) {
+                    if (extractedAmount > 0) {
+                        storage.insert(aeFluidKey, extractedAmount, Actionable.MODULATE, src);
+                    }
+                    break;
+                }
+            }
+            boolean success = false;
             try {
                 var stateAtPos = level.getBlockState(placePos);
                 boolean isLiquidContainer = stateAtPos.getBlock() instanceof LiquidBlockContainer;
-                boolean success = false;
 
                 if (level.dimensionType().ultraWarm() && fluid.is(FluidTags.WATER)) {
                     success = true;
@@ -552,14 +600,18 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                     }
                     success = level.setBlock(placePos, legacyBlock, Block.UPDATE_ALL_IMMEDIATE);
                 }
-                if (success) placedCount++;
             } catch (Throwable t) {
                 LOGGER.warn("Exception during fluid placement at {}", placePos, t);
+            }
+            if (success) {
+                placedCount++;
+            } else if (extracted) {
+                // Placement failed - return the extracted fluid to the network
+                storage.insert(aeFluidKey, AEFluidKey.AMOUNT_BLOCK, Actionable.MODULATE, src);
             }
         }
 
         if (placedCount > 0) {
-            storage.extract(aeFluidKey, (long) placedCount * AEFluidKey.AMOUNT_BLOCK, Actionable.MODULATE, src);
             this.usePower(player, energyCost * placedCount / placementCount, wand);
             level.playSound(null, clickedPos.relative(clickedFace), SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
             return InteractionResult.sidedSuccess(false);
@@ -645,7 +697,214 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
         }
     }
 
-    private ItemStack getItemFromConfig(CompoundTag cfg, int slot) {
+    /**
+     * Bulk-place AE2 parts onto cable bus faces, matching normal AE2 right-click placement.
+     * Starts from the host resolved by PartPlacement (usually the clicked cable cell),
+     * not from the adjacent empty cell used for normal blocks.
+     */
+    private InteractionResult handlePartMultiPlacement(UseOnContext context, Player player, ItemStack wand,
+            IGrid grid, MEStorage storage, PlayerSource src, ItemStack target,
+            List<Map.Entry<AEItemKey, Long>> matchingKeys, long totalAvailable,
+            int placementCount, double energyCost, DirectionMode directionMode) {
+        Level level = context.getLevel();
+        BlockPos clickedPos = context.getClickedPos();
+        Direction clickedFace = context.getClickedFace();
+        var clickedState = level.getBlockState(clickedPos);
+
+        var firstPlacement = getPartPlacementWithCableFallback(player, level, target, clickedPos,
+                clickedFace, context.getClickLocation());
+        if (firstPlacement == null) {
+            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
+            return InteractionResult.sidedSuccess(false);
+        }
+
+        Direction partSide = firstPlacement.side();
+        boolean placingOnClickedHost = firstPlacement.pos().equals(clickedPos);
+
+        List<BlockPos> placePositions = calculatePartPlacementPositions(
+                player, level, firstPlacement.pos(), partSide, clickedFace, clickedState,
+                target, placementCount, directionMode, placingOnClickedHost);
+
+        if (placePositions.isEmpty()) {
+            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
+            return InteractionResult.sidedSuccess(false);
+        }
+
+        if (totalAvailable < placePositions.size()) {
+            var craftKey = AEItemKey.of(target);
+            var craftingService = grid.getCraftingService();
+            if (craftingService != null && craftKey != null && craftingService.isCraftable(craftKey)
+                    && player instanceof ServerPlayer serverPlayer) {
+                int missingAmount = (int) (placePositions.size() - totalAvailable);
+                openCraftingMenu(serverPlayer, wand, craftKey, missingAmount);
+                return InteractionResult.sidedSuccess(false);
+            }
+            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing",
+                    target.getHoverName()), true);
+            return InteractionResult.FAIL;
+        }
+
+        List<Map.Entry<AEItemKey, Long>> availableKeys = new ArrayList<>();
+        for (var entry : matchingKeys) {
+            availableKeys.add(new AbstractMap.SimpleEntry<>(entry.getKey(), entry.getValue()));
+        }
+
+        int placedCount = 0;
+        List<UndoHistory.PlacementSnapshot> placedSnapshots = new ArrayList<>();
+
+        for (BlockPos placePos : placePositions) {
+            if (!level.mayInteract(player, placePos)
+                    || !player.mayUseItemAt(placePos, partSide, target)) {
+                continue;
+            }
+
+            AEItemKey currentKey = null;
+            for (var entry : availableKeys) {
+                if (entry.getValue() > 0) {
+                    currentKey = entry.getKey();
+                    entry.setValue(entry.getValue() - 1);
+                    break;
+                }
+            }
+
+            if (currentKey == null) {
+                break;
+            }
+
+            var placeStack = currentKey.toStack(1);
+            if (!(placeStack.getItem() instanceof IPartItem<?> partItem)) {
+                continue;
+            }
+
+            // Extract first, then place - avoids leaving free parts in the world when the
+            // network contents change concurrently between SIMULATE and MODULATE.
+            boolean extracted = !player.isCreative();
+            if (extracted && storage.extract(currentKey, 1, Actionable.MODULATE, src) < 1) {
+                break;
+            }
+
+            if (placePart(player, level, placePos, partSide, partItem, placeStack)) {
+                placedCount++;
+                placedSnapshots.add(new UndoHistory.PartPlacementSnapshot(placePos, partSide, currentKey));
+            } else if (extracted) {
+                // Placement failed - return the extracted part to the network
+                storage.insert(currentKey, 1, Actionable.MODULATE, src);
+            }
+        }
+
+        if (placedCount == 0) {
+            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
+            return InteractionResult.sidedSuccess(false);
+        }
+
+        boolean configApplied = false;
+        if (MemoryCardHelper.hasConfiguredMemoryCard(player)) {
+            boolean firstPart = true;
+            for (UndoHistory.PlacementSnapshot snapshot : placedSnapshots) {
+                var host = PartHelper.getPartHost(level, snapshot.pos);
+                if (host != null && MemoryCardHelper.applyMemoryCardToPart(player, host.getPart(partSide), firstPart, grid)) {
+                    configApplied = true;
+                }
+                firstPart = false;
+            }
+        }
+
+        // AE2LT Overloaded Frequency Card auto-connect for each placed part
+        for (UndoHistory.PlacementSnapshot snapshot : placedSnapshots) {
+            AE2LTFrequencyCardHelper.queueAutoConnect(player, level, snapshot.pos, partSide);
+        }
+
+        MEPlacementToolMod.instance.undoHistory.add(player, level, placedSnapshots, configApplied);
+
+        double actualEnergy = energyCost * placedCount / placementCount;
+        this.usePower(player, actualEnergy, wand);
+
+        if (!placedSnapshots.isEmpty()) {
+            BlockPos soundPos = placedSnapshots.get(0).pos;
+            var placedState = level.getBlockState(soundPos);
+            var soundType = placedState.getSoundType(level, soundPos, player);
+            level.playSound(null, soundPos, soundType.getPlaceSound(), SoundSource.BLOCKS,
+                    (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
+        }
+
+        return InteractionResult.sidedSuccess(false);
+    }
+
+    private List<BlockPos> calculatePartPlacementPositions(Player player, Level level, BlockPos startPos,
+            Direction partSide, Direction clickedFace, net.minecraft.world.level.block.state.BlockState clickedState,
+            ItemStack partStack, int maxCount, DirectionMode directionMode, boolean placingOnClickedHost) {
+        LinkedList<BlockPos> candidates = new LinkedList<>();
+        HashSet<BlockPos> allCandidates = new HashSet<>();
+        ArrayList<BlockPos> placePositions = new ArrayList<>();
+
+        final int MAX_CANDIDATES = maxCount * 10;
+        candidates.add(startPos);
+
+        while (!candidates.isEmpty() && placePositions.size() < maxCount && allCandidates.size() < MAX_CANDIDATES) {
+            BlockPos currentCandidate = candidates.removeFirst();
+            if (!allCandidates.add(currentCandidate)) {
+                continue;
+            }
+
+            boolean supportMatches;
+            if (placingOnClickedHost) {
+                supportMatches = level.getBlockState(currentCandidate).getBlock() == clickedState.getBlock();
+            } else {
+                supportMatches = level.getBlockState(currentCandidate.relative(partSide)).getBlock() == clickedState.getBlock();
+            }
+
+            if (supportMatches
+                    && level.mayInteract(player, currentCandidate)
+                    && player.mayUseItemAt(currentCandidate, partSide, partStack)
+                    && canPlaceConfiguredPartOnCable(player, level, partStack, currentCandidate, partSide)) {
+                placePositions.add(currentCandidate);
+                addAdjacentPositions(candidates, currentCandidate, clickedFace, directionMode);
+            }
+        }
+
+        return placePositions;
+    }
+
+    private boolean canPlaceConfiguredPartOnCable(Player player, Level level, ItemStack partStack, BlockPos pos,
+            Direction side) {
+        if (side != null && !hasCenterCable(level, pos)) {
+            return false;
+        }
+        return PartPlacement.canPlacePartOnBlock(player, level, partStack, pos, side);
+    }
+
+    private boolean hasCenterCable(Level level, BlockPos pos) {
+        var host = PartHelper.getPartHost(level, pos);
+        return host != null && host.getPart(null) != null;
+    }
+
+    private PartPlacement.Placement getPartPlacementWithCableFallback(Player player, Level level, ItemStack partStack,
+            BlockPos clickedPos, Direction clickedFace, Vec3 clickLocation) {
+        var placement = PartPlacement.getPartPlacement(player, level, partStack, clickedPos, clickedFace, clickLocation);
+        if (placement != null) {
+            return placement;
+        }
+
+        var host = PartHelper.getPartHost(level, clickedPos);
+        if (host != null && host.getPart(null) != null && host.canAddPart(partStack, clickedFace)) {
+            return new PartPlacement.Placement(clickedPos, clickedFace);
+        }
+
+        return null;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private boolean placePart(Player player, Level level, BlockPos pos, Direction side, IPartItem<?> partItem,
+            ItemStack partStack) {
+        try {
+            return PartPlacement.placePart(player, level, (IPartItem) partItem, partStack.getComponents(), pos, side) != null;
+        } catch (Exception t) {
+            LOGGER.warn("Exception during part placement attempt for player {} at {}", player.getName().getString(), pos, t);
+            return false;
+        }
+    }
+
+    private ItemStack getItemFromConfig(CompoundTag cfg, int slot, net.minecraft.core.HolderLookup.Provider registries) {
         if (cfg == null) return ItemStack.EMPTY;
 
         CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompound("items") : cfg;
@@ -654,8 +913,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
             for (int i = 0; i < list.size(); i++) {
                 CompoundTag itemTag = list.getCompound(i);
                 if (itemTag.getInt("Slot") == slot) {
-                    return ItemStack.parseOptional(net.minecraft.core.HolderLookup.Provider.create(
-                            java.util.stream.Stream.empty()), itemTag);
+                    return ItemStack.parseOptional(registries, itemTag);
                 }
             }
         }
@@ -696,7 +954,7 @@ public class ItemMultiblockPlacementTool extends BasePlacementToolItem implement
                 }
             }, buf -> {
                 CompoundTag cfg = stack.get(ModDataComponents.PLACEMENT_CONFIG.get());
-                buf.writeNbt(cfg);
+                buf.writeNbt(cfg != null ? cfg : new CompoundTag());
             });
         }
 

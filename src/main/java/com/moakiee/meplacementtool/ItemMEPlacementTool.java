@@ -128,7 +128,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
         if (selected < 0 || selected >= 18) selected = 0;
 
         // Get target item from config
-        ItemStack target = getItemFromConfig(cfg, selected);
+        ItemStack target = getItemFromConfig(cfg, selected, level.registryAccess());
         if (target == null || target.isEmpty()) {
             player.displayClientMessage(Component.translatable("message.meplacementtool.no_configured_item"), true);
             return InteractionResult.FAIL;
@@ -141,6 +141,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
         BlockPos lastPlacementPos = null;
         boolean lastPlacementWasBlock = false;
         IPart lastPlacedPart = null;
+        Direction lastPlacedPartSide = null;
 
         // Check for wrapped fluid (GenericStack)
         try {
@@ -201,13 +202,31 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
 
         // Create stack to place
         ItemStack placeStack = aeKey.toStack(1);
-        BlockPos blockPlacePos = context.getClickedPos().relative(context.getClickedFace());
-        var prevStateBlock = level.getBlockState(blockPlacePos);
+        BlockPlaceContext blockPlaceContext = createBlockPlaceContext(context, player, placeStack);
+        // BlockPlaceContext may place into the clicked position itself when it is replaceable.
+        BlockPos blockPlacePos = blockPlaceContext.getClickedPos();
+
+        if (placeStack.getItem() instanceof net.minecraft.world.item.BlockItem
+                && !canUseAt(player, level, blockPlacePos, context.getClickedFace().getOpposite(), placeStack)) {
+            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
+            return InteractionResult.FAIL;
+        }
+
+        // Debit before mutating the world. Creative placement deliberately leaves the
+        // network unchanged; undo follows the same rule and does not refund creative players.
+        boolean debited = player.isCreative()
+                || storage.extract(aeKey, 1L, Actionable.MODULATE, src) >= 1;
+        if (!debited) {
+            player.displayClientMessage(Component.translatable("message.meplacementtool.network_missing",
+                    target.getHoverName()), true);
+            return InteractionResult.FAIL;
+        }
+
         boolean placed = false;
 
         try {
             if (placeStack.getItem() instanceof net.minecraft.world.item.BlockItem blockItem) {
-                placed = tryPlaceBlock(context, player, placeStack, blockItem);
+                placed = tryPlaceBlock(player, placeStack, blockItem, blockPlaceContext);
                 if (placed) {
                     lastPlacementPos = blockPlacePos;
                     lastPlacementWasBlock = true;
@@ -219,6 +238,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
                     lastPlacementPos = result.pos();
                     lastPlacementWasBlock = false;
                     lastPlacedPart = result.part();
+                    lastPlacedPartSide = result.side();
                 }
             } else if (placeStack.getItem() instanceof appeng.api.implementations.items.IFacadeItem) {
                 placed = tryPlaceFacade(context, player, level, placeStack);
@@ -228,26 +248,11 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
                 }
             }
         } catch (Throwable t) {
-            LOGGER.warn("Exception during placement for player {} at {}", 
+            LOGGER.warn("Exception during placement for player {} at {}",
                     player.getName().getString(), blockPlacePos, t);
         }
 
         if (placed) {
-            // Extract from AE network
-            long extracted = storage.extract(aeKey, 1L, Actionable.MODULATE, src);
-            if (extracted <= 0) {
-                // Rollback
-                BlockPos revertPos = lastPlacementPos != null ? lastPlacementPos : blockPlacePos;
-                if (lastPlacementWasBlock) {
-                    try {
-                        level.setBlockAndUpdate(revertPos, prevStateBlock);
-                    } catch (Throwable t) {
-                        LOGGER.warn("Failed to revert block at {}", revertPos, t);
-                    }
-                }
-                return InteractionResult.sidedSuccess(false);
-            }
-
             // Consume power
             ItemStack actualWand = player.getItemInHand(context.getHand());
             this.usePower(player, ENERGY_COST, actualWand);
@@ -269,14 +274,24 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             } else if (hasMekConfigCard && lastPlacementWasBlock) {
                 MekanismConfigCardHelper.applyConfigCardToBlock(player, level, soundPos, true);
             }
+
+            // AE2LT Overloaded Frequency Card auto-connect (blocks + parts only)
+            if (lastPlacementWasBlock) {
+                AE2LTFrequencyCardHelper.queueAutoConnect(player, level, soundPos, null);
+            } else if (lastPlacedPartSide != null) {
+                AE2LTFrequencyCardHelper.queueAutoConnect(player, level, soundPos, lastPlacedPartSide);
+            }
         } else {
+            if (!player.isCreative()) {
+                returnToStorageOrPlayer(player, storage, src, aeKey, 1);
+            }
             player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
         }
 
         return InteractionResult.sidedSuccess(false);
     }
 
-    private ItemStack getItemFromConfig(CompoundTag cfg, int slot) {
+    private ItemStack getItemFromConfig(CompoundTag cfg, int slot, net.minecraft.core.HolderLookup.Provider registries) {
         if (cfg == null) return ItemStack.EMPTY;
         
         CompoundTag itemsTag = cfg.contains("items") ? cfg.getCompound("items") : cfg;
@@ -285,8 +300,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             for (int i = 0; i < list.size(); i++) {
                 CompoundTag itemTag = list.getCompound(i);
                 if (itemTag.getInt("Slot") == slot) {
-                    return ItemStack.parseOptional(net.minecraft.core.HolderLookup.Provider.create(
-                            java.util.stream.Stream.empty()), itemTag);
+                    return ItemStack.parseOptional(registries, itemTag);
                 }
             }
         }
@@ -308,8 +322,14 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             appeng.api.storage.MEStorage storage, PlayerSource src, AEFluidKey aeFluidKey, double energyCost) {
         Level level = context.getLevel();
         BlockPos fluidPlacePos = context.getClickedPos().relative(context.getClickedFace());
-        var prevState = level.getBlockState(fluidPlacePos);
         var fluid = aeFluidKey.getFluid();
+
+        // Respect world / claim protection - vanilla bucket behavior
+        if (!level.mayInteract(player, fluidPlacePos)
+                || !player.mayUseItemAt(fluidPlacePos, context.getClickedFace().getOpposite(), wand)) {
+            player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
+            return InteractionResult.FAIL;
+        }
 
         // Check network has enough fluid
         long simAvail = storage.extract(aeFluidKey, AEFluidKey.AMOUNT_BLOCK, Actionable.SIMULATE, src);
@@ -319,20 +339,30 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             return InteractionResult.FAIL;
         }
 
-        boolean placedFluid = tryPlaceFluid(level, fluidPlacePos, fluid);
-
-        if (placedFluid) {
+        boolean debited = player.isCreative();
+        if (!debited) {
             long extracted = storage.extract(aeFluidKey, AEFluidKey.AMOUNT_BLOCK, Actionable.MODULATE, src);
-            if (extracted <= 0) {
-                try { level.setBlockAndUpdate(fluidPlacePos, prevState); } catch (Throwable ignored) {}
+            if (extracted < AEFluidKey.AMOUNT_BLOCK) {
+                if (extracted > 0) {
+                    storage.insert(aeFluidKey, extracted, Actionable.MODULATE, src);
+                }
                 player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
                 return InteractionResult.sidedSuccess(false);
             }
+            debited = true;
+        }
+
+        boolean placedFluid = tryPlaceFluid(level, fluidPlacePos, fluid);
+
+        if (placedFluid) {
             this.usePower(player, energyCost, wand);
             level.playSound(null, fluidPlacePos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
             return InteractionResult.sidedSuccess(false);
         }
 
+        if (debited && !player.isCreative()) {
+            storage.insert(aeFluidKey, AEFluidKey.AMOUNT_BLOCK, Actionable.MODULATE, src);
+        }
         player.displayClientMessage(Component.translatable("message.meplacementtool.cannot_place"), true);
         return InteractionResult.sidedSuccess(false);
     }
@@ -382,8 +412,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
         }
 
         if (stateAtPos.getBlock() instanceof LiquidBlockContainer lbc && fluid == Fluids.WATER) {
-            lbc.placeLiquid(level, pos, stateAtPos, ((FlowingFluid) fluid).getSource(false));
-            return true;
+            return lbc.placeLiquid(level, pos, stateAtPos, ((FlowingFluid) fluid).getSource(false));
         }
 
         if (stateAtPos.canBeReplaced(fluid) && !stateAtPos.liquid()) {
@@ -392,19 +421,20 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
         return level.setBlock(pos, legacyBlock, Block.UPDATE_ALL_IMMEDIATE);
     }
 
-    private boolean tryPlaceBlock(UseOnContext context, Player player, ItemStack placeStack, 
-            net.minecraft.world.item.BlockItem blockItem) {
-        Level level = context.getLevel();
+    private BlockPlaceContext createBlockPlaceContext(UseOnContext context, Player player, ItemStack placeStack) {
+        return new BlockPlaceContext(
+                context.getLevel(), player, InteractionHand.MAIN_HAND, placeStack,
+                new BlockHitResult(context.getClickLocation(), context.getClickedFace(),
+                        context.getClickedPos(), context.isInside()));
+    }
+
+    private boolean tryPlaceBlock(Player player, ItemStack placeStack,
+            net.minecraft.world.item.BlockItem blockItem, BlockPlaceContext placeContext) {
         ItemStack origMain = player.getMainHandItem().copy();
         ItemStack origOff = player.getOffhandItem().copy();
         
         try {
             player.setItemInHand(InteractionHand.MAIN_HAND, placeStack);
-            BlockPlaceContext placeContext = new BlockPlaceContext(
-                    level, player, InteractionHand.MAIN_HAND, placeStack,
-                    new BlockHitResult(context.getClickLocation(), context.getClickedFace(),
-                            context.getClickedPos(), context.isInside())
-            );
             var result = blockItem.place(placeContext);
             return result.consumesAction();
         } finally {
@@ -413,7 +443,7 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
         }
     }
 
-    private record PartPlacementResult(BlockPos pos, IPart part) {}
+    private record PartPlacementResult(BlockPos pos, Direction side, IPart part) {}
 
     private PartPlacementResult tryPlacePart(UseOnContext context, Player player, Level level, ItemStack placeStack) {
         ItemStack origMain = player.getMainHandItem().copy();
@@ -425,12 +455,15 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
                     context.getClickedPos(), context.getClickedFace(), context.getClickLocation());
             
             if (placement != null && level instanceof ServerLevel) {
+                if (!canUseAt(player, level, placement.pos(), placement.side(), placeStack)) {
+                    return null;
+                }
                 @SuppressWarnings("unchecked")
                 var partItem = (IPartItem<IPart>) placeStack.getItem();
                 var part = PartPlacement.placePart(player, level, partItem, 
                         placeStack.getComponents(), placement.pos(), placement.side());
                 if (part != null) {
-                    return new PartPlacementResult(placement.pos(), part);
+                    return new PartPlacementResult(placement.pos(), placement.side(), part);
                 }
             }
         } catch (Throwable t) {
@@ -444,6 +477,9 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
 
     private boolean tryPlaceFacade(UseOnContext context, Player player, Level level, ItemStack placeStack) {
         try {
+            if (!canUseAt(player, level, context.getClickedPos(), context.getClickedFace(), placeStack)) {
+                return false;
+            }
             var facadeItem = (appeng.api.implementations.items.IFacadeItem) placeStack.getItem();
             var facade = facadeItem.createPartFromItemStack(placeStack, context.getClickedFace());
             if (facade == null) return false;
@@ -467,6 +503,27 @@ public class ItemMEPlacementTool extends BasePlacementToolItem implements IMenuI
             LOGGER.error("Exception during facade placement", t);
         }
         return false;
+    }
+
+    private boolean canUseAt(Player player, Level level, BlockPos pos, Direction side, ItemStack stack) {
+        return level.mayInteract(player, pos) && player.mayUseItemAt(pos, side, stack);
+    }
+
+    private void returnToStorageOrPlayer(Player player, appeng.api.storage.MEStorage storage,
+            PlayerSource src, AEKey key, long amount) {
+        long inserted = storage.insert(key, amount, Actionable.MODULATE, src);
+        long leftover = amount - inserted;
+        if (leftover <= 0 || !(key instanceof AEItemKey itemKey)) {
+            return;
+        }
+        while (leftover > 0) {
+            int count = (int) Math.min(leftover, itemKey.getItem().getDefaultMaxStackSize());
+            ItemStack returned = itemKey.toStack(count);
+            if (!player.getInventory().add(returned)) {
+                player.drop(returned, false);
+            }
+            leftover -= count;
+        }
     }
 
     @Override

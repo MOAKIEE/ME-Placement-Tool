@@ -1,12 +1,15 @@
 package com.moakiee.meplacementtool;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import appeng.api.networking.IGrid;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
@@ -60,6 +63,15 @@ public class UndoHistory {
         history.remove(player.getUUID());
     }
 
+    public void removePlayer(UUID uuid) {
+        history.remove(uuid);
+    }
+
+    /** Clears all stored history. Called on server shutdown to release Level references. */
+    public void clear() {
+        history.clear();
+    }
+
     /**
      * Result of undo operation
      */
@@ -72,9 +84,9 @@ public class UndoHistory {
     }
 
     public UndoResult undoWithResult(Player player, Level world, BlockPos pos) {
-        PlayerEntry playerEntry = getEntryFromPlayer(player);
+        PlayerEntry playerEntry = history.get(player.getUUID());
+        if (playerEntry == null || playerEntry.entries.isEmpty()) return UndoResult.NO_HISTORY;
         LinkedList<HistoryEntry> historyEntries = playerEntry.entries;
-        if (historyEntries.isEmpty()) return UndoResult.NO_HISTORY;
         HistoryEntry entry = historyEntries.getLast();
 
         if (!entry.world.equals(world) || !entry.withinRange(pos)) return UndoResult.OUT_OF_RANGE;
@@ -83,6 +95,9 @@ public class UndoHistory {
 
         if (entry.undo(player)) {
             historyEntries.remove(entry);
+            if (historyEntries.isEmpty()) {
+                history.remove(player.getUUID());
+            }
             return UndoResult.SUCCESS;
         }
         return UndoResult.FAILED;
@@ -167,16 +182,22 @@ public class UndoHistory {
                         var storage = grid.getStorageService().getInventory();
                         var src = new appeng.me.helpers.PlayerSource(player);
                         
-                        // Get the key to return - explicit check for cable snapshots
-                        AEKey returnKey;
-                        if (snapshot instanceof CablePlacementSnapshot cableSnapshot) {
-                            returnKey = cableSnapshot.returnKey;
-                        } else {
-                            returnKey = snapshot.aeKey;
-                        }
-                        
+                        AEKey returnKey = snapshot.getReturnKey();
                         if (returnKey != null) {
-                            storage.insert(returnKey, snapshot.amount, appeng.api.config.Actionable.MODULATE, src);
+                            long inserted = storage.insert(returnKey, snapshot.amount,
+                                    appeng.api.config.Actionable.MODULATE, src);
+                            long leftover = snapshot.amount - inserted;
+                            // Network storage full - drop the remainder so items are not lost
+                            if (leftover > 0 && returnKey instanceof AEItemKey itemKey) {
+                                while (leftover > 0) {
+                                    int count = (int) Math.min(leftover, itemKey.getItem().getDefaultMaxStackSize());
+                                    ItemStack drop = itemKey.toStack(count);
+                                    if (!player.getInventory().add(drop)) {
+                                        player.drop(drop, false);
+                                    }
+                                    leftover -= count;
+                                }
+                            }
                         }
                     }
                 }
@@ -207,12 +228,26 @@ public class UndoHistory {
         }
 
         public boolean canRestore(Level world, Player player) {
-            return world.getBlockState(pos).equals(blockState);
+            if (!world.getBlockState(pos).equals(blockState)) {
+                return false;
+            }
+            if (!canModify(player, world, pos, Direction.UP)) {
+                return false;
+            }
+            // Refuse to undo blocks whose container inventory is no longer empty,
+            // otherwise the contents would be silently destroyed.
+            var be = world.getBlockEntity(pos);
+            if (be instanceof Container container && !container.isEmpty()) {
+                return false;
+            }
+            if (hasStoredCapabilities(world, pos)) {
+                return false;
+            }
+            return true;
         }
 
         public boolean restore(Level world, Player player) {
-            world.removeBlock(pos, false);
-            return true;
+            return world.removeBlock(pos, false);
         }
         
         /**
@@ -224,6 +259,77 @@ public class UndoHistory {
         }
     }
     
+    /**
+     * Snapshot for AE2 side-part placements (planes, buses, etc.).
+     * Removes only the part on the recorded side instead of breaking the whole block.
+     */
+    public static class PartPlacementSnapshot extends PlacementSnapshot {
+        public final Direction side;
+        public final AEKey returnKey;
+
+        public PartPlacementSnapshot(BlockPos pos, Direction side, AEKey returnKey) {
+            super(null, pos, ItemStack.EMPTY, null, 1);
+            this.side = side;
+            this.returnKey = returnKey;
+        }
+
+        @Override
+        public boolean canRestore(Level world, Player player) {
+            if (!canModify(player, world, pos, side)) {
+                return false;
+            }
+            IPartHost host = PartHelper.getPartHost(world, pos);
+            return host != null && partMatchesKey(host.getPart(side), returnKey);
+        }
+
+        @Override
+        public boolean restore(Level world, Player player) {
+            IPartHost host = PartHelper.getPartHost(world, pos);
+            if (host == null || !partMatchesKey(host.getPart(side), returnKey)) {
+                return false;
+            }
+
+            host.removePartFromSide(side);
+            host.markForUpdate();
+            if (host.isEmpty()) {
+                host.cleanup();
+            }
+            return true;
+        }
+
+        @Override
+        public AEKey getReturnKey() {
+            return returnKey;
+        }
+    }
+
+    /**
+     * Verify the part currently in the world is the same item as the one that was placed.
+     * Prevents duping by swapping in a cheaper part before undoing.
+     */
+    private static boolean partMatchesKey(IPart part, AEKey key) {
+        if (part == null) {
+            return false;
+        }
+        if (!(key instanceof AEItemKey itemKey)) {
+            // Unknown key type - be conservative and refuse
+            return false;
+        }
+        try {
+            List<ItemStack> drops = new ArrayList<>();
+            part.addPartDrop(drops, true);
+            for (ItemStack drop : drops) {
+                AEItemKey dropKey = AEItemKey.of(drop);
+                if (itemKey.equals(dropKey)) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+            // A part that cannot be serialized safely must not be removed by undo.
+        }
+        return false;
+    }
+
     /**
      * Snapshot for cable placements that handles AE2 Part removal.
      */
@@ -239,13 +345,13 @@ public class UndoHistory {
         
         @Override
         public boolean canRestore(Level world, Player player) {
-            // Check if there's a cable part at this position
+            if (!canModify(player, world, pos, Direction.UP)) {
+                return false;
+            }
+            // Check the center part is a cable of the recorded type (any color of this CableType).
             IPartHost host = PartHelper.getPartHost(world, pos);
             if (host == null) return false;
-            
-            // Check if there's a cable (center part)
-            IPart cablePart = host.getPart(null);
-            return cablePart != null;
+            return cableMatchesType(host.getPart(null), cableType);
         }
         
         @Override
@@ -255,7 +361,7 @@ public class UndoHistory {
             
             // Remove the cable part (center part, side = null)
             IPart cablePart = host.getPart(null);
-            if (cablePart != null) {
+            if (cableMatchesType(cablePart, cableType)) {
                 host.removePartFromSide(null);
                 host.markForUpdate();
                 
@@ -271,6 +377,62 @@ public class UndoHistory {
         @Override
         public AEKey getReturnKey() {
             return returnKey;
+        }
+
+        /**
+         * The placed cable may have a different color than the extracted key (recolor-on-place),
+         * so match against any color of the recorded cable type.
+         */
+        private static boolean cableMatchesType(IPart part, ItemMECablePlacementTool.CableType type) {
+            if (part == null) return false;
+            var partItem = part.getPartItem().asItem();
+            for (appeng.api.util.AEColor color : appeng.api.util.AEColor.values()) {
+                if (type.getStack(color).getItem() == partItem) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    private static boolean canModify(Player player, Level world, BlockPos pos, Direction side) {
+        return world.mayInteract(player, pos)
+                && player.mayUseItemAt(pos, side, player.getMainHandItem());
+    }
+
+    /**
+     * Refuse to remove a block if any commonly exposed storage capability contains data.
+     * Capability lookup failures are treated conservatively as non-empty.
+     */
+    private static boolean hasStoredCapabilities(Level world, BlockPos pos) {
+        try {
+            for (Direction side : Direction.values()) {
+                var itemHandler = world.getCapability(Capabilities.ItemHandler.BLOCK, pos, side);
+                if (itemHandler != null) {
+                    for (int slot = 0; slot < itemHandler.getSlots(); slot++) {
+                        if (!itemHandler.getStackInSlot(slot).isEmpty()) {
+                            return true;
+                        }
+                    }
+                }
+
+                var fluidHandler = world.getCapability(Capabilities.FluidHandler.BLOCK, pos, side);
+                if (fluidHandler != null) {
+                    for (int tank = 0; tank < fluidHandler.getTanks(); tank++) {
+                        if (!fluidHandler.getFluidInTank(tank).isEmpty()) {
+                            return true;
+                        }
+                    }
+                }
+
+                var energyStorage = world.getCapability(Capabilities.EnergyStorage.BLOCK, pos, side);
+                if (energyStorage != null && energyStorage.getEnergyStored() > 0) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Throwable ignored) {
+            return true;
         }
     }
 }

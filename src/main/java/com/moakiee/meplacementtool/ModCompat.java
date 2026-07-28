@@ -8,6 +8,7 @@ import net.neoforged.fml.ModList;
 public class ModCompat {
     private static Boolean mekanismLoaded = null;
     private static Boolean jeiLoaded = null;
+    private static Boolean ae2ltLoaded = null;
 
     /**
      * Check if Mekanism mod is loaded
@@ -27,5 +28,15 @@ public class ModCompat {
             jeiLoaded = ModList.get().isLoaded("jei");
         }
         return jeiLoaded;
+    }
+
+    /**
+     * Check if AE2 Lightning Tech is loaded
+     */
+    public static boolean isAe2ltLoaded() {
+        if (ae2ltLoaded == null) {
+            ae2ltLoaded = ModList.get().isLoaded("ae2lt");
+        }
+        return ae2ltLoaded;
     }
 }

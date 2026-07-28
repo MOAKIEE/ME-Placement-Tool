@@ -164,7 +164,8 @@ public class MemoryCardHelper {
     /**
      * Pre-fetch upgrades from AE network to player inventory before applying memory card settings.
      */
-    private static int preFetchUpgradesFromNetwork(Player player, IGrid grid, DataComponentMap components) {
+    private static int preFetchUpgradesFromNetwork(Player player, IGrid grid, DataComponentMap components,
+            Map<Item, Integer> fetchedOut) {
         if (player.getAbilities().instabuild) {
             return 0;
         }
@@ -204,6 +205,9 @@ public class MemoryCardHelper {
                 ItemStack upgradeStack = new ItemStack(upgradeItem, (int) extracted);
                 player.getInventory().placeItemBackInInventory(upgradeStack);
                 totalFetched += (int) extracted;
+                if (fetchedOut != null) {
+                    fetchedOut.merge(upgradeItem, (int) extracted, Integer::sum);
+                }
             }
         }
         
@@ -211,11 +215,48 @@ public class MemoryCardHelper {
     }
 
     /**
-     * Pre-fetch all required items (blank patterns and upgrades) from AE network
+     * Pre-fetch all required items (blank patterns and upgrades) from AE network.
+     *
+     * @return map of item -> count actually fetched, used to roll back on failure
      */
-    private static void preFetchAllFromNetwork(Player player, IGrid grid, DataComponentMap components) {
-        preFetchBlankPatternsFromNetwork(player, grid, components);
-        preFetchUpgradesFromNetwork(player, grid, components);
+    private static Map<Item, Integer> preFetchAllFromNetwork(Player player, IGrid grid, DataComponentMap components) {
+        Map<Item, Integer> fetched = new HashMap<>();
+        int patterns = preFetchBlankPatternsFromNetwork(player, grid, components);
+        if (patterns > 0) {
+            fetched.merge(AEItems.BLANK_PATTERN.asItem(), patterns, Integer::sum);
+        }
+        preFetchUpgradesFromNetwork(player, grid, components, fetched);
+        return fetched;
+    }
+
+    /**
+     * Return pre-fetched items from the player's inventory back to the AE network.
+     * Used when applying the memory card settings fails after fetching.
+     */
+    private static void returnPreFetched(Player player, IGrid grid, Map<Item, Integer> fetched) {
+        if (grid == null || fetched == null || fetched.isEmpty()) {
+            return;
+        }
+        var storage = grid.getStorageService().getInventory();
+        var src = new PlayerSource(player);
+        for (var entry : fetched.entrySet()) {
+            var key = AEItemKey.of(entry.getKey());
+            if (key == null) continue;
+            int remaining = entry.getValue();
+            var inv = player.getInventory();
+            for (int i = 0; i < inv.getContainerSize() && remaining > 0; i++) {
+                ItemStack slotStack = inv.getItem(i);
+                if (slotStack.getItem() == entry.getKey()) {
+                    int take = Math.min(remaining, slotStack.getCount());
+                    long inserted = storage.insert(key, take, Actionable.MODULATE, src);
+                    if (inserted <= 0) {
+                        break;
+                    }
+                    slotStack.shrink((int) inserted);
+                    remaining -= (int) inserted;
+                }
+            }
+        }
     }
 
     /**
@@ -268,19 +309,20 @@ public class MemoryCardHelper {
         // Check blank patterns
         int patternsPerBlock = countPatternsInMemoryCard(components);
         if (patternsPerBlock > 0) {
-            int totalPatternsNeeded = patternsPerBlock * blockCount;
-            int available = countItemInPlayerAndNetworkTool(player, AEItems.BLANK_PATTERN.asItem());
+            long totalPatternsNeeded = (long) patternsPerBlock * blockCount;
+            // Use long accumulation: network contents can approach Integer.MAX_VALUE
+            long available = countItemInPlayerAndNetworkTool(player, AEItems.BLANK_PATTERN.asItem());
             
             // Also count from AE network
             if (grid != null) {
                 var storage = grid.getStorageService().getInventory();
                 var blankPatternKey = AEItemKey.of(AEItems.BLANK_PATTERN.asItem());
                 var src = new PlayerSource(player);
-                available += (int) storage.extract(blankPatternKey, Integer.MAX_VALUE, Actionable.SIMULATE, src);
+                available += storage.extract(blankPatternKey, Integer.MAX_VALUE, Actionable.SIMULATE, src);
             }
 
             if (available < totalPatternsNeeded) {
-                missingItems.put(AEItems.BLANK_PATTERN.asItem(), totalPatternsNeeded - available);
+                missingItems.put(AEItems.BLANK_PATTERN.asItem(), (int) Math.min(Integer.MAX_VALUE, totalPatternsNeeded - available));
             }
         }
 
@@ -288,8 +330,8 @@ public class MemoryCardHelper {
         Map<Item, Integer> upgradesPerBlock = getUpgradesInMemoryCard(components);
         for (var entry : upgradesPerBlock.entrySet()) {
             Item upgradeItem = entry.getKey();
-            int totalNeeded = entry.getValue() * blockCount;
-            int available = countItemInPlayerAndNetworkTool(player, upgradeItem);
+            long totalNeeded = (long) entry.getValue() * blockCount;
+            long available = countItemInPlayerAndNetworkTool(player, upgradeItem);
 
             // Also count from AE network
             if (grid != null) {
@@ -297,12 +339,12 @@ public class MemoryCardHelper {
                 var upgradeKey = AEItemKey.of(upgradeItem);
                 if (upgradeKey != null) {
                     var src = new PlayerSource(player);
-                    available += (int) storage.extract(upgradeKey, Integer.MAX_VALUE, Actionable.SIMULATE, src);
+                    available += storage.extract(upgradeKey, Integer.MAX_VALUE, Actionable.SIMULATE, src);
                 }
             }
 
             if (available < totalNeeded) {
-                missingItems.put(upgradeItem, totalNeeded - available);
+                missingItems.put(upgradeItem, (int) Math.min(Integer.MAX_VALUE, totalNeeded - available));
             }
         }
 
@@ -331,14 +373,14 @@ public class MemoryCardHelper {
             return false;
         }
 
+        var components = memoryCardStack.getComponents();
+
+        // Pre-fetch all required items (blank patterns, upgrades) from AE network
+        Map<Item, Integer> fetched = grid != null
+                ? preFetchAllFromNetwork(player, grid, components)
+                : null;
+
         try {
-            var components = memoryCardStack.getComponents();
-            
-            // Pre-fetch all required items (blank patterns, upgrades) from AE network
-            if (grid != null) {
-                preFetchAllFromNetwork(player, grid, components);
-            }
-            
             // Check if we have an AE2 block entity that supports full import
             if (be instanceof AEBaseBlockEntity aeBlockEntity) {
                 // Compare the block entity's name with the saved source name
@@ -358,6 +400,8 @@ public class MemoryCardHelper {
             return true;
         } catch (Exception e) {
             LOGGER.warn("Failed to apply memory card settings to block at {}", pos, e);
+            // Return anything we pre-fetched so items don't linger in the player inventory
+            returnPreFetched(player, grid, fetched);
         }
 
         return false;
@@ -380,14 +424,14 @@ public class MemoryCardHelper {
             return false;
         }
 
+        var components = memoryCardStack.getComponents();
+
+        // Pre-fetch all required items (blank patterns, upgrades) from AE network
+        Map<Item, Integer> fetched = grid != null
+                ? preFetchAllFromNetwork(player, grid, components)
+                : null;
+
         try {
-            var components = memoryCardStack.getComponents();
-            
-            // Pre-fetch all required items (blank patterns, upgrades) from AE network
-            if (grid != null) {
-                preFetchAllFromNetwork(player, grid, components);
-            }
-            
             // Check if we have an AE2 part that supports full import
             if (part instanceof AEBasePart aePart) {
                 // Compare the part's name with the saved source name
@@ -407,6 +451,8 @@ public class MemoryCardHelper {
             return true;
         } catch (Exception e) {
             LOGGER.warn("Failed to apply memory card settings to part", e);
+            // Return anything we pre-fetched so items don't linger in the player inventory
+            returnPreFetched(player, grid, fetched);
         }
 
         return false;

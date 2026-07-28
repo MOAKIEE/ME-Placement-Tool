@@ -152,29 +152,43 @@ public class MEPartPreviewRenderer {
         return true;
     }
 
+    // Cache the parsed configured item keyed by the config component reference:
+    // deserializing an 18-slot ItemStackHandler from NBT every frame is wasteful.
+    private static CompoundTag lastConfigTag;
+    private static ItemStack cachedConfiguredItem = ItemStack.EMPTY;
+
     /**
      * Get the currently configured item from the wand's Data Component
      */
     private static ItemStack getConfiguredItem(ItemStack wand) {
         // Use DataComponent instead of NBT
         CompoundTag cfg = wand.get(ModDataComponents.PLACEMENT_CONFIG.get());
+
+        if (cfg == null) {
+            lastConfigTag = null;
+            cachedConfiguredItem = ItemStack.EMPTY;
+            return ItemStack.EMPTY;
+        }
+
+        // Data components are immutable in practice; reference equality is a cheap cache key
+        if (cfg == lastConfigTag) {
+            return cachedConfiguredItem;
+        }
         
         // Get selected slot index (default 0)
         int selected = 0;
-        if (cfg != null && cfg.contains("SelectedSlot")) {
+        if (cfg.contains("SelectedSlot")) {
             selected = cfg.getInt("SelectedSlot");
             if (selected < 0 || selected >= 18) selected = 0;
         }
 
         // Build handler from NBT
         var handler = new ItemStackHandler(18);
-        if (cfg != null) {
-            var registryAccess = Minecraft.getInstance().level.registryAccess();
-            if (cfg.contains("items")) {
-                handler.deserializeNBT(registryAccess, cfg.getCompound("items"));
-            } else {
-                handler.deserializeNBT(registryAccess, cfg);
-            }
+        var registryAccess = Minecraft.getInstance().level.registryAccess();
+        if (cfg.contains("items")) {
+            handler.deserializeNBT(registryAccess, cfg.getCompound("items"));
+        } else {
+            handler.deserializeNBT(registryAccess, cfg);
         }
 
         ItemStack target = handler.getStackInSlot(selected);
@@ -184,11 +198,13 @@ public class MEPartPreviewRenderer {
             try {
                 var unwrapped = appeng.api.stacks.GenericStack.unwrapItemStack(target);
                 if (unwrapped != null && unwrapped.what() instanceof appeng.api.stacks.AEItemKey itemKey) {
-                    return itemKey.toStack();
+                    target = itemKey.toStack();
                 }
             } catch (Throwable ignored) {}
         }
         
+        lastConfigTag = cfg;
+        cachedConfiguredItem = target;
         return target;
     }
 
